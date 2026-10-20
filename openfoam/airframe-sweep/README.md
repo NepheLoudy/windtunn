@@ -39,10 +39,21 @@
 ./run_case.sh   ~/openfoam/airframe-sweep/run_V25_a4 8
 python3 post_process.py ~/openfoam/airframe-sweep/run_V25_a4 --json r.json
 
-# 全表 (V × α × β, 舵偏 0)
-SWEEP_V="15 20 25 30" SWEEP_ALPHA="-5 0 5 10 15" SWEEP_BETA="-10 0 10" \
+# 全表: 按《飞镖闭环仿真方案讨论》的安全阈值 (α/β ±15°, V 15-25)
+SWEEP_V="15 20 25 30" SWEEP_ALPHA="-15 -10 -5 0 5 10 15" SWEEP_BETA="-15 -10 0 10 15" \
   ./run_sweep.sh ~/openfoam/airframe-sweep/sweep 8
 ```
+
+**算量预算** (单工况 7 分钟 / 32.5 万格 / 8 进程):
+
+| 阶段 | 网格 | 工况数 | 机时 |
+|---|---|---|---|
+| 阶段 1: 气动基线 (δ=0) | V 5 × α 7 × β 5 | 175 | ~20 h |
+| 阶段 2: 舵效 (选点扫 de/da/dr) | 选 5 个 (α,β) 点 × de 9 × da 3 | 135 | ~16 h |
+| 阶段 3: 加密/复核 | 按敏感区补 | ~50 | ~6 h |
+
+阶段 2 只扫舵效不需要全笛卡尔积: 三线性插值在舵偏维可假定近似线性, 9 点足够定位
+效率与非线性拐点。**总预算 ~40 机时**, 台式机夜间分几天可跑完。
 
 **约定**: 来流矢量 = −V(cosαcosβ, sinβ, sinαcosβ) (空气相对弹体速度的方向);
 力矩参考点 = CofR = 全系统质心 (airframe_params.json `system.com`);
