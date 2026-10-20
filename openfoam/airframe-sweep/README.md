@@ -23,6 +23,58 @@
   3s 自由落体 z = -44.17 m ≈ ½gt² (解析), qacc=9.81 纯重力, 无 NaN
 - `lookup_aero.py` 自测 6/6 (网格回读/插值/出域 clamp+warning/力矩符号/CSV 闭环)
 
+## 扫气管线 (2026-10-21 建)
+
+| 文件 | 作用 |
+|---|---|
+| `case_template/` | OpenFOAM v12 case 模板 (blockMesh 远场 + snappy 弹体 + forces 采样) |
+| `make_case.sh <V> <α> [β] [dest]` | 实例化一个工况 (自动算来流矢量/湍流量/CofR) |
+| `run_case.sh <case> [nproc]` | blockMesh → snappyHexMesh → checkMesh → decomposePar → foamRun 并行 |
+| `post_process.py <case>` | forces 时均 → 风轴 CL/CD/Cm/CY/Cl/Cn → 追加 aero_table.csv |
+| `run_sweep.sh <root> [nproc]` | 全参数网格扫气 (断点可续, 已有 results.json 跳过) |
+
+```bash
+# 单工况
+./make_case.sh 25 4 0 ~/openfoam/airframe-sweep/run_V25_a4
+./run_case.sh   ~/openfoam/airframe-sweep/run_V25_a4 8
+python3 post_process.py ~/openfoam/airframe-sweep/run_V25_a4 --json r.json
+
+# 全表 (V × α × β, 舵偏 0)
+SWEEP_V="15 20 25 30" SWEEP_ALPHA="-5 0 5 10 15" SWEEP_BETA="-10 0 10" \
+  ./run_sweep.sh ~/openfoam/airframe-sweep/sweep 8
+```
+
+**约定**: 来流矢量 = −V(cosαcosβ, sinβ, sinαcosβ) (空气相对弹体速度的方向);
+力矩参考点 = CofR = 全系统质心 (airframe_params.json `system.com`);
+风轴: 阻力沿来流, 升力 = 垂直于来流的弹体系"上"分量 (α>0 → CL>0, F_z<0)。
+
+### 网格策略与已知限制 (定量表前必须处理)
+
+- **基础网格 0.3m > 弹径 0.15m** — 表面会完全落在格子内部、与网格边零相交, snappy 不加密。
+  必须靠 `refinementRegions` 的 `airframeBox` (level 4 = 18.75mm) 先把近体区提上来。
+  这是 snappy 的经典静默失败: 日志显示 "Number of intersected edges : 0" + 格数不变。
+- **薄舵 3mm 与网格尺度矛盾**: 校验档舵面 level 5 (9.4mm) 远大于舵厚, 舵面基本被"糊"进流体,
+  力贡献不可信。定量表前需二选一: ①局部细化到 level 7-8 (2.3/1.2mm, 格数暴涨) 或
+  ②舵面按零厚度 baffle 处理 (`faceType baffle`), 或用加厚舵做敏感性修正 — **待冻结会定**。
+- 校验档 = 近体 level 4/5、无边界层 (`addLayers false`)、k-ω SST 壁面函数; 定量档再开层。
+- 12 核 WSL2 / 7GB 内存: 32.5 万格 8 进程约 0.5 h 内收敛 (见 devlog)。
+
+## 校验点结果 (2026-10-21, V=25 m/s, α=4°, β=0, δ=0)
+
+跑法: `make_case.sh 25 4 0` → `run_case.sh ... 8` → 800 步 / 32.5 万格 / 8 进程 / 约 7 分钟。
+
+| 量 | 值 | 物理检查 |
+|---|---|---|
+| CL | **+0.2773** | α>0 → 正升力 ✓ |
+| CD | **0.7851** | 平头圆柱按迎面积 S_ref=πR², 0.8 量级合理 ✓ |
+| Cm | **−0.5789** | 负 = 低头 = 静稳定 (Cmα ≈ −8.3 /rad) ✓ |
+| CY / Cl / Cn | −0.0014 / +0.0021 / +0.0099 | 对称构型应≈0 ✓ |
+| 末段力振荡 | 0.000 | 力已 4 位稳定 |
+| 残差 (t=800) | Ux 1.4e-4 / p 3.9e-4 | 未到 1e-5 但力稳定; 定量档需 1500-2000 步 |
+
+**这批数字只用于链路与符号校验, 不进 aero_table.csv** — 舵面在 level 5 (9.4mm) 下
+远粗于 3mm 舵厚, 升力/稳定性由舵面主导, 定量不可信。见下节网格策略。
+
 ## 数据集资产登记
 
 - **v0 旧镖体气动数据集**: 曼波已于本项目对接前**自行跑过一轮飞镖气动数据集**

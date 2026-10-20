@@ -1,0 +1,27 @@
+FoamFile
+{
+    version 2.0;
+    format ascii;
+    class volScalarField;
+    object omega;
+}
+
+dimensions      [0 0 -1 0 0 0 0];
+
+internalField   uniform __OMEGAVAL__;
+
+boundaryField
+{
+    inlet
+    {
+        type            fixedValue;
+        value           uniform __OMEGAIN__;
+    }
+    outlet        { type inletOutlet; inletValue uniform __OMEGAVAL__; value uniform __OMEGAVAL__; }
+    side          { type inletOutlet; inletValue uniform __OMEGAVAL__; value uniform __OMEGAVAL__; }
+    body         { type omegaWallFunction; value uniform __OMEGAVAL__; }
+    fin_h_pos    { type omegaWallFunction; value uniform __OMEGAVAL__; }
+    fin_h_neg    { type omegaWallFunction; value uniform __OMEGAVAL__; }
+    fin_v_pos    { type omegaWallFunction; value uniform __OMEGAVAL__; }
+    fin_v_neg    { type omegaWallFunction; value uniform __OMEGAVAL__; }
+}

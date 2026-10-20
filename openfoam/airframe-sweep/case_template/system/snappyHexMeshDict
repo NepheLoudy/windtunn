@@ -1,0 +1,93 @@
+FoamFile
+{
+    version 2.0;
+    format ascii;
+    class dictionary;
+    object snappyHexMeshDict;
+}
+
+castellatedMesh true;
+snap              true;
+addLayers         false;   // 校验点不加层 (高 Re 壁面函数); 定量表阶段开
+
+geometry
+{
+    body      { type triSurfaceMesh; file "body.stl"; }
+    fin_h_pos { type triSurfaceMesh; file "fin_h_pos.stl"; }
+    fin_h_neg { type triSurfaceMesh; file "fin_h_neg.stl"; }
+    fin_v_pos { type triSurfaceMesh; file "fin_v_pos.stl"; }
+    fin_v_neg { type triSurfaceMesh; file "fin_v_neg.stl"; }
+
+    // 近体细化盒: 基础网格 0.3m > 弹径 0.15m, 无此盒则表面不与任何网格边相交
+    airframeBox { type searchableBox; min (-1.0 -0.45 -0.45); max (1.0 0.45 0.45); }
+}
+
+castellatedMeshControls
+{
+    maxLocalCells     2000000;
+    maxGlobalCells    5000000;
+    minRefinementCells 0;
+    maxLoadUnbalance  0.10;
+    nCellsBetweenLevels 3;
+
+    features ();
+
+    refinementSurfaces
+    {
+        body         { level (5 5); }
+        fin_h_pos    { level (5 5); }
+        fin_h_neg    { level (5 5); }
+        fin_v_pos    { level (5 5); }
+        fin_v_neg    { level (5 5); }
+    }
+
+    refinementRegions
+    {
+        airframeBox { mode inside; levels ((1e15 4)); }   // 盒内一律细化到 level 4 (18.75mm)
+    }
+
+    resolveFeatureAngle 30;
+
+    // 弹体前方流体区 (避开对称面 y=z=0)
+    locationInMesh (5.5 0.31 0.41);
+
+    allowFreeStandingZoneFaces true;
+}
+
+snapControls
+{
+    nSmoothPatch 3;
+    tolerance    2.0;
+    nSolveIter   50;
+    nRelaxIter   5;
+}
+
+addLayersControls
+{
+    relativeSizes true;
+    layers {}
+    minThickness  0.25;
+    expansionRatio 1.2;
+    finalLayerThickness 0.5;
+    nSurfaceLayers 3;
+}
+
+meshQualityControls
+{
+    maxNonOrtho         65;
+    maxBoundarySkewness 20;
+    maxInternalSkewness 4;
+    maxConcave          80;
+    minVol              1e-13;
+    minTetQuality       1e-15;
+    minArea             -1;
+    minTwist            0.02;
+    minDeterminant      0.001;
+    minFaceWeight       0.05;
+    minVolRatio         0.01;
+    minTriangleTwist    -1;
+    nSmoothScale        4;
+    errorReduction      0.75;
+}
+
+mergeTolerance 1e-6;

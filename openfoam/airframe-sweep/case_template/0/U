@@ -1,0 +1,37 @@
+FoamFile
+{
+    version 2.0;
+    format ascii;
+    class volVectorField;
+    object U;
+}
+
+dimensions      [0 1 -1 0 0 0 0];
+
+internalField   uniform (__UINF__);
+
+boundaryField
+{
+    inlet
+    {
+        type            fixedValue;
+        value           uniform (__UINF__);
+    }
+    outlet
+    {
+        type            inletOutlet;
+        inletValue      uniform (__UINF__);
+        value           uniform (__UINF__);
+    }
+    side
+    {
+        type            inletOutlet;
+        inletValue      uniform (__UINF__);
+        value           uniform (__UINF__);
+    }
+    body         { type noSlip; }
+    fin_h_pos    { type noSlip; }
+    fin_h_neg    { type noSlip; }
+    fin_v_pos    { type noSlip; }
+    fin_v_neg    { type noSlip; }
+}

@@ -1,0 +1,51 @@
+FoamFile
+{
+    version 2.0;
+    format ascii;
+    class dictionary;
+    object blockMeshDict;
+}
+
+convertToMeters 1;
+
+// B 系: x 前弹轴 (弹头 +x, 来流从 +x 入口吹向 -x), y 右, z 下, 右手系
+// 域: 尾流 8L (-9.6) / 前方 5L (+6.0), 侧向 ±4L (±4.8), 弹长 L=1.2 m
+vertices
+(
+    (-9.6 -4.8 -4.8)
+    ( 6.0 -4.8 -4.8)
+    ( 6.0  4.8 -4.8)
+    (-9.6  4.8 -4.8)
+    (-9.6 -4.8  4.8)
+    ( 6.0 -4.8  4.8)
+    ( 6.0  4.8  4.8)
+    (-9.6  4.8  4.8)
+);
+
+blocks
+(
+    hex (0 1 2 3 4 5 6 7) (52 32 32) simpleGrading (1 1 1)
+);
+
+edges ();
+
+boundary
+(
+    inlet
+    {
+        type patch;
+        faces ((1 2 6 5));
+    }
+    outlet
+    {
+        type patch;
+        faces ((0 4 7 3));
+    }
+    side
+    {
+        type patch;
+        faces ((0 1 5 4) (3 7 6 2) (0 3 2 1) (4 5 6 7));
+    }
+);
+
+mergePatchPairs ();

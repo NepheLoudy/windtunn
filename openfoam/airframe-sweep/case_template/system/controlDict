@@ -1,0 +1,41 @@
+FoamFile
+{
+    version 2.0;
+    format ascii;
+    class dictionary;
+    object controlDict;
+}
+
+application     foamRun;
+solver          incompressibleFluid;
+
+startFrom       latestTime;
+startTime       0;
+stopAt          endTime;
+endTime         800;          // 校验点; 定量表工况 1500-2000
+
+deltaT          1;
+
+writeControl    timeStep;
+writeInterval   400;
+purgeWrite      2;
+writeFormat     ascii;
+writePrecision  6;
+writeCompression off;
+runTimeModifiable true;
+
+functions
+{
+    forces
+    {
+        type            forces;
+        libs            ("libforces.so");
+        writeControl    timeStep;
+        writeInterval   10;
+        patches         (body fin_h_pos fin_h_neg fin_v_pos fin_v_neg);
+        rho             rhoInf;
+        rhoInf          1.225;
+        CofR            (__COFRX__ 0 0);   // 全系统质心 x (make_case.sh 按表元数据写入)
+        pitchAxis       (0 1 0);
+    }
+}
