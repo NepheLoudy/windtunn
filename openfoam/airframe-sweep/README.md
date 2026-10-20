@@ -32,6 +32,9 @@
 | `run_case.sh <case> [nproc]` | blockMesh → snappyHexMesh → checkMesh → decomposePar → foamRun 并行 |
 | `post_process.py <case>` | forces 时均 → 风轴 CL/CD/Cm/CY/Cl/Cn → 追加 aero_table.csv |
 | `run_sweep.sh <root> [nproc]` | 全参数网格扫气 (断点可续, 已有 results.json 跳过) |
+| `deflect_stl.py <asm.json> --de/--da/--dr` | **按舵偏旋转操纵面 STL** → 某工况的 triSurface 几何组 (仅标准库) |
+| `airframe_assembly.example.json` | 真镖体交接模板 (实体 STL + 铰链线 + 行程 + 混控系数 + 质量属性) |
+| `docs/airframe_handoff.md` | **从 Fusion 交几何/自由度的规范** (拆件/铰链线取法/避坑) |
 
 ```bash
 # 单工况

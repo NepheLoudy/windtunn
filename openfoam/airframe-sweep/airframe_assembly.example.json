@@ -1,0 +1,67 @@
+{
+  "_readme": "镖体几何+操纵面自由度交接模板。填完与 STL 一起放进 cad/<版本>/。字段说明见 docs/airframe_handoff.md",
+  "_frame": "B 系: x 前弹轴, y 右, z 下, 右手系; 单位 m",
+  "version": "v1",
+  "origin_note": "CAD 原点位于 <弹体几何中心 / 质心 / 弹尖>, 请改",
+
+  "body": {
+    "mesh": "body.stl",
+    "mass_kg": 0.0,
+    "com": [0.0, 0.0, 0.0],
+    "inertia_diag": [0.0, 0.0, 0.0],
+    "_note": "mass/com/inertia 取 Fusion 检查→物理属性 (绕质心主惯量)"
+  },
+
+  "control_surfaces": [
+    {
+      "name": "fin_1",
+      "mesh": "fin_1.stl",
+      "hinge_line": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+      "range_deg": [-20.0, 20.0],
+      "mix": { "de": 1.0, "da": 1.0, "dr": 0.0 },
+      "flip": false,
+      "mass_kg": 0.0,
+      "com": [0.0, 0.0, 0.0],
+      "_note": "hinge_line 是铰链轴上两个不重合点; 正转角 = 沿 A→B 右手定则; mix 是该面对 de/da/dr 的分配系数"
+    },
+    {
+      "name": "fin_2",
+      "mesh": "fin_2.stl",
+      "hinge_line": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+      "range_deg": [-20.0, 20.0],
+      "mix": { "de": 1.0, "da": -1.0, "dr": 0.0 },
+      "flip": false,
+      "mass_kg": 0.0,
+      "com": [0.0, 0.0, 0.0]
+    },
+    {
+      "name": "fin_3",
+      "mesh": "fin_3.stl",
+      "hinge_line": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+      "range_deg": [-20.0, 20.0],
+      "mix": { "de": 0.0, "da": 0.0, "dr": 1.0 },
+      "flip": false,
+      "mass_kg": 0.0,
+      "com": [0.0, 0.0, 0.0]
+    },
+    {
+      "name": "fin_4",
+      "mesh": "fin_4.stl",
+      "hinge_line": [[0.0, 0.0, 0.0], [0.0, 0.0, 0.0]],
+      "range_deg": [-20.0, 20.0],
+      "mix": { "de": 0.0, "da": 0.0, "dr": 1.0 },
+      "flip": false,
+      "mass_kg": 0.0,
+      "com": [0.0, 0.0, 0.0]
+    }
+  ],
+
+  "layout_note": "4 片十字布局示意: fin_1/fin_2 为水平对(同向俯仰 de, 差动滚转 da), fin_3/fin_4 为垂直对(偏航 dr)。三角翼 elevon 布局请把 mix 改成 de=1,da=±1 并只留 2 片。",
+
+  "control_sign": {
+    "_note": "符号约定: de>0 = 抬头? 各面正转角后缘朝哪? 写清楚, CFD 侧据此核对外力符号",
+    "de_positive_means": "抬头 (机头向上)",
+    "da_positive_means": "右滚转",
+    "dr_positive_means": "右偏航"
+  }
+}
