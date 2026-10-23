@@ -14,6 +14,7 @@ HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 DEST=${4:-"$(pwd)/case_V${V}_a${ALPHA}_b${BETA}"}
 GEOM=${GEOM_DIR:-"$HERE/geometry"}
 SURF_LEVEL=${SURF_LEVEL:-4}
+FIN_LEVEL=${FIN_LEVEL:-$SURF_LEVEL}
 BOX_LEVEL=${BOX_LEVEL:-3}
 
 RHO=1.225
@@ -98,7 +99,12 @@ GEN=""; REF=""; UBC=""; PBC=""; KBC=""; OBC=""; NBC=""; LIST=""
 for f in $STLS; do
   s=${f%.stl}
   GEN+="    $s { type triSurfaceMesh; file \"$f\"; }"$'\n'
-  REF+="        $s { level ($SURF_LEVEL $SURF_LEVEL); }"$'\n'
+  # 薄舵单独级: fin_* 用 FIN_LEVEL, 其余 (body_*) 用 SURF_LEVEL
+  case "$s" in
+    fin_*) LVL=$FIN_LEVEL ;;
+    *)     LVL=$SURF_LEVEL ;;
+  esac
+  REF+="        $s { level ($LVL $LVL); }"$'\n'
   UBC+="    $s { type noSlip; }"$'\n'
   PBC+="    $s { type zeroGradient; }"$'\n'
   KBC+="    $s { type kqRWallFunction; value uniform ${KVAL}; }"$'\n'

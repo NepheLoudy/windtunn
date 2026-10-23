@@ -51,9 +51,22 @@ def main():
     print(f"实体 {len(vols)}, body 参与并集 {len(body_vols)} 个")
     out = gmsh.model.occ.fuse([body_vols[0]], body_vols[1:])
     gmsh.model.occ.removeAllDuplicates()
+    # 缝合修补: open edges/non-manifold → 水密 solid (snappy 需要封闭面)
+    frags = gmsh.model.occ.getEntities(3)
+    if not frags:
+        frags = gmsh.model.occ.getEntities(2)
+    try:
+        gmsh.model.occ.healShapes(frags, tolerance=1e-4, fixDegenerated=True,
+                                  fixSmallEdges=True, fixSmallFaces=True,
+                                  sewFaces=True, makeSolids=True)
+        gmsh.model.occ.synchronize()
+        print("healShapes 完成")
+    except Exception as e:
+        print(f"healShapes 跳过: {e}")
     gmsh.model.occ.synchronize()
     fused = [t for d, t in gmsh.model.getEntities(3)]
-    print(f"fuse 后实体 {len(fused)} 个 (期望 1)")
+    nsh = [t for d, t in gmsh.model.getEntities(2)]
+    print(f"fuse+heal 后: {len(fused)} 实体 / {len(nsh)} 面")
     gmsh.option.setNumber("Mesh.MeshSizeMax", args.size)
     gmsh.model.mesh.generate(2)
 

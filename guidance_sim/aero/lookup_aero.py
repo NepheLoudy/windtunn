@@ -166,15 +166,24 @@ class AeroTable:
 
 
 def load_table(path=None):
-    """加载全局表 (默认同目录 aero_table.csv); 幂等。"""
-    global _TABLE, _TABLE_PATH
+    """加载全局表 (默认同目录 aero_table.csv); 幂等 + 热加载。
+
+    RL 期间数据集会按需增量补点 (append-only) — 本函数按文件 mtime 检测更新,
+    表文件变化后下一次调用自动重载, 训练侧无需重启。
+    """
+    global _TABLE, _TABLE_PATH, _TABLE_MTIME
     import os
     if path is None:
         path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "aero_table.csv")
-    if _TABLE is None or _TABLE_PATH != path:
+    mtime = os.path.getmtime(path) if os.path.exists(path) else None
+    if _TABLE is None or _TABLE_PATH != path or mtime != _TABLE_MTIME:
         _TABLE = AeroTable.from_csv(path)
         _TABLE_PATH = path
+        _TABLE_MTIME = mtime
     return _TABLE
+
+
+_TABLE_MTIME = None
 
 
 def lookup_aero(V, alpha, beta, de, da, dr, table=None):
