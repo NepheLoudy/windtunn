@@ -157,6 +157,7 @@ omega_inlet=$OMVAL
 rho=$RHO
 S_ref=$SREF
 L_ref=$LREF
+L_turb=$(awk -v l="$L" 'BEGIN{printf "%.4f", 0.07*l}')
 CofR=$COFR
 geom_dir=$GEOM
 surfaces=$LIST
