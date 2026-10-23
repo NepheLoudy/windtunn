@@ -19,9 +19,5 @@ boundaryField
     }
     outlet        { type inletOutlet; inletValue uniform __KVAL__; value uniform __KVAL__; }
     side          { type inletOutlet; inletValue uniform __KVAL__; value uniform __KVAL__; }
-    body         { type kqRWallFunction; value uniform __KVAL__; }
-    fin_h_pos    { type kqRWallFunction; value uniform __KVAL__; }
-    fin_h_neg    { type kqRWallFunction; value uniform __KVAL__; }
-    fin_v_pos    { type kqRWallFunction; value uniform __KVAL__; }
-    fin_v_neg    { type kqRWallFunction; value uniform __KVAL__; }
+__SURFACES_K__
 }

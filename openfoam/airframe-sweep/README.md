@@ -35,6 +35,10 @@
 | `deflect_stl.py <asm.json> --de/--da/--dr` | **按舵偏旋转操纵面 STL** → 某工况的 triSurface 几何组 (仅标准库) |
 | `airframe_assembly.example.json` | 真镖体交接模板 (实体 STL + 铰链线 + 行程 + 混控系数 + 质量属性) |
 | `docs/airframe_handoff.md` | **从 Fusion 交几何/自由度的规范** (拆件/铰链线取法/避坑) |
+| `step_probe.py <file.step>` | STEP 结构探针 (不依赖 CAD 内核: 实体数/单位/装配变换/包围盒) |
+| `step_to_stl.py <file.step> --out dir` | STEP → 每实体一个二分制 STL + 体积/质心表 (需 gmsh) |
+| `step_to_airframe.py <file.step> --flaps 24,26,28,30 --out dir` | **STEP → B 系可扫气几何 + 交接 JSON** (自动转轴/质心平移/铰链线拟合) |
+| `cad/<版本>/ANALYSIS.md` | 来图分析报告 (构成/尺度/舵面识别/待确认项) |
 
 ```bash
 # 单工况

@@ -95,7 +95,9 @@ def main():
                 k, v = line.strip().split("=", 1)
                 info[k] = v
     V = float(info["V"]); alpha = float(info["alpha"]); beta = float(info["beta"])
-    S, L, rho = 0.017671458676442587, 0.15, 1.225
+    S = float(info.get("S_ref", 0.017671458676442587))
+    L = float(info.get("L_ref", 0.15))
+    rho = float(info.get("rho", 1.225))
     qS = 0.5 * rho * V * V * S
 
     ts, F, M = collect(case)

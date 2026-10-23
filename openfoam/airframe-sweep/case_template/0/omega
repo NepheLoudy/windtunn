@@ -19,9 +19,5 @@ boundaryField
     }
     outlet        { type inletOutlet; inletValue uniform __OMEGAVAL__; value uniform __OMEGAVAL__; }
     side          { type inletOutlet; inletValue uniform __OMEGAVAL__; value uniform __OMEGAVAL__; }
-    body         { type omegaWallFunction; value uniform __OMEGAVAL__; }
-    fin_h_pos    { type omegaWallFunction; value uniform __OMEGAVAL__; }
-    fin_h_neg    { type omegaWallFunction; value uniform __OMEGAVAL__; }
-    fin_v_pos    { type omegaWallFunction; value uniform __OMEGAVAL__; }
-    fin_v_neg    { type omegaWallFunction; value uniform __OMEGAVAL__; }
+__SURFACES_O__
 }

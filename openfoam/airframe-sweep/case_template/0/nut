@@ -15,9 +15,5 @@ boundaryField
     inlet         { type calculated; value uniform 0; }
     outlet        { type calculated; value uniform 0; }
     side          { type calculated; value uniform 0; }
-    body         { type nutkWallFunction; value uniform 0; }
-    fin_h_pos    { type nutkWallFunction; value uniform 0; }
-    fin_h_neg    { type nutkWallFunction; value uniform 0; }
-    fin_v_pos    { type nutkWallFunction; value uniform 0; }
-    fin_v_neg    { type nutkWallFunction; value uniform 0; }
+__SURFACES_N__
 }

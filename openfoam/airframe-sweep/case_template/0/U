@@ -29,9 +29,5 @@ boundaryField
         inletValue      uniform (__UINF__);
         value           uniform (__UINF__);
     }
-    body         { type noSlip; }
-    fin_h_pos    { type noSlip; }
-    fin_h_neg    { type noSlip; }
-    fin_v_pos    { type noSlip; }
-    fin_v_neg    { type noSlip; }
+__SURFACES_U__
 }

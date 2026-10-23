@@ -12,14 +12,9 @@ addLayers         false;   // 校验点不加层 (高 Re 壁面函数); 定量�
 
 geometry
 {
-    body      { type triSurfaceMesh; file "body.stl"; }
-    fin_h_pos { type triSurfaceMesh; file "fin_h_pos.stl"; }
-    fin_h_neg { type triSurfaceMesh; file "fin_h_neg.stl"; }
-    fin_v_pos { type triSurfaceMesh; file "fin_v_pos.stl"; }
-    fin_v_neg { type triSurfaceMesh; file "fin_v_neg.stl"; }
-
+__SURFACES_GEOM__
     // 近体细化盒: 基础网格 0.3m > 弹径 0.15m, 无此盒则表面不与任何网格边相交
-    airframeBox { type searchableBox; min (-1.0 -0.45 -0.45); max (1.0 0.45 0.45); }
+    airframeBox { type searchableBox; min (__BOXMIN__); max (__BOXMAX__); }
 }
 
 castellatedMeshControls
@@ -34,22 +29,17 @@ castellatedMeshControls
 
     refinementSurfaces
     {
-        body         { level (5 5); }
-        fin_h_pos    { level (5 5); }
-        fin_h_neg    { level (5 5); }
-        fin_v_pos    { level (5 5); }
-        fin_v_neg    { level (5 5); }
+__SURFACES_REFINE__
     }
-
     refinementRegions
     {
-        airframeBox { mode inside; levels ((1e15 4)); }   // 盒内一律细化到 level 4 (18.75mm)
+        airframeBox { mode inside; levels ((1e15 __BOXLEVEL__)); }
     }
 
     resolveFeatureAngle 30;
 
-    // 弹体前方流体区 (避开对称面 y=z=0)
-    locationInMesh (5.5 0.31 0.41);
+    // 流体区内点 (避开所有实体, make_case.sh 按几何包围盒计算)
+    locationInMesh (__LOCINMESH__);
 
     allowFreeStandingZoneFaces true;
 }

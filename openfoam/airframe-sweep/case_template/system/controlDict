@@ -32,7 +32,7 @@ functions
         libs            ("libforces.so");
         writeControl    timeStep;
         writeInterval   10;
-        patches         (body fin_h_pos fin_h_neg fin_v_pos fin_v_neg);
+        patches         (__SURFACES_LIST__);
         rho             rhoInf;
         rhoInf          1.225;
         CofR            (__COFRX__ 0 0);   // 全系统质心 x (make_case.sh 按表元数据写入)

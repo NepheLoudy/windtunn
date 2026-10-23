@@ -15,9 +15,5 @@ boundaryField
     inlet         { type zeroGradient; }
     outlet        { type inletOutlet; inletValue uniform 0; value uniform 0; }
     side          { type inletOutlet; inletValue uniform 0; value uniform 0; }
-    body         { type zeroGradient; }
-    fin_h_pos    { type zeroGradient; }
-    fin_h_neg    { type zeroGradient; }
-    fin_v_pos    { type zeroGradient; }
-    fin_v_neg    { type zeroGradient; }
+__SURFACES_P__
 }
