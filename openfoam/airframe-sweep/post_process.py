@@ -85,6 +85,9 @@ def main():
     ap.add_argument("--tail", type=float, default=0.3, help="末段比例做时均")
     ap.add_argument("--out", default=None, help="aero_table.csv (append)")
     ap.add_argument("--json", default=None)
+    ap.add_argument("--mass-props", default=None,
+                    help="mass_properties.json — 真实质心 com_B; 力矩从求解 CofR 平移到该质心")
+    ap.add_argument("--cofr", default="0,0,0", help="求解时 forces 的 CofR (CASEINFO 缺失时用)")
     args = ap.parse_args()
 
     case = os.path.abspath(args.case)
@@ -100,6 +103,15 @@ def main():
     rho = float(info.get("rho", 1.225))
     qS = 0.5 * rho * V * V * S
 
+    # 力矩参考点: 求解 CofR → 参数化真实质心 (mass_properties.com_B), M' = M + (c'-c)×F
+    cofr = [float(x) for x in args.cofr.split(",")]
+    com = list(cofr)
+    com_src = "solve-cofr"
+    if args.mass_props:
+        mp = json.load(open(args.mass_props, encoding="utf-8"))
+        com = [float(x) for x in mp["com_B"]]
+        com_src = f"{args.mass_props} (status={mp.get('_status', '?')[:20]})"
+
     ts, F, M = collect(case)
     n0 = int(len(ts) * (1.0 - args.tail))
     n = len(ts) - n0
@@ -110,6 +122,11 @@ def main():
                for i in range(n0, len(ts))) / fmax
 
     drag, lift, side = wind_axes(alpha, beta)
+    # 力矩平移: M_com = M_cofr + (com - cofr) × F
+    d = [com[k] - cofr[k] for k in range(3)]
+    Mm = [Mm[0] + d[1] * Fm[2] - d[2] * Fm[1],
+          Mm[1] + d[2] * Fm[0] - d[0] * Fm[2],
+          Mm[2] + d[0] * Fm[1] - d[1] * Fm[0]]
     CD = dot(Fm, drag) / qS
     CL = dot(Fm, lift) / qS
     CY = dot(Fm, side) / qS
@@ -119,6 +136,7 @@ def main():
 
     print(f"case   : {case}")
     print(f"V={V} alpha={alpha} beta={beta}  samples={len(ts)} (avg last {n})")
+    print(f"力矩参考点: {com_src}  com_B={com}")
     print(f"F_B    : [{Fm[0]:+.4f} {Fm[1]:+.4f} {Fm[2]:+.4f}] N")
     print(f"M_B    : [{Mm[0]:+.5f} {Mm[1]:+.5f} {Mm[2]:+.5f}] N·m")
     print(f"CL={CL:+.5f}  CD={CD:+.5f}  Cm={Cm:+.5f}  CY={CY:+.5f}  Cl={Cl:+.5f}  Cn={Cn:+.5f}")
