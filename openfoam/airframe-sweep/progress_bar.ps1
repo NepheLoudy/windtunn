@@ -41,13 +41,38 @@ $form.Controls.Add($lblInfo)
 
 $lblClose = New-Object System.Windows.Forms.Label
 $lblClose.AutoSize = $false
-$lblClose.Size = New-Object System.Drawing.Size(20, 18)
-$lblClose.Location = New-Object System.Drawing.Point(318, 2)
+$lblClose.Size = New-Object System.Drawing.Size(18, 18)
+$lblClose.Location = New-Object System.Drawing.Point(320, 2)
 $lblClose.ForeColor = [System.Drawing.Color]::DimGray
 $lblClose.Text = "x"
 $lblClose.Cursor = "Hand"
 $lblClose.Add_Click({ $form.Close() })
 $form.Controls.Add($lblClose)
+
+$lblMin = New-Object System.Windows.Forms.Label
+$lblMin.AutoSize = $false
+$lblMin.Size = New-Object System.Drawing.Size(18, 18)
+$lblMin.Location = New-Object System.Drawing.Point(302, 2)
+$lblMin.ForeColor = [System.Drawing.Color]::DimGray
+$lblMin.Text = "-"
+$lblMin.Cursor = "Hand"
+$lblMin.Add_Click({
+    if ($form.Height -gt 40) {
+        $script:SavedH = $form.Height
+        $bar.Visible = $false
+        $lblInfo.Visible = $false
+        $lblTitle.Size = New-Object System.Drawing.Size(280, 18)
+        $form.Height = 24
+        $lblMin.Text = "+"
+    } else {
+        $bar.Visible = $true
+        $lblInfo.Visible = $true
+        $lblTitle.Size = New-Object System.Drawing.Size(320, 20)
+        $form.Height = $script:SavedH
+        $lblMin.Text = "-"
+    }
+})
+$form.Controls.Add($lblMin)
 
 # 拖动无边框窗体
 $form.Add_MouseDown({ $form.Drag() })
