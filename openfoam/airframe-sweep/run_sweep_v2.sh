@@ -62,3 +62,4 @@ for A in $SWEEP_ALPHA; do
   done
 done
 echo "=== 扫气完成: $n_done/$n_run -> $OUT_CSV ==="
+"$HERE/notify_done.sh" "扫气批次完成" "$n_done/$n_run 工况完成 -> $OUT_CSV (anchor/全表批次)"
