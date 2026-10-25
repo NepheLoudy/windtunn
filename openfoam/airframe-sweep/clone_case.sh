@@ -13,14 +13,14 @@ I_TURB=${I_TURB:-0.02}
 [ -d "$SRC/constant/polyMesh" ] || { echo "src 无网格: $SRC"; exit 1; }
 [ -f "$DST/constant/polyMesh/points" ] && { echo "dst 已存在网格, 跳过: $DST"; exit 0; }
 
-# 从 SRC/CASEINFO 继承 alpha/beta/L_turb 和旧边界数值
-read -r ALPHA BETA V_OLD U_OLD K_OLD OM_OLD L_TURB <<<"$(awk -F= '
+# 从 SRC/CASEINFO 继承 alpha/beta/L_turb 和旧边界数值 (U 三分量在 awk 内拆开, 避免 read 空格挤位)
+read -r ALPHA BETA V_OLD U1_OLD U2_OLD U3_OLD K_OLD OM_OLD L_TURB <<<"$(awk -F= '
   /^alpha=/{a=$2}/^beta=/{b=$2}/^L_turb=/{l=$2}
   /^V=/{v=$2}
   /^U_inlet=/{u=$2}/^k_inlet=/{k=$2}/^omega_inlet=/{o=$2}
-  END{gsub(/\(|\)/,"",u); print a+0, b+0, v+0, u, k, o, l}' "$SRC/CASEINFO")"
+  END{gsub(/\(|\)/,"",u); split(u,t," "); print a+0, b+0, v+0, t[1], t[2], t[3], k, o, l}' "$SRC/CASEINFO")"
 L_TURB=${L_TURB:-0.0105}
-[ -n "$U_OLD" ] || { echo "src CASEINFO 缺 U_inlet 记录: $SRC"; exit 1; }
+[ -n "$U1_OLD" ] || { echo "src CASEINFO 缺 U_inlet 记录: $SRC"; exit 1; }
 
 read -r UX UY UZ KVAL OMVAL <<<"$(awk -v V="$V" -v A="$ALPHA" -v B="$BETA" -v I="$I_TURB" -v L="$L_TURB" 'BEGIN{
   pi=atan2(0,-1); ar=A*pi/180; br=B*pi/180;
@@ -34,15 +34,12 @@ cp -r "$SRC"/system "$DST"/
 cp -r "$SRC"/0 "$DST"/0
 
 # 数值替换: 旧 U 矢量三分量逐个换 (新值含负号, 用 | 分隔)
-U1=$(printf '%.6f' "$(awk -v s="$U_OLD" 'BEGIN{n=split(s,t," "); print t[1]}')")
-U2=$(printf '%.6f' "$(awk -v s="$U_OLD" 'BEGIN{n=split(s,t," "); print t[2]}')")
-U3=$(printf '%.6f' "$(awk -v s="$U_OLD" 'BEGIN{n=split(s,t," "); print t[3]}')")
-sed -i "s|$U1 $U2 $U3|$UX $UY $UZ|g" "$DST/0/U"
+sed -i "s|$U1_OLD $U2_OLD $U3_OLD|$UX $UY $UZ|g" "$DST/0/U"
 sed -i "s|$K_OLD|$KVAL|g" "$DST/0/k"
 sed -i "s|$OM_OLD|$OMVAL|g" "$DST/0/omega"
 
 # 校验: 新 U 必须出现, 旧 U 不得残留
-if ! grep -q "$UX $UY $UZ" "$DST/0/U" || grep -q "$U1 $U2 $U3" "$DST/0/U"; then
+if ! grep -q "$UX $UY $UZ" "$DST/0/U" || grep -q "$U1_OLD $U2_OLD $U3_OLD" "$DST/0/U"; then
   echo "替换校验失败: $DST/0/U"; exit 1
 fi
 
