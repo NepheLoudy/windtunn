@@ -26,6 +26,16 @@ source /opt/openfoam12/etc/bashrc
 set -eu
 
 n_done=0; n_run=0
+# 多机安全: 启动时读结果表建已完工况集合 (同表并行扫气自动去重跳过)
+declare -A DONE_SET
+if [ -f "$OUT_CSV" ]; then
+  while IFS=, read -r V A B DE DA DR REST; do
+    case "$V" in ''|'#'*) continue;; esac
+    DONE_SET["V${V%.*}_a${A%.*}_b${B%.*}"]=1
+    DONE_SET["V${V%.*}_a${A}_b${B}"]=1
+  done < "$OUT_CSV"
+  echo "表判重集: ${#DONE_SET[@]} 键"
+fi
 for A in $SWEEP_ALPHA; do
   for B in $SWEEP_BETA; do
     group_src=""
@@ -35,6 +45,9 @@ for A in $SWEEP_ALPHA; do
       n_run=$((n_run+1))
       if [ -f "$CASE/results.json" ]; then
         echo "[$n_run] $tag — 已完成, 跳过"; n_done=$((n_done+1)); continue
+      fi
+      if [ -n "${DONE_SET[$tag]:-}" ]; then
+        echo "[$n_run] $tag — 表中已有(其他机器完成), 跳过"; n_done=$((n_done+1)); continue
       fi
       echo "===== [$n_run] $tag ====="
       if [ -z "$group_src" ]; then
