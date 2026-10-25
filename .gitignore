@@ -64,3 +64,8 @@ __pycache__/
 # ==== wt 数据分层工具 (2026-10-14) ====
 wt/.logs/
 _pull/
+
+# 真源几何: 多机部署必需 (gen 管线产物, 非可再生垃圾)
+!openfoam/airframe-sweep/cad/v1/cfd/*.stl
+!openfoam/airframe-sweep/cad/v1/cfd_geom_multi/*.stl
+!openfoam/airframe-sweep/cad/v1/parts/*.stl
