@@ -38,10 +38,14 @@ sed -i "s|$U1_OLD $U2_OLD $U3_OLD|$UX $UY $UZ|g" "$DST/0/U"
 sed -i "s|$K_OLD|$KVAL|g" "$DST/0/k"
 sed -i "s|$OM_OLD|$OMVAL|g" "$DST/0/omega"
 
-# 校验: 新 U 必须出现, 旧 U 不得残留
-if ! grep -q "$UX $UY $UZ" "$DST/0/U" || grep -q "$U1_OLD $U2_OLD $U3_OLD" "$DST/0/U"; then
-  echo "替换校验失败: $DST/0/U"; exit 1
-fi
+# 校验 (数值比较, 避免 grep 把负数当选项): 0/U 首个 uniform() 三分量须等于新 U
+awk -v ex="$UX" -v ey="$UY" -v ez="$UZ" '
+  /uniform *\(/ && !done {
+    s=$0; sub(/.*uniform *\(/,"",s); sub(/\).*/,"",s); n=split(s,t," ");
+    if (n>=3) { done=1; if ((t[1]-ex)^2+(t[2]-ey)^2+(t[3]-ez)^2 > 1e-8) { print "MISMATCH"; exit 1 } }
+  }
+  END { if (!done) { print "NOFIELD"; exit 1 } }' "$DST/0/U" > /dev/null || {
+  echo "替换校验失败 (U 未按新 V 改写): $DST/0/U"; exit 1; }
 
 awk -v V="$V" -v ux="$UX" -v uy="$UY" -v uz="$UZ" -v k="$KVAL" -v om="$OMVAL" '
   /^V=/         { print "V=" V; next }

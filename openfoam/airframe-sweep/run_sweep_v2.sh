@@ -22,8 +22,15 @@ mkdir -p "$ROOT"
 
 set +u
 set +e
-source /opt/openfoam12/etc/bashrc
+# OpenFOAM 环境自适应 (apt /opt → 源码编译 ~/OpenFOAM-12 → /usr/lib)
+if [ -f /opt/openfoam12/etc/bashrc ]; then source /opt/openfoam12/etc/bashrc 2>/dev/null
+elif [ -f "$HOME/OpenFOAM-12/etc/bashrc" ]; then source "$HOME/OpenFOAM-12/etc/bashrc" 2>/dev/null
+elif [ -f /usr/lib/openfoam/openfoam12/etc/bashrc ]; then source /usr/lib/openfoam/openfoam12/etc/bashrc 2>/dev/null
+fi
 set -eu
+# 无头机: MPI 的 hwloc_gl 插件 XOpenDisplay 会挂死
+unset DISPLAY
+export HWLOC_COMPONENTS=-gl
 
 n_done=0; n_run=0
 # 多机安全: 启动时读结果表建已完工况集合 (同表并行扫气自动去重跳过)
