@@ -21,13 +21,15 @@
 - T1 抽 3 点做 **L6/L7/L8 三级网格收敛 (GCI)** — 外推值作为"数值精确解"锚
 - T0 与 T1 同工况对拍 → 量化"壁面函数近似"误差 → 决定插值底表是否需要 T1 重扫
 
-## 3. GPU 线可行性 (已探明 2026-10-26)
+## 3. GPU 线可行性 (已探明 2026-10-26, T2 启动中)
 
-- 算力节点: 驱动 580.178.04 / **CUDA runtime 13.0** ✓, **nvidia 下载站可达** (Akamai 301 正常)
-- 待装: CUDA 13 toolkit runfile (~4.5GB, nvcc) — T2 启动项
+- 算力节点: 驱动 580.178.04 / **CUDA runtime 13.0** ✓, **nvidia 下载站可达** ✓
+- **CUDA 13.0 toolkit runfile (4.3GB) 已下载到节点 `~/cuda_13.0.run`** — 待安装 (sudo sh cuda_13.0.run --toolkit --silent, 不装驱动覆盖)
 - FluidX3D 源码台式机已有 (OpenCL/CUDA 双后端) → scp 中转 (算力节点 github 被校园网掐)
-- RTX 5070 = Blackwell **sm_120**: 必须用 CUDA 13.x 编译 (apt 旧 toolkit 11.5 不支持 — 已排除)
+- RTX 5070 = Blackwell **sm_120**: CUDA 13.x 原生支持 ✓ (apt 旧 toolkit 11.5 不支持 — 已排除)
 - LBM 瞬态天然匹配: 大攻角分岔区的时均统计 + 高雷诺数, 正是 FVM 稳态的短板
+- **GPU 与 CPU 扫气互不抢资源** (GPU/CPU 独立) — T2 可与 T1 并行推进
+- 调度计划: ① toolkit 静默安装 (只装 toolkit 不动驱动) ② FluidX3D scp + sm_120 编译 ③ 镖体 STL 体素化试跑 (复用 windtunnel 体素化经验) ④ 大攻角端点瞬态专项 (±12.5/±15° 侧向分量统计) ⑤ 与 FVM 对拍 → 分岔区数据集增补
 
 ## 4. 渲染
 
