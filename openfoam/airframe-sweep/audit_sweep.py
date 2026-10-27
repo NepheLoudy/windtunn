@@ -78,8 +78,9 @@ def main():
             line += f" {k}={disp * 100:5.1f}%{flag}"
         out.append(line)
 
-    # A2 镜像
-    out.append("## A2 β镜像反对称残差 (dCY/dCL pair)")
+    # A2 β镜像 (曼波 2026-10-28 修正: X 翼手性几何下 β±不必反对称 — 此项降级为
+    # "几何手性指纹"记录, 不再作为 PASS/FAIL 判据; 偏离量=手性气动效应的度量)
+    out.append("## A2 β镜像指纹 (手性几何下不要求反对称 — 记录手性气动效应量级)")
     by0 = {r["a"]: r for r in rows if r["b"] == 0}
     for a in sorted(set(r["a"] for r in rows)):
         rm = [r for r in rows if r["a"] == a and r["b"] == -5]
@@ -90,8 +91,7 @@ def main():
         dcy = (rp["CY"] - by0[a]["CY"]) + (rm["CY"] - by0[a]["CY"])
         dcl = (rp["CL"] - by0[a]["CL"]) + (rm["CL"] - by0[a]["CL"])
         den = max(abs(rp["CY"] - by0[a]["CY"]), abs(rm["CY"] - by0[a]["CY"]), 1e-9)
-        mark = " <-- 超5%" if abs(dcy) / den > 0.05 else ""
-        out.append(f"  a={a:+6.1f}: dCY={dcy:+.4f} ({100 * abs(dcy) / den:4.1f}%){mark}  dCL={dcl:+.4f}")
+        out.append(f"  a={a:+6.1f}: 手性指纹 dCY={dcy:+.4f} ({100 * abs(dcy) / den:4.1f}%)  dCL={dcl:+.4f}")
 
     # A3 CY 偏置
     cy0 = [r["CY"] for r in rows if r["b"] == 0]
