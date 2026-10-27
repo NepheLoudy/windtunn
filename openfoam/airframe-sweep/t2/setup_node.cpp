@@ -47,8 +47,9 @@ void main_setup() { // dart LBM transient (T2); required extensions: FORCE_FIELD
 	const float3 center = float3(0.5f*Nx, 0.5f*Ny, 0.5f*Nz);
 	const float  cpm = Nx/0.2386f;
 	lbm.voxelize_stl(get_exe_path()+"cfd/body.stl", center, cpm, TYPE_S);
-	for (const char* f : {"fin_1.stl","fin_2.stl","fin_3.stl","fin_4.stl"})
-		lbm.voxelize_stl(get_exe_path()+std::string("cfd/")+f, center, cpm, TYPE_S);
+	parallel_for(lbm.get_N(), [&](ulong n) {
+		if(lbm.flags[n]==TYPE_S) lbm.flags[n] = TYPE_S|TYPE_X;
+	});
 	const float alpha_deg = 12.5f, beta_deg = 0.0f;
 	const float A = alpha_deg*3.14159265f/180.0f, B2 = beta_deg*3.14159265f/180.0f;
 	const float3 U = float3(-V_lbm*cos(A)*cos(B2), -V_lbm*sin(B2), -V_lbm*sin(A)*cos(B2));
