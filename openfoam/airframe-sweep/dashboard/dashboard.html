@@ -182,79 +182,48 @@ function drawCurves(){
   plotLine(document.getElementById('cdPlot'),'a','CD','CD(α)','CD');
   plotLine(document.getElementById('cyPlot'),'b','CY','CY(β)','CY');
 }
-/* ================= 3D 姿态 ================= */
-let scene,camera,renderer,dartGroup,flowGroup;
+/* ================= 3D 姿态 (真实镖体网格) ================= */
+let scene,camera,renderer,dartGroup;
 function init3D(){
   const holder=document.getElementById('view3d');
-  const W=holder.clientWidth,H=holder.clientHeight;
+  const W=holder.clientWidth,H=holder.clientHeight-30;
   renderer=new THREE.WebGLRenderer({antialias:true});
-  renderer.setSize(W,H-30);
+  renderer.setSize(W,H);
   renderer.setPixelRatio(window.devicePixelRatio);
   holder.appendChild(renderer.domElement);
   scene=new THREE.Scene();
   scene.background=new THREE.Color(0x0a0e14);
   camera=new THREE.PerspectiveCamera(45,W/H,0.01,100);
-  camera.position.set(0.35,0.22,0.42);
+  camera.position.set(0.30,0.20,0.40);
   camera.lookAt(0,0,0);
-  scene.add(new THREE.AmbientLight(0x8899bb,0.7));
-  const d1=new THREE.DirectionalLight(0xffffff,0.9); d1.position.set(1,1,0.5); scene.add(d1);
-  const d2=new THREE.DirectionalLight(0x88aaff,0.4); d2.position.set(-1,-0.5,-1); scene.add(d2);
+  scene.add(new THREE.AmbientLight(0x99aabb,0.75));
+  const d1=new THREE.DirectionalLight(0xffffff,0.9); d1.position.set(1,1,0.6); scene.add(d1);
+  const d2=new THREE.DirectionalLight(0x88aaff,0.45); d2.position.set(-1,-0.4,-0.8); scene.add(d2);
   dartGroup=new THREE.Group();
-  const matBody=new THREE.MeshStandardMaterial({color:0x8b949e,metalness:0.6,roughness:0.35});
-  const matWing=new THREE.MeshStandardMaterial({color:0x4a7ab5,metalness:0.3,roughness:0.5,side:THREE.DoubleSide});
-  const matFin=new THREE.MeshStandardMaterial({color:0xd29922,metalness:0.4,roughness:0.4,side:THREE.DoubleSide});
-  // 弹身: 圆柱沿 x, 长 0.239, 半径 0.0573
-  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.0573,0.0573,0.239,32),matBody);
-  body.rotation.z=-Math.PI/2;
-  dartGroup.add(body);
-  // 头部圆帽
-  const nose=new THREE.Mesh(new THREE.SphereGeometry(0.0573,24,16),matBody);
-  nose.rotation.z=-Math.PI/2; nose.position.x=0.1195; nose.scale.x=1.8;
-  dartGroup.add(nose);
-  // 4 片 X 布局大翼 (45° 斜置平板): 每片从 r0=0.05 到 r1=0.23, 弦 0.09
-  for(const s of [1,-1]) for(const t of [1,-1]) {
-    const wing=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.0016,0.16),matWing);
-    const g=new THREE.Group();
-    g.rotation.x=t*Math.PI/4;             // 斜 45°
-    wing.position.set(-0.015,0,(0.13)*(1));   // 展向中点
-    wing.rotation.x=0;
-    // 展向沿斜 45°: 放置在 (y=t*0.10, z=u*0.10) 方向
-    wing.position.set(-0.015, t*0.055, s*0.055);
-    wing.rotation.z=s*t*Math.PI/4*0 + 0;
-    wing.rotation.x=0; wing.rotation.y=0;
-    // 让翼板展向对准 45° 对角
-    wing.rotation.z=0;
-    g.add(wing);
-    g.rotation.x=s*t*0;  // 翼板自转对齐对角方向
-    wing.rotation.z=-s*Math.PI/4;
-    dartGroup.add(g);
-  }
-  // 4 片尾缘舵 (小, 黄色): 绕各自铰链
-  for(const s of [1,-1]) for(const t of [1,-1]) {
-    const fin=new THREE.Mesh(new THREE.BoxGeometry(0.026,0.004,0.038),matFin);
-    const g=new THREE.Group();
-    g.position.set(-0.084, s*0.020, t*0.020);
-    g.rotation.z=s*t*Math.PI/4;
-    fin.position.z=-0.017;
-    g.add(fin);
-    dartGroup.add(g);
-  }
-  dartGroup.scale.setScalar(2.6);
-  scene.add(dartGroup);
-  // 来流箭头 (固定, 指向 -x)
-  flowGroup=new THREE.Group();
-  const arrowMat=new THREE.MeshBasicMaterial({color:0x3fb950});
-  for(let i=0;i<3;i++){
-    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,0.14),arrowMat);
-    shaft.rotation.z=Math.PI/2;
-    shaft.position.set(0.30+i*0.02, -0.12+i*0.11, 0.10-i*0.14);
-    flowGroup.add(shaft);
-    const head=new THREE.Mesh(new THREE.ConeGeometry(0.012,0.035),arrowMat);
-    head.rotation.z=-Math.PI/2;
-    head.position.set(0.30+i*0.02-0.09, -0.12+i*0.11, 0.10-i*0.14);
-    flowGroup.add(head);
-  }
-  scene.add(flowGroup);
+  fetch('dashboard_mesh.json').then(r=>r.json()).then(m=>{
+    const mk=(pos,color)=>{
+      const g=new THREE.BufferGeometry();
+      g.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+      g.computeVertexNormals();
+      return new THREE.Mesh(g,new THREE.MeshStandardMaterial({color,metalness:0.55,roughness:0.4,side:THREE.DoubleSide,flatShading:true}));
+    };
+    dartGroup.add(mk(m.body.pos,0x9aa4ae));
+    const cols=[0x4a9eff,0x4a9eff,0x4a9eff,0x4a9eff];
+    m.fins.forEach((f,i)=>dartGroup.add(mk(f.pos,cols[i%4])));
+    // 来流箭头 (固定, 从 +x 吹向 -x)
+    const am=new THREE.MeshBasicMaterial({color:0x3fb950});
+    for(let k=0;k<3;k++){
+      const y=-0.14+k*0.13, z=0.12-k*0.15;
+      const sh=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,0.13),am);
+      sh.rotation.z=Math.PI/2; sh.position.set(0.33,y,z);
+      const hd=new THREE.Mesh(new THREE.ConeGeometry(0.013,0.04),am);
+      hd.rotation.z=-Math.PI/2; hd.position.set(0.24,y,z);
+      dartGroup.add(sh); dartGroup.add(hd);
+    }
+    dartGroup.scale.setScalar(2.4);
+    dartGroup.rotation.y=-0.5;
+  });
+  scene.add(new THREE.Group()); // 占位保持场景非空
   // 鼠标交互
   let mx=0,my=0,down=false;
   const dom=renderer.domElement;
@@ -268,7 +237,7 @@ function init3D(){
   });
   dom.addEventListener('wheel',e=>{
     camera.position.multiplyScalar(e.deltaY>0?1.1:0.9);
-    camera.position.clampLength(0.1,2);
+    camera.position.clampLength(0.08,2);
   },{passive:true});
   window.addEventListener('resize',()=>{
     const w=holder.clientWidth,h=holder.clientHeight-30;
@@ -276,13 +245,17 @@ function init3D(){
   });
 }
 function upd3D(){
-  const p=DATA.progress; if(!p||!p.current) return;
+  const p=DATA.progress; if(!p||!p.current||!dartGroup) return;
   const m=p.current.match(/V\d+_a(-?[\d.]+)_b(-?[\d.]+)/); if(!m) return;
   const a=+m[1]*Math.PI/180, b=+m[2]*Math.PI/180;
-  dartGroup.rotation.z=-a;   // 攻角: 绕 z(竖直) 轴, 抬头为正 → 机头向 -z?  B系z下→three.js y上: 视觉示意
-  dartGroup.rotation.y=b;
+  // 攻角: 绕竖直轴 (z) 抬头; 侧滑: 绕 y 轴 —— three.js y-up 映射: B_x=three.x, B_y右=three.-z, B_z下=three.-y
+  const baseY=dartGroup.userData.baseY??-0.5;
+  dartGroup.rotation.set(0, baseY, 0);
+  dartGroup.rotateY(-b);   // 侧滑
+  dartGroup.rotateZ(-a);   // 攻角 (抬头)
 }
-setInterval(()=>{ if(renderer) renderer.render(scene,camera); upd3D(); },80);
+setInterval(()=>{ if(renderer){ renderer.render(scene,camera); upd3D(); } },80);
+
 /* ================= 主循环 ================= */
 init3D();
 pull();
