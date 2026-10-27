@@ -68,7 +68,11 @@
     <div id="coeffs">等待数据...</div>
   </div>
 </div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+window.onerror = function(msg, src, line) {
+  const el = document.getElementById('err');
+  if (el) { el.style.display='block'; el.textContent = 'JS错误: ' + msg + ' @' + line; }
+};</script>
+<script src="./three.min.js"></script>
 <script>
 /* ================= 数据层 ================= */
 let DATA = { progress:null, cases:[] };
