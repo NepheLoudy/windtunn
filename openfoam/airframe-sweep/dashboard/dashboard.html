@@ -1,0 +1,293 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<title>镖体气动扫气 · 算力节点仪表台</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  * { margin:0; padding:0; box-sizing:border-box; }
+  body { background:#0d1117; color:#e6edf3; font-family:"Microsoft YaHei UI",Consolas,monospace; overflow:hidden; }
+  #titlebar { position:fixed; top:0; left:0; right:0; height:44px; background:#161b22; border-bottom:1px solid #30363d;
+    display:flex; align-items:center; padding:0 18px; gap:14px; z-index:10; }
+  #titlebar .dot { width:10px; height:10px; border-radius:50%; background:#3fb950; box-shadow:0 0 8px #3fb950; }
+  #titlebar h1 { font-size:16px; font-weight:600; letter-spacing:1px; }
+  #titlebar .sub { color:#8b949e; font-size:12px; }
+  #titlebar .clock { margin-left:auto; color:#8b949e; font-size:12px; }
+  #main { position:fixed; top:44px; bottom:0; left:0; right:0; display:grid;
+    grid-template-columns: 42% 29% 29%; grid-template-rows: 58% 42%; gap:8px; padding:8px; }
+  .panel { background:#161b22; border:1px solid #30363d; border-radius:8px; overflow:hidden; position:relative; }
+  .panel h2 { font-size:12px; color:#8b949e; padding:8px 12px 4px; font-weight:500; letter-spacing:1px; }
+  #view3d { grid-row:1 / span 2; }
+  #view3d canvas { width:100%; height:100%; display:block; }
+  .big { font-size:34px; font-weight:700; color:#58a6ff; }
+  .unit { font-size:14px; color:#8b949e; }
+  #pbarWrap { margin:6px 12px; height:16px; background:#0d1117; border-radius:8px; overflow:hidden; border:1px solid #30363d; }
+  #pbar { height:100%; width:0%; background:linear-gradient(90deg,#1f6feb,#3fb950); transition:width 1s; }
+  .statgrid { display:grid; grid-template-columns:1fr 1fr; gap:4px 14px; padding:4px 12px; font-size:13px; }
+  .statgrid .k { color:#8b949e; } .statgrid .v { color:#e6edf3; text-align:right; }
+  .statgrid .v.hl { color:#3fb950; }
+  #coeffs { padding:2px 12px; font-size:13px; line-height:1.7; }
+  #coeffs b { color:#58a6ff; display:inline-block; width:34px; }
+  #err { color:#f85149; padding:4px 12px; font-size:12px; display:none; }
+</style>
+</head>
+<body>
+<div id="titlebar">
+  <div class="dot" id="livedot"></div>
+  <h1>镖体气动 · T1 高保真扫气仪表台</h1>
+  <span class="sub">算力节点 qianli-b460maoruselite · OpenFOAM v12 · MPICH 14p</span>
+  <span class="clock" id="clock"></span>
+</div>
+<div id="main">
+  <div class="panel" id="view3d"><h2>镖体姿态 · 来流视图（鼠标拖旋转 / 滚轮缩放）</h2></div>
+  <div class="panel" id="prog">
+    <h2>扫气进度</h2>
+    <div style="padding:8px 12px 0;"><span class="big" id="pct">--</span><span class="unit"> %</span>
+      <span style="float:right;margin-top:14px;" class="unit"><span id="done" class="hl">-</span> / <span id="total">-</span> 工况</span></div>
+    <div id="pbarWrap"><div id="pbar"></div></div>
+    <div class="statgrid">
+      <span class="k">当前工况</span><span class="v" id="cur">-</span>
+      <span class="k">预计剩余</span><span class="v" id="eta">-</span>
+      <span class="k">已运行</span><span class="v" id="run">-</span>
+      <span class="k">阶段</span><span class="v" id="step">-</span>
+    </div>
+    <div id="err"></div>
+  </div>
+  <div class="panel">
+    <h2>扫描覆盖 · α × β (绿=已完成 4V, 黄=进行中, 暗=排队)</h2>
+    <canvas id="cover" style="width:100%;height:calc(100% - 30px);"></canvas>
+  </div>
+  <div class="panel" style="grid-column:2 / span 2;">
+    <h2>气动力系数 · 已完成工况</h2>
+    <div style="display:grid;grid-template-columns:1fr 1fr 1fr;height:calc(100% - 30px);">
+      <canvas id="clPlot"></canvas><canvas id="cdPlot"></canvas><canvas id="cyPlot"></canvas>
+    </div>
+  </div>
+  <div class="panel" style="grid-column:1 / span 1;">
+    <h2>当前工况系数 (查表值)</h2>
+    <div id="coeffs">等待数据...</div>
+  </div>
+</div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script>
+/* ================= 数据层 ================= */
+let DATA = { progress:null, cases:[] };
+async function pull() {
+  try {
+    const [pj, csv] = await Promise.all([
+      fetch('progress.json?t='+Date.now()).then(r=>r.json()),
+      fetch('t1_table.csv?t='+Date.now()).then(r=>r.text())
+    ]);
+    DATA.progress = pj;
+    DATA.cases = [];
+    for (const line of csv.split('\n')) {
+      if (line.startsWith('#') || line.startsWith('V,')) continue;
+      const p = line.trim().split(',');
+      if (p.length === 12) DATA.cases.push({
+        V:+p[0], a:+p[1], b:+p[2], CL:+p[6], CD:+p[7], Cm:+p[8], CY:+p[9], Cl:+p[10], Cn:+p[11]
+      });
+    }
+    render();
+  } catch (e) { document.getElementById('err').textContent = '数据拉取: '+e.message; }
+}
+function fmtMin(m){ if(m<0) return '估算中'; if(m>=60) return Math.floor(m/60)+'h'+Math.round(m%60)+'m'; return Math.round(m)+'m'; }
+function render() {
+  const p = DATA.progress; if (!p) return;
+  document.getElementById('done').textContent = p.done;
+  document.getElementById('total').textContent = p.total;
+  const pct = p.total ? Math.round(100*p.done/p.total) : 0;
+  document.getElementById('pct').textContent = pct;
+  document.getElementById('pbar').style.width = pct+'%';
+  document.getElementById('cur').textContent = p.current || '-';
+  document.getElementById('eta').textContent = fmtMin(p.eta_min);
+  document.getElementById('run').textContent = fmtMin(p.run_min);
+  document.getElementById('step').textContent = p.step || '-';
+  if (p.done_flag === 1) { document.getElementById('livedot').style.background = '#3fb950'; }
+  drawCoverage(); drawCurves(); drawCoeffs();
+}
+function drawCoeffs() {
+  const p = DATA.progress; if (!p || !p.current) return;
+  const m = p.current.match(/V(\d+)_a(-?[\d.]+)_b(-?[\d.]+)/); if (!m) return;
+  const V=+m[1], a=+m[2], b=+m[3];
+  const hit = DATA.cases.find(c => c.V===V && Math.abs(c.a-a)<0.01 && Math.abs(c.b-b)<0.01);
+  const el = document.getElementById('coeffs');
+  if (!hit) { el.innerHTML = '当前工况 <b>'+p.current+'</b><br>求解中, 系数待后处理...'; return; }
+  el.innerHTML = '<b>'+p.current+'</b> (V='+V+' α='+a+'° β='+b+'°)<br>'+
+    ['CL','CD','Cm','CY','Cl','Cn'].map((k,i)=>'<b>'+k+'</b>'+(hit[[ 'CL','CD','Cm','CY','Cl','Cn'][i]]??hit[k]).toFixed(5)).join('<br>');
+}
+/* ================= 覆盖网格 ================= */
+function drawCoverage() {
+  const cv = document.getElementById('cover');
+  const W = cv.clientWidth, H = cv.clientHeight - 8;
+  cv.width = W; cv.height = H;
+  const ctx = cv.getContext('2d');
+  const AL = [-15,-12.5,-10,-7.5,-5,-2.5,0,2.5,5,7.5,10,12.5,15];
+  const BE = [-15,-10,-5,0,5,10,15];
+  const mx=44,my=18,cw=(W-mx-10)/BE.length,ch=(H-my-14)/AL.length;
+  ctx.clearRect(0,0,W,H);
+  ctx.font='10px Consolas'; ctx.fillStyle='#8b949e';
+  BE.forEach((b,i)=>ctx.fillText(b, mx+i*cw+cw/2-8, H-4));
+  AL.forEach((a,i)=>ctx.fillText(a, 8, my+i*ch+ch/2+4));
+  // 已完成工况标记
+  const have = {};
+  DATA.cases.forEach(c=>{ const bi=BE.indexOf(c.b), ai=AL.indexOf(c.a);
+    if(bi>=0&&ai>=0){ have[ai+'_'+bi]=(have[ai+'_'+bi]||0)+1; } });
+  for(let i=0;i<AL.length;i++) for(let j=0;j<BE.length;j++){
+    const x=mx+j*cw, y=my+i*ch, a=AL[i], b=BE[j];
+    const n=have[i+'_'+j]||0;
+    ctx.fillStyle = n>=4 ? '#238636' : n>0 ? '#9e6a03' : '#21262d';
+    ctx.fillRect(x+3,y+3,cw-6,ch-6);
+    ctx.strokeStyle='#30363d'; ctx.strokeRect(x+3,y+3,cw-6,ch-6);
+  }
+  // 当前工况高亮
+  const p=DATA.progress;
+  if(p&&p.current){ const m=p.current.match(/a(-?[\d.]+)_b(-?[\d.]+)/);
+    if(m){ const ai=AL.indexOf(+m[1]), bi=BE.indexOf(+m[2]);
+      if(ai>=0&&bi>=0){ ctx.strokeStyle='#f85149'; ctx.lineWidth=2;
+        ctx.strokeRect(mx+bi*cw+1,my+ai*ch+1,cw-2,ch-2); ctx.lineWidth=1; } } }
+}
+/* ================= 系数曲线 ================= */
+function plotLine(cv, xk, yk, title, ylab) {
+  const W=cv.clientWidth,H=cv.clientHeight; cv.width=W; cv.height=H;
+  const ctx=cv.getContext('2d'); ctx.clearRect(0,0,W,H);
+  ctx.font='11px Consolas'; ctx.fillStyle='#8b949e'; ctx.fillText(title,8,14);
+  const pts=DATA.cases.filter(c=>c.b===0||true);
+  if(pts.length<2) return;
+  const xs=pts.map(p=>p[xk]), ys=pts.map(p=>p[yk]);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);
+  const px=34,py=22,pw=W-px-10,ph=H-py-14;
+  const X=v=>px+(v-x0)/(x1-x0||1)*pw, Y=v=>py+(1-(v-y0)/(y1-y0||1))*ph;
+  ctx.strokeStyle='#30363d'; ctx.strokeRect(px,py,pw,ph);
+  ctx.beginPath(); ctx.moveTo(px,Y(0)); ctx.lineTo(px+pw,Y(0)); ctx.strokeStyle='#21262d'; ctx.stroke();
+  // 按 β 分组
+  const groups={};
+  pts.forEach(p=>{ (groups[p.b]=groups[p.b]||[]).push(p); });
+  const cols=['#58a6ff','#3fb950','#d29922','#f85149','#bc8cff','#39c5cf','#ff7b72'];
+  let i=0;
+  for(const b of Object.keys(groups).map(Number).sort((a,b)=>a-b)) {
+    const g=groups[b].sort((a,b)=>a[xk]-b[xk]);
+    ctx.strokeStyle=cols[i%cols.length]; ctx.fillStyle=cols[i%cols.length];
+    ctx.beginPath();
+    g.forEach((p,j)=>{ const x=X(p[xk]),y=Y(p[yk]); j?ctx.lineTo(x,y):ctx.moveTo(x,y); });
+    ctx.stroke();
+    g.forEach(p=>{ ctx.fillRect(X(p[xk])-2,Y(p[yk])-2,4,4); });
+    ctx.fillStyle='#8b949e'; ctx.fillText('β='+b, px+4, py+12+i*12);
+    i++;
+  }
+  ctx.fillStyle='#8b949e';
+  ctx.fillText(y0.toFixed(2),4,py+ph); ctx.fillText(y1.toFixed(2),4,py+8);
+}
+function drawCurves(){
+  plotLine(document.getElementById('clPlot'),'a','CL','CL(α) · β 分组','CL');
+  plotLine(document.getElementById('cdPlot'),'a','CD','CD(α)','CD');
+  plotLine(document.getElementById('cyPlot'),'b','CY','CY(β)','CY');
+}
+/* ================= 3D 姿态 ================= */
+let scene,camera,renderer,dartGroup,flowGroup;
+function init3D(){
+  const holder=document.getElementById('view3d');
+  const W=holder.clientWidth,H=holder.clientHeight;
+  renderer=new THREE.WebGLRenderer({antialias:true});
+  renderer.setSize(W,H-30);
+  renderer.setPixelRatio(window.devicePixelRatio);
+  holder.appendChild(renderer.domElement);
+  scene=new THREE.Scene();
+  scene.background=new THREE.Color(0x0a0e14);
+  camera=new THREE.PerspectiveCamera(45,W/H,0.01,100);
+  camera.position.set(0.35,0.22,0.42);
+  camera.lookAt(0,0,0);
+  scene.add(new THREE.AmbientLight(0x8899bb,0.7));
+  const d1=new THREE.DirectionalLight(0xffffff,0.9); d1.position.set(1,1,0.5); scene.add(d1);
+  const d2=new THREE.DirectionalLight(0x88aaff,0.4); d2.position.set(-1,-0.5,-1); scene.add(d2);
+  dartGroup=new THREE.Group();
+  const matBody=new THREE.MeshStandardMaterial({color:0x8b949e,metalness:0.6,roughness:0.35});
+  const matWing=new THREE.MeshStandardMaterial({color:0x4a7ab5,metalness:0.3,roughness:0.5,side:THREE.DoubleSide});
+  const matFin=new THREE.MeshStandardMaterial({color:0xd29922,metalness:0.4,roughness:0.4,side:THREE.DoubleSide});
+  // 弹身: 圆柱沿 x, 长 0.239, 半径 0.0573
+  const body=new THREE.Mesh(new THREE.CylinderGeometry(0.0573,0.0573,0.239,32),matBody);
+  body.rotation.z=-Math.PI/2;
+  dartGroup.add(body);
+  // 头部圆帽
+  const nose=new THREE.Mesh(new THREE.SphereGeometry(0.0573,24,16),matBody);
+  nose.rotation.z=-Math.PI/2; nose.position.x=0.1195; nose.scale.x=1.8;
+  dartGroup.add(nose);
+  // 4 片 X 布局大翼 (45° 斜置平板): 每片从 r0=0.05 到 r1=0.23, 弦 0.09
+  for(const s of [1,-1]) for(const t of [1,-1]) {
+    const wing=new THREE.Mesh(new THREE.BoxGeometry(0.09,0.0016,0.16),matWing);
+    const g=new THREE.Group();
+    g.rotation.x=t*Math.PI/4;             // 斜 45°
+    wing.position.set(-0.015,0,(0.13)*(1));   // 展向中点
+    wing.rotation.x=0;
+    // 展向沿斜 45°: 放置在 (y=t*0.10, z=u*0.10) 方向
+    wing.position.set(-0.015, t*0.055, s*0.055);
+    wing.rotation.z=s*t*Math.PI/4*0 + 0;
+    wing.rotation.x=0; wing.rotation.y=0;
+    // 让翼板展向对准 45° 对角
+    wing.rotation.z=0;
+    g.add(wing);
+    g.rotation.x=s*t*0;  // 翼板自转对齐对角方向
+    wing.rotation.z=-s*Math.PI/4;
+    dartGroup.add(g);
+  }
+  // 4 片尾缘舵 (小, 黄色): 绕各自铰链
+  for(const s of [1,-1]) for(const t of [1,-1]) {
+    const fin=new THREE.Mesh(new THREE.BoxGeometry(0.026,0.004,0.038),matFin);
+    const g=new THREE.Group();
+    g.position.set(-0.084, s*0.020, t*0.020);
+    g.rotation.z=s*t*Math.PI/4;
+    fin.position.z=-0.017;
+    g.add(fin);
+    dartGroup.add(g);
+  }
+  dartGroup.scale.setScalar(2.6);
+  scene.add(dartGroup);
+  // 来流箭头 (固定, 指向 -x)
+  flowGroup=new THREE.Group();
+  const arrowMat=new THREE.MeshBasicMaterial({color:0x3fb950});
+  for(let i=0;i<3;i++){
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(0.004,0.004,0.14),arrowMat);
+    shaft.rotation.z=Math.PI/2;
+    shaft.position.set(0.30+i*0.02, -0.12+i*0.11, 0.10-i*0.14);
+    flowGroup.add(shaft);
+    const head=new THREE.Mesh(new THREE.ConeGeometry(0.012,0.035),arrowMat);
+    head.rotation.z=-Math.PI/2;
+    head.position.set(0.30+i*0.02-0.09, -0.12+i*0.11, 0.10-i*0.14);
+    flowGroup.add(head);
+  }
+  scene.add(flowGroup);
+  // 鼠标交互
+  let mx=0,my=0,down=false;
+  const dom=renderer.domElement;
+  dom.addEventListener('mousedown',e=>{down=true;mx=e.clientX;my=e.clientY;});
+  window.addEventListener('mouseup',()=>down=false);
+  window.addEventListener('mousemove',e=>{
+    if(!down)return;
+    dartGroup.rotation.y+=(e.clientX-mx)*0.01;
+    dartGroup.rotation.x+=(e.clientY-my)*0.01;
+    mx=e.clientX;my=e.clientY;
+  });
+  dom.addEventListener('wheel',e=>{
+    camera.position.multiplyScalar(e.deltaY>0?1.1:0.9);
+    camera.position.clampLength(0.1,2);
+  },{passive:true});
+  window.addEventListener('resize',()=>{
+    const w=holder.clientWidth,h=holder.clientHeight-30;
+    renderer.setSize(w,h); camera.aspect=w/h; camera.updateProjectionMatrix();
+  });
+}
+function upd3D(){
+  const p=DATA.progress; if(!p||!p.current) return;
+  const m=p.current.match(/V\d+_a(-?[\d.]+)_b(-?[\d.]+)/); if(!m) return;
+  const a=+m[1]*Math.PI/180, b=+m[2]*Math.PI/180;
+  dartGroup.rotation.z=-a;   // 攻角: 绕 z(竖直) 轴, 抬头为正 → 机头向 -z?  B系z下→three.js y上: 视觉示意
+  dartGroup.rotation.y=b;
+}
+setInterval(()=>{ if(renderer) renderer.render(scene,camera); upd3D(); },80);
+/* ================= 主循环 ================= */
+init3D();
+pull();
+setInterval(pull,5000);
+setInterval(()=>{ document.getElementById('clock').textContent=new Date().toLocaleTimeString('zh-CN',{hour12:false}); },1000);
+</script>
+</body>
+</html>
