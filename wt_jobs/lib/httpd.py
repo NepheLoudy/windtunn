@@ -6,7 +6,22 @@ usage: py -3 lib/httpd.py [docroot] [port]
 默认 docroot = ../www, 端口 8123。禁缓存头是修"浏览器看到空白"的根: 任何资源
 永不 304, 数据 JSON 每次拉新。
 """
-import http.server, os, socketserver, sys
+import http.server, os, socketserver, subprocess, sys, threading, time
+
+# 自动拉新线程: 每 8 分钟后台跑一次 sync_and_audit (页面开着数据就永远新鲜, 不依赖手动 J1)
+def auto_sync():
+    lib = os.path.dirname(os.path.abspath(__file__))
+    script = os.path.join(lib, 'sync_and_audit.py')
+    while True:
+        time.sleep(480)
+        try:
+            r = subprocess.run([sys.executable, script], capture_output=True, text=True, timeout=600)
+            print('[auto-sync] %s' % ('ok' if r.returncode == 0 else 'FAIL ' + r.stderr[-200:]))
+        except Exception as e:
+            print('[auto-sync] err %s' % e)
+        sys.stdout.flush()
+
+threading.Thread(target=auto_sync, daemon=True).start()
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
 docroot = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'www')

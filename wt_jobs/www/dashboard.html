@@ -45,7 +45,7 @@ svg text{fill:var(--dim);font-size:10px}
 </head>
 <body>
 <h1>🚀 镖体气动数据集监控台 <span style="color:var(--dim);font-size:13px">v2 · 平行基准</span></h1>
-<div class="sub" id="subtitle">数据加载中…</div>
+<div class="sub" id="subtitle">数据加载中… <span style="opacity:.7">· 自动刷新 90s (服务端每 8min 拉新 qianli)</span></div>
 
 <div class="row">
   <div class="card" style="flex:2"><h3>T0-v2 蓝基准扫气 (qianli CPU)</h3><div class="big" id="t0done">—</div><div class="bar"><i id="t0bar" style="width:0%"></i></div><div class="note" id="t0info">—</div></div>
@@ -104,10 +104,19 @@ function st(id,txt,cls){const d=$(id);if(d)d.className='st '+cls;const t=$(id+'_
   else{st('st_three','未就绪','warn');}
 })();
 
-/* ---------- 取数 ---------- */
-fetch('dashboard_data.json?_='+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()})
-.then(d=>{DATA.d=d;renderAll();st('st_data','OK · '+d.generated_ts,'ok');})
-.catch(e=>{st('st_data','加载失败','bad');$('subtitle').textContent='数据加载失败 — 先跑一次 J1 (jobs\\j1_sync_audit.bat)';});
+/* ---------- 取数 (90s 自动轮询: J2 服务端每 8min 自动拉 qianli, 页面永远新鲜) ---------- */
+function loadData(){
+  fetch('dashboard_data.json?_='+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()})
+  .then(d=>{
+    const same = DATA.d && DATA.d.generated_ts === d.generated_ts && DATA.d.t0.done === d.t0.done;
+    DATA.d=d;renderAll();
+    st('st_data','OK · '+d.generated_ts,'ok');
+    if(!same) document.title = '('+d.t0.done+'/'+d.t0.total+') 镖体气动数据集监控台';
+  })
+  .catch(e=>{st('st_data','加载失败','bad');$('subtitle').textContent='数据加载失败 — 先跑一次 J1 (jobs\\j1_sync_audit.bat)';});
+}
+loadData();
+setInterval(loadData, 90000);
 
 function renderAll(){
   const d=DATA.d;
@@ -115,7 +124,7 @@ function renderAll(){
   // 顶部卡
   $('t0done').textContent=d.t0.done+' / '+d.t0.total;
   $('t0bar').style.width=(100*d.t0.done/d.t0.total)+'%';
-  const eta=d.t0.eta_min?('ETA ~'+Math.floor(d.t0.eta_min/60)+'h'+String(d.t0.eta_min%60).padStart(2,'0')+'m'):'';
+  const eta=d.t0.eta_min?('ETA ~'+Math.floor(d.t0.eta_min/60)+'h'+String(d.t0.eta_min%60).padStart(2,'0')+'m'+(d.t0.eta_src?' ('+d.t0.eta_src+')':'')):'';
   $('t0info').textContent=(d.t0.current||'—')+'  '+eta;
   $('t1done').textContent=d.t1.done+' / '+d.t1.total;
   $('t1bar').style.width=(100*d.t1.done/d.t1.total)+'%';

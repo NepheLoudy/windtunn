@@ -158,7 +158,9 @@ def main():
         new = not os.path.exists(args.out)
         with open(args.out, "a", encoding="utf-8") as f:
             if new:
-                f.write("# S_REF=0.017671458676442587 L_REF=0.15 RHO=1.225\n")
+                # 表头写 CASEINFO 实际值 (10-30 拟真性审查: 硬编码占位值曾让 lookup_aero
+                # 元数据与行内系数脱钩 — lookup_aero 消费 S_REF, 差 1.71x)
+                f.write("# S_REF=%.12g L_REF=%.12g RHO=%.12g\n" % (S, L, rho))
                 f.write("V,alpha,beta,de,da,dr,CL,CD,Cm,CY,Cl,Cn\n")
             f.write("%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n"
                     % (V, alpha, beta, 0.0, 0.0, 0.0, CL, CD, Cm, CY, Cl, Cn))

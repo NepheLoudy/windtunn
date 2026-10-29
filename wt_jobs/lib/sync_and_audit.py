@@ -87,12 +87,31 @@ def main():
     red = load_table(RED_TABLE)
     data['sync'] = {'t0_ok': ok0, 'log_ok': okL, 'n_blue': len(rows), 'n_red': len(red)}
 
-    # -- 进度 ---------------------------------------------------------------
+    # -- 进度 (ETA 滚动实测: 用 J1 自己的拉取历史斜率, 不再拍固定单耗) ----------
     cur, prog = parse_sweep_log(logp)
     done = len(rows)
-    eta_min = round((TOTAL - done) * 5.5) if done else None
+    hist_p = os.path.join(STATE, 'pull_history.json')
+    try:
+        hist = json.load(open(hist_p))
+    except Exception:
+        hist = []
+    hist = [h for h in hist if time.time() - h[0] < 6 * 3600]
+    if not hist or hist[-1][1] != done:
+        hist.append([time.time(), done])
+    json.dump(hist[-200:], open(hist_p, 'w'))
+    eta_min, eta_src = None, 'pending'
+    for h in hist:
+        dt = hist[-1][0] - h[0]
+        dd = done - h[1]
+        if dt > 900 and dd > 0:  # 至少 15 分钟窗口且有推进
+            eta_min = round((TOTAL - done) / (dd / dt) / 60)
+            eta_src = 'rolling (%.2f case/min)' % (dd / dt / 60)
+            break
+    if eta_min is None and done:
+        eta_min = round((TOTAL - done) * 5.5)
+        eta_src = 'fixed 5.5min/case'
     data['t0'] = {'done': done, 'total': TOTAL, 'current': cur, 'phase': prog,
-                  'eta_min': eta_min, 'source': 'qianli sweep_t0v2'}
+                  'eta_min': eta_min, 'eta_src': eta_src, 'source': 'qianli sweep_t0v2'}
     seen = {(r['V'], r['alpha'], r['beta']) for r in rows}
     data['coverage'] = {str(int(v)): [[1 if (v, a, b) in seen else 0 for b in BETAS] for a in ALPHAS] for v in VS}
     t1rows = load_table(t1p)
@@ -187,7 +206,7 @@ def main():
     rep = ['== J1 同步+审计报告 %s ==' % data['generated_ts'],
            '蓝表: %d/%d (拉取%s)' % (done, TOTAL, 'OK' if ok0 else 'FAIL'),
            '当前: %s %s' % (cur, prog),
-           'ETA: %s' % ('%dh%02dm' % (eta_min//60, eta_min%60) if eta_min else '-'),
+           'ETA: %s [%s]' % ('%dh%02dm' % (eta_min//60, eta_min%60) if eta_min else '-', eta_src),
            'A1-A5: %s | A6: %s' % (data['audit']['a1a5'], data['audit']['a6']),
            *audit_lines[:20]]
     open(os.path.join(OUT, 'audit_report.txt'), 'w', encoding='utf-8').write('\n'.join(rep) + '\n')
