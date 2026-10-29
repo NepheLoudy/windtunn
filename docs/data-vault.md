@@ -1,6 +1,7 @@
 # 数据分层与 NAS Vault（wt 工具）
 
-> 2026-10-14 重构定稿。原则：**本地只留运算端，数据大头住 NAS，求解读写永不落 SMB。**
+> 2026-10-30 热交换模式改版。原则：**本地只留运算端，数据大头住 NAS，求解读写永不落 SMB；
+> 大批量快照转储免授权自动执行**（曼波 10-30 定：NAS=中转站+终点，不需逐次点头）。
 
 ## 1. 架构
 
@@ -126,3 +127,22 @@ git clone <vault>/git/windtunnel-suite.git   # 笔记本/新机：拉取
 - **push 中断了怎么办？** 原样重跑即续（robocopy 增量跳过已传文件；migrate 自动复用同名 staging）。push 默认命名带时间戳，中断续传建议显式 `--name`。
 - **vault 上 manifest 丢了/被 NAS 侧清理动过？** `wt verify` 会立刻报尺寸/哈希不符；这也是重要 run 建议 `--hash` 归档的原因。
 - **`vtk_old_inline` 那 43G 怎么处理？** 2026-09-30 P0 结案：快照镜像损坏时代的旧存档，数据不可信。默认不迁移；确认无用后本地直接删即可（`wt rm --path ... --yes` 或资源管理器），不占 NAS 一字节。
+
+
+## 6. 热交换模式（2026-10-30 定稿，替代"校验后等曼波确认再清"）
+
+**快照转储 = 自动流水线，无需逐次授权**：
+
+```
+本地 scratch 子目录静置 30min
+  → WT Snapshot HotSwap 任务 (每 30min, Windows 计划任务)
+  → rsync over ssh 推旧NAS vault (192.168.31.153:2222, --partial 可断点)
+  → 双端核数 (文件数+字节) → 通过: 自动删本地 + HOTSWAPPED 日志
+                              → 不过: 本地保留 + MISMATCH 日志待查
+```
+
+- 监视对（wt/auto_snapshot_sync.sh PAIRS）：WindTunnel3D/vtk → runs/、renders → archive/、fansim vtk_smoke → archive/。新快照源加一行 PAIRS 即可。
+- 手册：手动单轮 `wsl -e bash /mnt/d/WindTunnelSuite/wt/auto_snapshot_sync.sh`；日志 `wt/hotswap.log`。
+- **适用边界**：快照/渲染/转储类产物免授权；**代码仓、mass_properties 等真源文件永远不在此流程内**。
+- 一次性大迁移（102.4G）走 `wt/nas_migrate_exec.sh`（同验证语义），收尾自动清本机由 `wt/migrate_followup_cleanup.sh` 执行（7 项全 VERIFIED 才动）。
+- 旧 NAS 凭据：本地 nas_creds.txt（gitignore）；两机（台式/笔记本）都可经 WSL 直接访问。
