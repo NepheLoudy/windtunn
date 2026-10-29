@@ -18,5 +18,9 @@ while true; do
     after=$(du -sm "$d" | cut -f1)
     if [ "$before" != "$after" ]; then echo "$(date +%m-%d\ %H:%M) slimmed $d ${before}M -> ${after}M"; fi
   done
+  # 工作期数据出口: 扫气表增量推 NAS (计算平台在工作时的交换, 曼波 10-30 定)
+  for f in "$ROOT"/*.csv; do
+    [ -e "$f" ] && "$HOME/bin_nas_push.sh" "$f" "runs/$(basename $ROOT)-tables/$(basename $f)" >/dev/null 2>&1 || true
+  done
   sleep "$IV"
 done
