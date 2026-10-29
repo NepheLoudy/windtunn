@@ -105,3 +105,39 @@
 - endTime 分档 (600/1000/1500) 与 fidelity_roadmap 的 T1=3000 步存在偏差 — 如实声明: v0.96 的 T1 价值在网格层级 (L6/L8+边界层), 步数偏差留给 T1 验收时评估力振荡
 - 收敛判据: 残差 1e-5 + 末段力振荡 audit (post_process 内置), T0 档可接受
 - R8b 三版几何对照 (fy 0.245/0.221/0.247 lu) 已证明 LBM 对几何微修不敏感 — 填孔 v2 的 FVM 影响由跨 V 一致性 audit 把关
+
+## 8. 全量代码审查 v4.2 — 程序/拟真度/设计三维度修复 (10-30)
+
+### 8.1 程序纰漏 (抓到即修)
+
+| # | 问题 | 修复 |
+|---|---|---|
+| 1 | **表行丢失事故自伤**: 02:38 rm t0_table 吃掉已 append 的行, 而断点续传看 results.json 会永远跳过 → 行永久缺失 | `recover_missing_rows.sh`: CASEINFO 取键比对表行, 缺者重跑 post_process append — V15_a-15_b-15 已恢复, 4/4 对齐 |
+| 2 | recover 脚本首版三连错 (results.json 无 V 键/post_process 路径/空 key 危险追加) | v2 改 CASEINFO 取键 + 正确路径; 幸好首版失败时未写入 |
+| 3 | httpd auto_sync 线程无锁, ssh 慢时叠加 | threading.Lock non-blocking 跳过本轮 |
+| 4 | nas_push.sh SSH 变量未定义笔误 (set -u 拦截) | SSHOPT→SSH 统一 |
+| 5 | make_case LAYERS 替换: sed 替换串带换行→s 命令断裂; 修复时贪婪正则又吞掉 else 分支 | 单行替换 + 整块重写; 两档干跑验证 (T0 layers{}/T1 3 层) |
+
+### 8.2 拟真度纰漏 (对齐 fidelity_roadmap)
+
+| # | 缺口 | 修复 |
+|---|---|---|
+| 1 | **T1 边界层从未实现**: 模板 addLayers false 硬编码 + layers{} 空 — roadmap 承诺的 T1 壁面解析缺失 | 模板占位符化 (__ADDLAYERS__/__LAYERS__) + make_case 自动档: SURF_LEVEL>=6 → 3 层; T0 语义零变化 (干跑 diff 验证) |
+| 2 | **T1 endTime 上限 1500 vs roadmap 3000** | run_solve.sh: SURF_LEVEL>=6 → endTime 3000, 收敛由 residualControl 1e-5 判停 (上限非目标) |
+| 3 | lookup_aero 消费表头元数据 — 表头曾为占位谎言 | 昨日已修表头生成; 今日补: 红表 aero_table_foldedfin_T0.csv 表头更正 (+NOTE 注释), 数据行未动 — 消除"加载红表拿错 S_REF"陷阱 |
+| 4 | 部署面缺口: WSL /root 引擎副本与 qianli 副本不一致 | 双端同步 (WSL 活跃引擎优先) |
+| ✓ | 风轴旋转 (wind_axes 三角) / qS 归一 / 符号自检 / lookup_aero meta 浮点化 | 审查通过, 无需改 |
+
+### 8.3 设计纰漏
+
+| # | 问题 | 处置 |
+|---|---|---|
+| 1 | wt.sh (robocopy/Z: 盘语义) 与新拓扑 (SSH-only NAS) 分裂 | data-vault.md §7 已声明拓扑 v2; wt.sh 保留为未来 SMB 备用, 日常走 nas_push/rsync |
+| 2 | fuse_body --fill-nose 与 fill_nose.py 参数两处硬编码 | 登记 (几何已冻结, 下次几何变更时合一) |
+| 3 | 102.4G 迁移收尾清本机 = 热交换模式自动执行 | followup 脚本在岗 (7 项全 VERIFIED 才动) |
+
+### 8.4 审查方法教训
+
+- **rm 共享产物前先想断点续传的判据** (results.json vs 表行) — 删的是表, 断点看的是文件, 两套状态机脱节。
+- **正则替换块时勿用贪婪跨分支** (re.S .* 吞 else) — 结构化编辑用整块重写。
+- **同一代码三处副本 (本地仓/WSL 引擎/qianli)** 的部署面: 改完必须三端同步 + 干跑验证, "qianli 同步了"不等于"活跃引擎生效"。

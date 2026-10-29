@@ -8,7 +8,7 @@ FoamFile
 
 castellatedMesh true;
 snap              true;
-addLayers         false;   // 校验点不加层 (高 Re 壁面函数); 定量表阶段开
+addLayers         __ADDLAYERS__;   // T0=false; T1(SURF_LEVEL>=6) 自动 true+3 层
 
 geometry
 {
@@ -55,7 +55,7 @@ snapControls
 addLayersControls
 {
     relativeSizes true;
-    layers {}
+    layers {__LAYERS__}
     minThickness  0.25;
     expansionRatio 1.2;
     finalLayerThickness 0.5;

@@ -141,6 +141,18 @@ sub "__BOXMIN__" "$BX0 $BY0 $BZ0" "$DEST/system/snappyHexMeshDict"
 sub "__BOXMAX__" "$BX1 $BY1 $BZ1" "$DEST/system/snappyHexMeshDict"
 sub "__LOCINMESH__" "$Px $Py $Pz" "$DEST/system/snappyHexMeshDict"
 sub "__BOXLEVEL__" "$BOX_LEVEL" "$DEST/system/snappyHexMeshDict"
+
+# 边界层自动档 (10-30 拟真度对齐): T1(SURF_LEVEL>=6) 开 3 层, T0 不加 — 不破坏 T0 一致性
+LAYERS=${LAYERS:-0}
+if [ "${SURF_LEVEL:-5}" -ge 6 ]; then LAYERS=3; fi
+LAYERS_BLOCK=' ".*" { nSurfaceLayers 3; } '
+if [ "$LAYERS" -gt 0 ]; then
+  sub "__ADDLAYERS__" "true" "$DEST/system/snappyHexMeshDict"
+  sub "__LAYERS__" "$LAYERS_BLOCK" "$DEST/system/snappyHexMeshDict"
+else
+  sub "__ADDLAYERS__" "false" "$DEST/system/snappyHexMeshDict"
+  sub "__LAYERS__" "" "$DEST/system/snappyHexMeshDict"
+fi
 sub "__XL__" "$XL" "$DEST/system/blockMeshDict"; sub "__XU__" "$XU" "$DEST/system/blockMeshDict"
 sub "__Y0__" "$Y0D" "$DEST/system/blockMeshDict"; sub "__Y1__" "$Y1D" "$DEST/system/blockMeshDict"
 sub "__Z0__" "$Z0D" "$DEST/system/blockMeshDict"; sub "__Z1__" "$Z1D" "$DEST/system/blockMeshDict"

@@ -9,16 +9,21 @@ usage: py -3 lib/httpd.py [docroot] [port]
 import http.server, os, socketserver, subprocess, sys, threading, time
 
 # 自动拉新线程: 每 8 分钟后台跑一次 sync_and_audit (页面开着数据就永远新鲜, 不依赖手动 J1)
+_sync_lock = threading.Lock()
 def auto_sync():
     lib = os.path.dirname(os.path.abspath(__file__))
     script = os.path.join(lib, 'sync_and_audit.py')
     while True:
         time.sleep(480)
+        if not _sync_lock.acquire(blocking=False):
+            continue  # 上轮未完 (ssh 慢), 跳过本轮防叠加
         try:
             r = subprocess.run([sys.executable, script], capture_output=True, text=True, timeout=600)
             print('[auto-sync] %s' % ('ok' if r.returncode == 0 else 'FAIL ' + r.stderr[-200:]))
         except Exception as e:
             print('[auto-sync] err %s' % e)
+        finally:
+            _sync_lock.release()
         sys.stdout.flush()
 
 threading.Thread(target=auto_sync, daemon=True).start()

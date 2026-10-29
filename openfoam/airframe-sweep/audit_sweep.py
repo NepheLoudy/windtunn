@@ -72,8 +72,11 @@ def main():
             vals = [r[k] for r in rs]
             med = sorted(vals)[len(vals) // 2]
             disp = (max(vals) - min(vals)) / max(abs(med), 1e-6)
+            # 混合判据 (10-30): 零点附近相对离散数学性放大 (Cm≈0 时 81% 虚高教训),
+            # 加绝对离散闸门 — |max-min| < abs_floor 视为通过
+            abs_floor = 0.02 if k == "Cm" else 0.0
             flag = ""
-            if disp > tol and med != 0:
+            if disp > tol and med != 0 and (max(vals) - min(vals)) >= abs_floor:
                 flag = " <-- 离散"; warn += 1
             line += f" {k}={disp * 100:5.1f}%{flag}"
         out.append(line)

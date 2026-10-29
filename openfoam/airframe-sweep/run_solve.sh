@@ -36,6 +36,10 @@ cd "$CASE"
 
 if [ -n "$ET" ]; then
   sed -i "s/^endTime.*/endTime         $ET;/" system/controlDict
+  # T1 档 (SURF_LEVEL>=6): endTime 上限抬到 3000, 收敛由 residualControl 1e-5 判停 (roadmap 对齐)
+  if [ "${SURF_LEVEL:-0}" -ge 6 ]; then
+    sed -i "s/^endTime.*/endTime         3000;/" system/controlDict
+  fi
 fi
 sed -i "s/^numberOfSubdomains .*/numberOfSubdomains $NP;/" system/decomposeParDict
 
