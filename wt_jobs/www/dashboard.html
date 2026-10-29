@@ -1,0 +1,289 @@
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>镖体气动数据集监控台 v2 — 平行基准</title>
+<style>
+:root{--bg:#0d1220;--panel:#141b2e;--panel2:#1a2338;--tx:#dce3f2;--dim:#8792ad;--grn:#3ecf7a;--amb:#e8b13e;--red:#e05555;--blu:#4a90e2;--cyn:#38bdc8}
+*{box-sizing:border-box;margin:0;padding:0}
+body{background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif;padding:14px}
+h1{font-size:19px;margin-bottom:2px}
+.sub{color:var(--dim);font-size:12px;margin-bottom:10px}
+.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.card{background:var(--panel);border:1px solid #232e4a;border-radius:10px;padding:12px 14px;flex:1;min-width:220px}
+.card h3{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
+.big{font-size:22px;font-weight:600}
+.ok{color:var(--grn)}.warn{color:var(--amb)}.bad{color:var(--red)}
+.bar{height:10px;background:#0a0e1a;border-radius:5px;overflow:hidden;margin-top:6px}
+.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--blu),var(--cyn))}
+.tabs{display:flex;gap:6px;margin:12px 0}
+.tabs button{background:var(--panel);color:var(--dim);border:1px solid #232e4a;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
+.tabs button.on{background:var(--panel2);color:var(--tx);border-color:var(--blu)}
+.pane{display:none}.pane.on{display:block}
+table.hm{border-collapse:collapse}
+table.hm td,table.hm th{width:34px;height:26px;text-align:center;font-size:10px;color:var(--dim);border:1px solid #1c2540}
+td.d{background:rgba(62,207,122,.55)}td.m{background:#0a0e1a}td.c{background:rgba(232,177,62,.7);animation:pul 1.2s infinite alternate}
+@keyframes pul{to{background:rgba(232,177,62,.35)}}
+.vsel{display:inline-flex;gap:4px;margin-left:10px;vertical-align:middle}
+.vsel button{background:var(--panel);color:var(--dim);border:1px solid #232e4a;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px}
+.vsel button.on{color:var(--tx);border-color:var(--cyn)}
+svg text{fill:var(--dim);font-size:10px}
+.legend{font-size:12px;color:var(--dim);margin-top:6px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin:0 4px 0 10px;vertical-align:-1px}
+.audit{font-family:Consolas,monospace;font-size:12px;white-space:pre-wrap;background:#0a0e1a;border-radius:8px;padding:10px;max-height:420px;overflow:auto}
+.slider{display:flex;align-items:center;gap:8px;margin:4px 0}
+.slider label{width:44px;color:var(--dim);font-size:12px}
+.slider input{flex:1}
+.slider output{width:52px;font-size:12px;color:var(--cyn)}
+#selftest{position:fixed;right:12px;bottom:12px;background:var(--panel);border:1px solid #232e4a;border-radius:8px;padding:8px 12px;font-size:11px;color:var(--dim);z-index:9}
+#selftest b{color:var(--tx)}
+.st{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+#selftest div{margin:2px 0}
+.note{color:var(--dim);font-size:12px;margin-top:8px}
+</style>
+</head>
+<body>
+<h1>🚀 镖体气动数据集监控台 <span style="color:var(--dim);font-size:13px">v2 · 平行基准</span></h1>
+<div class="sub" id="subtitle">数据加载中…</div>
+
+<div class="row">
+  <div class="card" style="flex:2"><h3>T0-v2 蓝基准扫气 (qianli CPU)</h3><div class="big" id="t0done">—</div><div class="bar"><i id="t0bar" style="width:0%"></i></div><div class="note" id="t0info">—</div></div>
+  <div class="card"><h3>T1-v2 高保真 (链式排队)</h3><div class="big" id="t1done">—</div><div class="bar"><i id="t1bar" style="width:0%"></i></div><div class="note">T0 完成后自动续</div></div>
+  <div class="card"><h3>T2 R8b LBM (qianli GPU)</h3><div class="big" id="t2step">—</div><div class="note" id="t2info">—</div></div>
+  <div class="card"><h3>审计 A1-A5 / A6</h3><div class="big"><span id="a15">—</span> <span style="color:var(--dim);font-size:16px">/</span> <span id="a6">—</span></div><div class="note" id="audnote">—</div></div>
+</div>
+
+<div class="tabs">
+  <button data-p="p1" class="on">覆盖热力图</button><button data-p="p2">系数曲线</button>
+  <button data-p="p3">极曲线</button><button data-p="p4">审计明细</button><button data-p="p5">3D 姿态 / 舵偏</button>
+</div>
+
+<div class="pane on" id="p1">
+  <div style="margin-bottom:8px"><b>V 档:</b><span class="vsel" id="vsel"></span></div>
+  <div id="heatmap"></div>
+  <div class="legend"><i style="background:rgba(62,207,122,.55)"></i>完成 <i style="background:rgba(232,177,62,.7)"></i>当前 <i style="background:#0a0e1a;border:1px solid #1c2540"></i>待跑 <span style="margin-left:16px">行=α(攻角) 列=β(侧滑)</span></div>
+</div>
+<div class="pane" id="p2">
+  <b>曲线:</b><span class="vsel" id="csel"></span>
+  <div id="curves"></div>
+  <div class="note" id="slopeinfo"></div>
+</div>
+<div class="pane" id="p3"><div id="polar"></div><div class="note">CL-CD 极曲线 (β=0), 越靠左上阻力效率越高</div></div>
+<div class="pane" id="p4"><div class="audit" id="auditdetail">—</div></div>
+<div class="pane" id="p5">
+  <div class="row">
+    <div class="card" style="flex:2;min-width:420px"><h3>姿态 3D (拖转)</h3><div id="view3d" style="height:380px"></div></div>
+    <div class="card" style="flex:1;min-width:240px">
+      <h3>舵偏 δ1..δ4 [deg]</h3>
+      <div id="sliders"></div>
+      <div class="note">0° = 舵面平行弹轴 (v0.95 基准)。铰链轴来自 cfd_parallel assembly。</div>
+      <div class="note" id="alphaNote">来流: α=0 β=0</div>
+    </div>
+  </div>
+</div>
+
+<div id="selftest">
+  <div><span class="st" id="st_data"></span>数据 <b id="st_data_t">…</b></div>
+  <div><span class="st" id="st_three"></span>three.js <b id="st_three_t">…</b></div>
+  <div><span class="st" id="st_gl"></span>WebGL <b id="st_gl_t">…</b></div>
+</div>
+
+<script src="three.min.js" onerror="window.__three_fail=1"></script>
+<script>
+'use strict';
+const $=id=>document.getElementById(id);
+const DATA={d:null,vSel:'25',cSel:'CL'};
+
+/* ---------- 自检面板 ---------- */
+function st(id,txt,cls){const d=$(id);if(d)d.className='st '+cls;const t=$(id+'_t');if(t)t.textContent=txt;}
+(function threeCheck(){ // 必须先于 3D 初始化
+  if(window.__three_fail){st('st_three','加载失败→2D降级','bad');}
+  else if(window.THREE){st('st_three','r'+THREE.REVISION,'ok');}
+  else{st('st_three','未就绪','warn');}
+})();
+
+/* ---------- 取数 ---------- */
+fetch('dashboard_data.json?_='+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()})
+.then(d=>{DATA.d=d;renderAll();st('st_data','OK · '+d.generated_ts,'ok');})
+.catch(e=>{st('st_data','加载失败','bad');$('subtitle').textContent='数据加载失败 — 先跑一次 J1 (jobs\\j1_sync_audit.bat)';});
+
+function renderAll(){
+  const d=DATA.d;
+  $('subtitle').textContent='生成于 '+d.generated_ts+' · 蓝表 '+d.sync.n_blue+'/'+d.t0.total+' (qianli 实时拉取)';
+  // 顶部卡
+  $('t0done').textContent=d.t0.done+' / '+d.t0.total;
+  $('t0bar').style.width=(100*d.t0.done/d.t0.total)+'%';
+  const eta=d.t0.eta_min?('ETA ~'+Math.floor(d.t0.eta_min/60)+'h'+String(d.t0.eta_min%60).padStart(2,'0')+'m'):'';
+  $('t0info').textContent=(d.t0.current||'—')+'  '+eta;
+  $('t1done').textContent=d.t1.done+' / '+d.t1.total;
+  $('t1bar').style.width=(100*d.t1.done/d.t1.total)+'%';
+  if(d.t2&&d.t2.stats){$('t2step').textContent='步 '+d.t2.stats.t_last;$('t2info').textContent='fy均值 '+d.t2.stats.fy_mean.toFixed(3)+' lu (对称性→0)';}
+  else $('t2step').textContent='—';
+  const av=x=>({PASS:['PASS','ok'],FAIL:['FAIL','bad'],WARN:['WARN','warn'],SKIP:['SKIP','warn']}[x]||['—','']);
+  const [a15t,a15c]=av(d.audit.a1a5),[a6t,a6c]=av(d.audit.a6);
+  $('a15').textContent=a15t;$('a15').className=a15c;$('a6').textContent=a6t;$('a6').className=a6c;
+  $('audnote').textContent='CY(β=0)中位/β镜像/CLα漂移 三锚';
+  drawHeat();drawCurves();drawPolar();drawAudit();init3d();
+}
+
+/* ---------- 热力图 ---------- */
+(function(){const s=$('vsel');['15','20','25','30'].forEach(v=>{const b=document.createElement('button');b.textContent=v;b.onclick=()=>{DATA.vSel=v;[...s.children].forEach(x=>x.classList.toggle('on',x===b));drawHeat();};if(v==='25')b.classList.add('on');s.appendChild(b);});})();
+function drawHeat(){
+  const d=DATA.d;if(!d)return;
+  const A=[-15,-12.5,-10,-7.5,-5,-2.5,0,2.5,5,7.5,10,12.5,15],B=[-15,-10,-5,0,5,10,15];
+  const m=d.coverage[DATA.vSel]||[];
+  const cur=d.t0.current||'';
+  const cm=cur.match(/a(-?[\d.]+)_b(-?[\d.]+)/);
+  let h='<table class="hm"><tr><th>α\\β</th>'+B.map(b=>'<th>'+b+'</th>').join('')+'</tr>';
+  A.forEach((a,i)=>{h+='<tr><th>'+a+'</th>'+B.map((b,j)=>{
+    let cls=m[i]&&m[i][j]?'d':'m';
+    if(cm&&Math.abs(parseFloat(cm[1])-a)<1e-6&&Math.abs(parseFloat(cm[2])-b)<1e-6&&m[i]&&!m[i][j])cls='c';
+    return '<td class="'+cls+'"></td>';}).join('')+'</tr>';});
+  $('heatmap').innerHTML=h+'</table>';
+}
+
+/* ---------- SVG 曲线 ---------- */
+function svgLine(w,h,pad,xr,yr,xlab,ylab,series,extra){
+  const X=x=>pad.l+(x-xr[0])/(xr[1]-xr[0])*(w-pad.l-pad.r);
+  const Y=y=>h-pad.b-(y-yr[0])/(yr[1]-yr[0])*(h-pad.t-pad.b);
+  let s='<svg width="'+w+'" height="'+h+'" style="background:var(--panel);border-radius:10px;max-width:100%">';
+  const yt=(yr[1]-yr[0])/5;
+  for(let i=0;i<=5;i++){const y=yr[0]+yt*i;s+='<line x1="'+X(xr[0])+'" y1="'+Y(y)+'" x2="'+X(xr[1])+'" y2="'+Y(y)+'" stroke="#1c2540"/><text x="4" y="'+(Y(y)+3)+'">'+y.toFixed(2)+'</text>';}
+  const xt=(xr[1]-xr[0])/6;
+  for(let i=0;i<=6;i++){const x=xr[0]+xt*i;s+='<text x="'+(X(x)-8)+'" y="'+(h-6)+'">'+(+x.toFixed(1))+'</text><line x1="'+X(x)+'" y1="'+Y(yr[0])+'" x2="'+X(x)+'" y2="'+Y(yr[1])+'" stroke="#1c2540"/>';}
+  series.forEach(sr=>{let p='';sr.pts.forEach((pt,i)=>{if(!pt)return;p+=(i?'L':'M')+X(pt[0]).toFixed(1)+' '+Y(pt[1]).toFixed(1)+' ';});
+    s+='<path d="'+p+'" fill="none" stroke="'+sr.c+'" stroke-width="2"/>';});
+  if(extra)s+=extra(X,Y);
+  s+='<text x="'+(w/2)+'" y="14" text-anchor="middle">'+xlab+'</text><text x="12" y="'+(h/2)+'" transform="rotate(-90 12 '+(h/2)+')">'+ylab+'</text>';
+  let lg='';series.forEach((sr,i)=>{lg+='<rect x="'+(w-120)+'" y="'+(20+i*16)+'" width="10" height="4" fill="'+sr.c+'"/><text x="'+(w-105)+'" y="'+(24+i*16)+'">'+sr.n+'</text>';});
+  return s+lg+'</svg>';
+}
+const VCOL={'15':'#38bdc8','20':'#4a90e2','25':'#3ecf7a','30':'#e8b13e'};
+function drawCurves(){
+  const d=DATA.d;if(!d)return;
+  const csel=$('csel');if(!csel.children.length)['CL','CD','Cm'].forEach(n=>{const b=document.createElement('button');b.textContent=n;b.onclick=()=>{DATA.cSel=n;[...csel.children].forEach(x=>x.classList.toggle('on',x===b));drawCurves();};if(n==='CL')b.classList.add('on');csel.appendChild(b);});
+  const A=d.curves.blue.alpha,yrMap={CL:[-1.4,1.4],CD:[0,1.6],Cm:[-0.5,0.5]};
+  const ylMap={CL:'CL',CD:'CD',Cm:'Cm (抬头+)'},xl='α [deg]';
+  const html='<div class="row">'+['CL','CD','Cm'].map((k)=>'<div class="card" style="min-width:520px">'+svgLine(560,250,{l:44,r:16,t:18,b:24},[-15,15],[yrMap[k][0],yrMap[k][1]],xl,ylMap[k],
+    (()=>{const ss=[];Object.keys(d.curves.blue.byV).forEach(v=>{const ys=d.curves.blue.byV[v][k];ss.push({n:'V='+v,c:VCOL[v]||'#888',pts:A.map((a,j)=>ys[j]==null?null:[a,ys[j]])});});
+      if(k===DATA.cSel&&d.curves.red_v25.alpha)ss.push({n:'V=25 红',c:'#e05555',pts:d.curves.red_v25.alpha.map((a,i)=>[a,d.curves.red_v25.CL[i]])});return ss;})())+'</div>').join('')+'</div>';
+  $('curves').innerHTML=html;
+  $('slopeinfo').textContent=d.curves.cl_slope_per_rad?('蓝表 CL_α (V=25, β=0, |α|≤7.5 线性拟合) = '+d.curves.cl_slope_per_rad.toFixed(2)+' /rad — 锚定验收值 2.52/rad'):'蓝表 β=0 行尚不足, 斜率待数据';
+}
+
+/* ---------- 极曲线 ---------- */
+function drawPolar(){
+  const d=DATA.d;if(!d||!d.curves.polar)return;
+  const series=Object.keys(d.curves.polar).map(v=>({n:'V='+v,c:VCOL[v]||'#888',pts:d.curves.polar[v].map(p=>[p[0],p[1]])}));
+  $('polar').innerHTML=svgLine(900,420,{l:44,r:16,t:18,b:28},[0,1.6],[-1.4,1.4],'CD','CL',series);
+}
+
+/* ---------- 审计明细 ---------- */
+function drawAudit(){
+  const d=DATA.d;if(!d)return;
+  $('auditdetail').textContent=(d.audit.a6_lines||[]).join('\n')||'(无 A6 输出 — 先跑 J1)';
+}
+
+/* ---------- 3D 姿态 ---------- */
+let T3={ready:false,groups:[]};
+function init3d(){
+  if(T3.started)return;T3.started=true;
+  const holder=$('view3d');
+  if(window.__three_fail||!window.THREE){ // 2D 降级
+    st('st_gl','未用(2D)','warn');
+    holder.innerHTML='<canvas id="c2d" width="520" height="380" style="width:100%"></canvas>';
+    T3.d2=true;draw2d();return;
+  }
+  try{
+    const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
+    st('st_gl','OK','ok');
+    renderer.setSize(holder.clientWidth||520,380);renderer.setClearColor(0x0d1220);
+    holder.appendChild(renderer.domElement);
+    const scene=new THREE.Scene();
+    scene.add(new THREE.AmbientLight(0xffffff,.55));
+    const dl=new THREE.DirectionalLight(0xffffff,.75);dl.position.set(2,3,4);scene.add(dl);
+    const cam=new THREE.PerspectiveCamera(40,(holder.clientWidth||520)/380,.01,10);
+    cam.position.set(-.28,.14,.24);cam.lookAt(0,0,0);
+    const grid=new THREE.GridHelper(.3,15,0x223055,0x1a2440);grid.position.y=-.07;scene.add(grid);
+    // 流向箭头
+    const flow=new THREE.Group();
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.0025,.0025,.1),new THREE.MeshBasicMaterial({color:0x38bdc8}));
+    shaft.rotation.z=Math.PI/2;shaft.position.x=-.05;flow.add(shaft);
+    const head=new THREE.Mesh(new THREE.ConeGeometry(.006,.018),new THREE.MeshBasicMaterial({color:0x38bdc8}));
+    head.rotation.z=-Math.PI/2;head.position.x=.01;flow.add(head);
+    scene.add(flow);
+    const pivot=new THREE.Group();scene.add(pivot);T3.pivot=pivot; // 整机旋转枢轴 (不含地板/箭头)
+    fetch('dart_parallel_mesh.json?_='+Date.now()).then(r=>r.json()).then(mesh=>{
+      const mat=new THREE.MeshStandardMaterial({color:0x7a86b8,metalness:.15,roughness:.6});
+      const bgeo=new THREE.BufferGeometry();
+      bgeo.setAttribute('position',new THREE.Float32BufferAttribute(mesh.body.pos,3));
+      bgeo.computeVertexNormals();pivot.add(new THREE.Mesh(bgeo,mat));
+      mesh.fins.forEach(f=>{
+        const g=new THREE.Group();g.position.set(f.hinge_point[0],f.hinge_point[1],f.hinge_point[2]);
+        const geo=new THREE.BufferGeometry();
+        const rel=[];for(let i=0;i<f.pos.length;i+=3)rel.push(f.pos[i]-f.hinge_point[0],f.pos[i+1]-f.hinge_point[1],f.pos[i+2]-f.hinge_point[2]);
+        geo.setAttribute('position',new THREE.Float32BufferAttribute(rel,3));geo.computeVertexNormals();
+        const fm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x3ecf7a,metalness:.2,roughness:.5}));
+        g.add(fm);pivot.add(g);
+        T3.groups.push({g,axis:new THREE.Vector3(f.hinge_axis[0],f.hinge_axis[1],f.hinge_axis[2]).normalize(),base:f.hinge_point});
+      });
+      T3.ready=true;applyDeltas();
+    });
+    const rot={x:.35,y:-.7,drag:false,px:0,py:0};
+    renderer.domElement.addEventListener('pointerdown',e=>{rot.drag=true;rot.px=e.clientX;rot.py=e.clientY;});
+    window.addEventListener('pointerup',()=>rot.drag=false);
+    window.addEventListener('pointermove',e=>{if(!rot.drag)return;rot.y+=(e.clientX-rot.px)*.01;rot.x+=(e.clientY-rot.py)*.01;rot.px=e.clientX;rot.py=e.clientY;});
+    (function loop(){requestAnimationFrame(loop);
+      if(window.__pause_raf)return; // 截图/隐藏页签时冻结画面, 让 capture 拿得到稳定帧
+      if(T3.pivot)T3.pivot.rotation.set(rot.x,rot.y,0);
+      renderer.render(scene,cam);})();
+    document.addEventListener('visibilitychange',()=>{window.__pause_raf=document.hidden;});
+    window.__applyFlow=(al,be)=>{flow.rotation.y=-be*Math.PI/180;flow.rotation.z=al*Math.PI/180;};
+  }catch(e){st('st_gl','err: '+String(e).slice(0,40),'bad');T3.d2=true;holder.innerHTML='<canvas id="c2d" width="520" height="380" style="width:100%"></canvas>';draw2d();}
+}
+/* 2D 降级: 俯视示意 */
+function draw2d(){
+  const c=$('c2d');if(!c)return;const x=c.getContext('2d');
+  x.fillStyle='#0d1220';x.fillRect(0,0,c.width,c.height);
+  x.fillStyle='#7a86b8';x.fillRect(c.width/2-30,c.height/2-12,120,24);
+  x.fillStyle='#3ecf7a';
+  const d=DATA.d?[[1,45],[1,-45],[1,-45],[1,45]]:[[0,0],[0,0],[0,0],[0,0]];
+  d.forEach((f,i)=>{x.save();x.translate(c.width/2+60,c.height/2);x.rotate((i<2?1:-1)*Math.PI/4*f[1]/45*Math.max(.2,1-Math.abs(T3.d2d||0)/90));x.fillRect(0,-8,50,6);x.restore();});
+  x.fillStyle='#38bdc8';x.fillText('2D 降级模式 (three.js 不可用) — 俯视示意',12,20);
+  x.fillText('来流 →',c.width/2-100,c.height/2+4);
+}
+/* 滑块 */
+(function(){
+  const names=['δ1','δ2','δ3','δ4'];
+  const box=$('sliders');
+  names.forEach((n,i)=>{const w=document.createElement('div');w.className='slider';
+    w.innerHTML='<label>'+n+'</label><input type="range" min="-45" max="45" value="0" step="1"><output>0°</output>';
+    const inp=w.querySelector('input'),out=w.querySelector('output');
+    inp.oninput=()=>{out.textContent=inp.value+'°';T3.d2d=+inp.value;applyDeltas();};
+    box.appendChild(w);});
+  const ap=document.createElement('div');ap.className='slider';
+  ap.innerHTML='<label>α</label><input type="range" min="-15" max="15" value="0" step="1"><output>0°</output>';
+  const ai=ap.querySelector('input'),ao=ap.querySelector('output');
+  ai.oninput=()=>{ao.textContent=ai.value+'°';$('alphaNote').textContent='来流: α='+ai.value+'° β='+($('betaIn')?$('betaIn').value:0)+'°';if(window.__applyFlow)window.__applyFlow(+ai.value,+($('betaIn')?$('betaIn').value:0));};
+  box.appendChild(ap);
+  const bp=document.createElement('div');bp.className='slider';
+  bp.innerHTML='<label>β</label><input id="betaIn" type="range" min="-15" max="15" value="0" step="1"><output>0°</output>';
+  const bi=bp.querySelector('input'),bo=bp.querySelector('output');
+  bi.oninput=()=>{bo.textContent=bi.value+'°';$('alphaNote').textContent='来流: α='+ai.value+'° β='+bi.value+'°';if(window.__applyFlow)window.__applyFlow(+ai.value,+bi.value);};
+  box.appendChild(bp);
+})();
+function applyDeltas(){
+  if(!T3.ready)return;
+  const ds=[...document.querySelectorAll('#sliders input[type=range]')].slice(0,4).map(i=>+i.value);
+  T3.groups.forEach((fg,i)=>{const dd=ds[i]||0;const q=new THREE.Quaternion().setFromAxisAngle(fg.axis,dd*Math.PI/180);fg.g.quaternion.copy(q);});
+  if(T3.d2)draw2d();
+}
+/* tabs */
+document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
+  document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
+  document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===b.dataset.p));
+});
+</script>
+</body>
+</html>

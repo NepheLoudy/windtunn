@@ -1,0 +1,5 @@
+# 拉回的原始数据是 scratch, 不进 git
+state/
+# J1 每次重新生成
+www/dashboard_data.json
+out/
