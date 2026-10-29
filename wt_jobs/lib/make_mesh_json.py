@@ -3,7 +3,8 @@
 """平行基准 STL → 仪表台 3D 网格 JSON (B 系米制, 质心原点, 浏览器 three.js 直接加载)
 
 fins 附带 hinge_axis / hinge_point (来自 cfd_parallel/airframe_assembly.json),
-前端用它们做 δ 滑块绕铰链旋转。body 每 5 取 1 三角降采样控体积。
+前端用它们做 δ 滑块绕铰链旋转。body 全量三角形 (降采样会破面变点云, 10-29 曼波截图抓到),
+坐标 3 位小数 (亚毫米, 纯显示够) 控体积。
 输出: wt_jobs/www/dart_parallel_mesh.json
 """
 import json, os, struct
@@ -27,13 +28,13 @@ def flat(tris, nd=4):
 asm = json.load(open(os.path.join(CAD, 'airframe_assembly.json'), encoding='utf-8'))
 hinge = {s['name']: (s['hinge_axis'], s['hinge_line'][0]) for s in asm['control_surfaces']}
 
-mesh = {'body': {'pos': flat(load_tris(os.path.join(CAD, 'body.stl'), 5))}, 'fins': []}
+mesh = {'body': {'pos': flat(load_tris(os.path.join(CAD, 'body.stl')), 3)}, 'fins': []}
 for k in (1, 2, 3, 4):
     name = 'fin_%d' % k
     ax, pt = hinge[name]
     mesh['fins'].append({
         'name': name,
-        'pos': flat(load_tris(os.path.join(CAD, name + '.stl'))),
+        'pos': flat(load_tris(os.path.join(CAD, name + '.stl')), 4),
         'hinge_axis': [round(float(x), 5) for x in ax],
         'hinge_point': [round(float(x), 5) for x in pt],
     })

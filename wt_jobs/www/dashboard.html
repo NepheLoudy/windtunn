@@ -78,6 +78,7 @@ svg text{fill:var(--dim);font-size:10px}
       <h3>舵偏 δ1..δ4 [deg]</h3>
       <div id="sliders"></div>
       <div class="note">0° = 舵面平行弹轴 (v0.95 基准)。铰链轴来自 cfd_parallel assembly。</div>
+      <div class="note"><b>语义</b>: 机体固定 (风洞视角), α/β 滑块转来流箭头; 拖动 = 转相机视角 (机身↔来流相对关系锁定), 滚轮缩放。</div>
       <div class="note" id="alphaNote">来流: α=0 β=0</div>
     </div>
   </div>
@@ -204,42 +205,60 @@ function init3d(){
     scene.add(new THREE.AmbientLight(0xffffff,.55));
     const dl=new THREE.DirectionalLight(0xffffff,.75);dl.position.set(2,3,4);scene.add(dl);
     const cam=new THREE.PerspectiveCamera(40,(holder.clientWidth||520)/380,.01,10);
-    cam.position.set(-.28,.14,.24);cam.lookAt(0,0,0);
+    // 拖动 = 轨道相机 (曼波 10-29 指正: 机身与来流相对关系必须锁定, 拖动只是换观察角度)
+    const camSt={theta:2.35,phi:.32,R:.42,drag:false,px:0,py:0};
+    function applyCam(){cam.position.set(
+      camSt.R*Math.cos(camSt.phi)*Math.cos(camSt.theta),
+      camSt.R*Math.sin(camSt.phi),
+      camSt.R*Math.cos(camSt.phi)*Math.sin(camSt.theta));
+      cam.lookAt(0,0,0);}
+    applyCam();
     const grid=new THREE.GridHelper(.3,15,0x223055,0x1a2440);grid.position.y=-.07;scene.add(grid);
-    // 流向箭头
+    // 来流箭头: 风洞语义 (机体固定 B 系, 箭头表示气流运动方向 U, α/β 滑块驱动)
     const flow=new THREE.Group();
-    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.0025,.0025,.1),new THREE.MeshBasicMaterial({color:0x38bdc8}));
-    shaft.rotation.z=Math.PI/2;shaft.position.x=-.05;flow.add(shaft);
-    const head=new THREE.Mesh(new THREE.ConeGeometry(.006,.018),new THREE.MeshBasicMaterial({color:0x38bdc8}));
-    head.rotation.z=-Math.PI/2;head.position.x=.01;flow.add(head);
+    const FL=.12;
+    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.0025,.0025,FL),new THREE.MeshBasicMaterial({color:0x38bdc8}));
+    shaft.rotation.z=Math.PI/2;shaft.position.x=FL/2;flow.add(shaft);
+    const head=new THREE.Mesh(new THREE.ConeGeometry(.006,.02),new THREE.MeshBasicMaterial({color:0x38bdc8}));
+    head.rotation.z=-Math.PI/2;head.position.x=FL-.008;flow.add(head);
     scene.add(flow);
-    const pivot=new THREE.Group();scene.add(pivot);T3.pivot=pivot; // 整机旋转枢轴 (不含地板/箭头)
+    function setFlow(alphaDeg,betaDeg){
+      const A=alphaDeg*Math.PI/180,B2=betaDeg*Math.PI/180;
+      const U=new THREE.Vector3(-Math.cos(A)*Math.cos(B2),-Math.sin(B2),-Math.sin(A)*Math.cos(B2));
+      flow.position.copy(U.multiplyScalar(-.17)); // 尾端在上游 (-U 方向)
+      flow.quaternion.setFromUnitVectors(new THREE.Vector3(1,0,0),U.normalize());
+    }
+    setFlow(0,0);window.__applyFlow=setFlow;
+    // 镖体组
+    const dart=new THREE.Group();scene.add(dart);
     fetch('dart_parallel_mesh.json?_='+Date.now()).then(r=>r.json()).then(mesh=>{
-      const mat=new THREE.MeshStandardMaterial({color:0x7a86b8,metalness:.15,roughness:.6});
+      const mat=new THREE.MeshStandardMaterial({color:0x7a86b8,metalness:.15,roughness:.6,side:THREE.DoubleSide});
       const bgeo=new THREE.BufferGeometry();
       bgeo.setAttribute('position',new THREE.Float32BufferAttribute(mesh.body.pos,3));
-      bgeo.computeVertexNormals();pivot.add(new THREE.Mesh(bgeo,mat));
+      bgeo.computeVertexNormals();dart.add(new THREE.Mesh(bgeo,mat));
       mesh.fins.forEach(f=>{
         const g=new THREE.Group();g.position.set(f.hinge_point[0],f.hinge_point[1],f.hinge_point[2]);
         const geo=new THREE.BufferGeometry();
         const rel=[];for(let i=0;i<f.pos.length;i+=3)rel.push(f.pos[i]-f.hinge_point[0],f.pos[i+1]-f.hinge_point[1],f.pos[i+2]-f.hinge_point[2]);
         geo.setAttribute('position',new THREE.Float32BufferAttribute(rel,3));geo.computeVertexNormals();
-        const fm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x3ecf7a,metalness:.2,roughness:.5}));
-        g.add(fm);pivot.add(g);
+        const fm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x3ecf7a,metalness:.2,roughness:.5,side:THREE.DoubleSide}));
+        g.add(fm);dart.add(g);
         T3.groups.push({g,axis:new THREE.Vector3(f.hinge_axis[0],f.hinge_axis[1],f.hinge_axis[2]).normalize(),base:f.hinge_point});
       });
       T3.ready=true;applyDeltas();
     });
-    const rot={x:.35,y:-.7,drag:false,px:0,py:0};
-    renderer.domElement.addEventListener('pointerdown',e=>{rot.drag=true;rot.px=e.clientX;rot.py=e.clientY;});
-    window.addEventListener('pointerup',()=>rot.drag=false);
-    window.addEventListener('pointermove',e=>{if(!rot.drag)return;rot.y+=(e.clientX-rot.px)*.01;rot.x+=(e.clientY-rot.py)*.01;rot.px=e.clientX;rot.py=e.clientY;});
+    renderer.domElement.addEventListener('pointerdown',e=>{camSt.drag=true;camSt.px=e.clientX;camSt.py=e.clientY;});
+    window.addEventListener('pointerup',()=>camSt.drag=false);
+    window.addEventListener('pointermove',e=>{if(!camSt.drag)return;
+      camSt.theta-=(e.clientX-camSt.px)*.01;camSt.phi=Math.max(-1.4,Math.min(1.4,camSt.phi+(e.clientY-camSt.py)*.008));
+      camSt.px=e.clientX;camSt.py=e.clientY;applyCam();});
+    window.__cam=camSt; // 调试/测试钩子
+    renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();
+      camSt.R=Math.max(.2,Math.min(.9,camSt.R+e.deltaY*.0004));applyCam();},{passive:false});
     (function loop(){requestAnimationFrame(loop);
       if(window.__pause_raf)return; // 截图/隐藏页签时冻结画面, 让 capture 拿得到稳定帧
-      if(T3.pivot)T3.pivot.rotation.set(rot.x,rot.y,0);
       renderer.render(scene,cam);})();
     document.addEventListener('visibilitychange',()=>{window.__pause_raf=document.hidden;});
-    window.__applyFlow=(al,be)=>{flow.rotation.y=-be*Math.PI/180;flow.rotation.z=al*Math.PI/180;};
   }catch(e){st('st_gl','err: '+String(e).slice(0,40),'bad');T3.d2=true;holder.innerHTML='<canvas id="c2d" width="520" height="380" style="width:100%"></canvas>';draw2d();}
 }
 /* 2D 降级: 俯视示意 */
