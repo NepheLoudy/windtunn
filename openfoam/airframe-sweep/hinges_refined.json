@@ -1,0 +1,118 @@
+[
+ {
+  "fin_vol": 24,
+  "surf": 1849,
+  "old_axis": [
+   0.7071067811865476,
+   0.7071067811865476,
+   0.0
+  ],
+  "old_center": [
+   33.325,
+   28.66,
+   189.816
+  ],
+  "new_axis": [
+   0.707106,
+   0.707107,
+   1e-06
+  ],
+  "new_point_mm": [
+   32.325,
+   29.66,
+   191.231
+  ],
+  "offset_old_to_new_mm": 2.0,
+  "dir_angle_deg": 0.0,
+  "slice_center_rms_mm": 0.0,
+  "bore_r_mean_mm": 1.69,
+  "n_band_nodes": 745
+ },
+ {
+  "fin_vol": 26,
+  "surf": 1912,
+  "old_axis": [
+   -0.7071067811865476,
+   0.7071067811865476,
+   0.0
+  ],
+  "old_center": [
+   -33.325,
+   28.66,
+   189.816
+  ],
+  "new_axis": [
+   -0.707106,
+   0.707107,
+   0.0
+  ],
+  "new_point_mm": [
+   -32.325,
+   29.66,
+   191.231
+  ],
+  "offset_old_to_new_mm": 2.0,
+  "dir_angle_deg": 0.0,
+  "slice_center_rms_mm": 0.0,
+  "bore_r_mean_mm": 1.689,
+  "n_band_nodes": 742
+ },
+ {
+  "fin_vol": 28,
+  "surf": 1975,
+  "old_axis": [
+   -0.7071067811865476,
+   -0.7071067811865476,
+   0.0
+  ],
+  "old_center": [
+   -28.66,
+   -33.325,
+   189.816
+  ],
+  "new_axis": [
+   -0.707107,
+   -0.707106,
+   0.0
+  ],
+  "new_point_mm": [
+   -29.66,
+   -32.325,
+   191.231
+  ],
+  "offset_old_to_new_mm": 2.0,
+  "dir_angle_deg": 0.0,
+  "slice_center_rms_mm": 0.0,
+  "bore_r_mean_mm": 1.69,
+  "n_band_nodes": 743
+ },
+ {
+  "fin_vol": 30,
+  "surf": 2038,
+  "old_axis": [
+   0.7071067811865476,
+   -0.7071067811865476,
+   0.0
+  ],
+  "old_center": [
+   33.325,
+   -28.66,
+   189.816
+  ],
+  "new_axis": [
+   0.707106,
+   -0.707107,
+   1e-06
+  ],
+  "new_point_mm": [
+   32.325,
+   -29.66,
+   191.231
+  ],
+  "offset_old_to_new_mm": 2.0,
+  "dir_angle_deg": 0.0,
+  "slice_center_rms_mm": 0.0,
+  "bore_r_mean_mm": 1.689,
+  "n_band_nodes": 743
+ }
+]

@@ -36,6 +36,8 @@ def main():
     ap.add_argument("--flaps", default="24,26,28,30")
     ap.add_argument("--out", required=True)
     ap.add_argument("--size", type=float, default=2.0)
+    ap.add_argument("--fill-nose", action="store_true",
+                    help="镖头圆孔填实 (曼波 2026-10-29): 圆锥填充体 fuse 进 vol1 再做 body 并集")
     args = ap.parse_args()
     flaps = set(int(x) for x in args.flaps.split(","))
 
@@ -45,25 +47,35 @@ def main():
     gmsh.model.add("f")
     gmsh.merge(args.step)
     gmsh.model.occ.synchronize()
+    if args.fill_nose:
+        # 镖头空腔填充: 底 r13.55@z-25 (与端面共面, 过盈) → 顶 r8.7@z+2 (超腔底)
+        cone = gmsh.model.occ.addCone(0, 0, -25.0, 0, 0, 27.0, 13.55, 8.7)
+        outc, _ = gmsh.model.occ.fuse([(3, 1)], [(3, cone)])
+        gmsh.model.occ.synchronize()
+        print(f"fill-nose: vol1+cone -> {outc}")
     vols = gmsh.model.getEntities(3)
     # flaps tag = 第 k 个实体 (k 从 1), 与 step_to_stl 顺序一致
     body_vols = [(3, t) for _, t in vols if t not in flaps]
     print(f"实体 {len(vols)}, body 参与并集 {len(body_vols)} 个")
     out = gmsh.model.occ.fuse([body_vols[0]], body_vols[1:])
     gmsh.model.occ.removeAllDuplicates()
-    # 缝合修补: open edges/non-manifold → 水密 solid (snappy 需要封闭面)
-    frags = gmsh.model.occ.getEntities(3)
-    if not frags:
-        frags = gmsh.model.occ.getEntities(2)
+    gmsh.model.occ.synchronize()
+    # 缝合修补仅在直接网格化失败时启用 (healShapes 会缝出坏缝: 2026-10-29 fill-nose 时实锤)
+    gmsh.option.setNumber("Mesh.MeshSizeMax", args.size)
     try:
+        gmsh.model.mesh.generate(2)
+        print("直连网格化 OK (跳过 healShapes)")
+    except Exception as e:
+        print(f"直连网格化失败 ({str(e)[:60]}), 启用 healShapes 重试")
+        frags = gmsh.model.occ.getEntities(3)
+        if not frags:
+            frags = gmsh.model.occ.getEntities(2)
         gmsh.model.occ.healShapes(frags, tolerance=1e-4, fixDegenerated=True,
                                   fixSmallEdges=True, fixSmallFaces=True,
                                   sewFaces=True, makeSolids=True)
         gmsh.model.occ.synchronize()
+        gmsh.model.mesh.generate(2)
         print("healShapes 完成")
-    except Exception as e:
-        print(f"healShapes 跳过: {e}")
-    gmsh.model.occ.synchronize()
     fused = [t for d, t in gmsh.model.getEntities(3)]
     nsh = [t for d, t in gmsh.model.getEntities(2)]
     print(f"fuse+heal 后: {len(fused)} 实体 / {len(nsh)} 面")
