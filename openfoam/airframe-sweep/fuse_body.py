@@ -48,11 +48,11 @@ def main():
     gmsh.merge(args.step)
     gmsh.model.occ.synchronize()
     if args.fill_nose:
-        # 镖头空腔填充: 底 r13.55@z-25 (与端面共面, 过盈) → 顶 r8.7@z+2 (超腔底)
-        cone = gmsh.model.occ.addCone(0, 0, -25.0, 0, 0, 27.0, 13.55, 8.7)
-        outc, _ = gmsh.model.occ.fuse([(3, 1)], [(3, cone)])
+        # 镖头圆柱孔段填实 (曼波 10-30 修正: 只封 ⌀16.6 深腔, 保留台形凹陷)
+        cyl = gmsh.model.occ.addCylinder(0, 0, -8.75, 0, 0, 10.75, 8.4)
+        outc, _ = gmsh.model.occ.fuse([(3, 1)], [(3, cyl)])
         gmsh.model.occ.synchronize()
-        print(f"fill-nose: vol1+cone -> {outc}")
+        print(f"fill-nose v2 (cyl-only): vol1+cyl -> {outc}")
     vols = gmsh.model.getEntities(3)
     # flaps tag = 第 k 个实体 (k 从 1), 与 step_to_stl 顺序一致
     body_vols = [(3, t) for _, t in vols if t not in flaps]
