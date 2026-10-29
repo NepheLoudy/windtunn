@@ -1,19 +1,25 @@
-# 气动数据集交付说明 v0.95-preview
+# 气动数据集交付说明 v0.96-preview
 
-> 2026-10-29 | CFD 侧交付 | 对接文档: `guidance_loop_dev_spec.md` (v0.8) | 控制路线: `control_approach_roadmap.md`
-> 状态: **基准切换重跑中** — v0.9 的 364 点数据因舵偏基准错误已归档 (`aero_table_foldedfin_T0.csv`),
-> 平行基准全表重扫 (qianli, ETA 10-31)。本文档先行声明 v0.95 的形态与边界。
-> 复盘: `project_review_1029.md`。
+> 2026-10-30 | CFD 侧交付 | 对接文档: `guidance_loop_dev_spec.md` (v0.8) | 控制路线: `control_approach_roadmap.md`
+> 状态: **基准切换 + 几何修正后重跑中** — v0.9 的 364 点数据因舵偏基准错误已归档 (`aero_table_foldedfin_T0.csv`),
+> 平行基准+填实几何全表重扫 (qianli, ETA 10-31 晚)。本文档先行声明 v0.96 的形态与边界。
+> 复盘: `project_review_1029.md` / `project_review_1030.md`。
 
-## 0. ⚠ v0.9 → v0.95 基准变更 (必读)
+## 0. ⚠ v0.9 → v0.96 基准与几何变更 (必读)
 
-**δ=0 的定义变了**: v0.9 表的 δ=0 实际是"四舵顺翼面折叠 ±45°"位形 (STEP 装配态,
-非工作零位); v0.95 起按曼波裁定 **δ=0 = 舵面平行弹轴 (顺流位)**。
+**① δ=0 的定义变了**: v0.9 表的 δ=0 实际是"四舵顺翼面折叠 ±45°"位形 (STEP 装配态,
+非工作零位); v0.96 起按曼波裁定 **δ=0 = 舵面平行弹轴 (顺流位)**。
 两个基准之间不可混用 (舵面差整整 45° 满偏)。v0.9 红表归档不删, 以后当
-"全舵满偏 45°"极端标定点用。几何真源: `cad/v1/cfd_parallel/`。
+"全舵满偏 45°"极端标定点用。
+
+**② 几何两处修正 (2026-10-30, 曼波指正)**:
+- **铰链轴心精拟合**: 旧轴位置偏 2.000mm (方向零偏), 已按舵根空心圆柱孔心修正
+  (逐切片圆拟合, 圆心 RMS 0.000mm, 孔径带均值 r=1.690mm)。δ 旋转语义 = 绕孔心轴右手正转。
+- **镖头圆柱深孔填实**: 只封 ⌀16.6×8.7mm 深孔段 (+2.51cm³), **鼻端台形凹陷完整保留**
+  (凹陷气动效应是构型的一部分)。弹体体积 155.62 cm³ (原 153.3)。
 
 v0.9 声明中的 "CY(β=0)=−0.135 恒定偏置" 已随基准切换**溯源关闭**: 来源 = 折叠舵组
-手性净侧力, 蓝基准 (平行位) 下 CY 应 ≈0 — 这是 v0.95 表的第一道验收锚 (audit A6)。
+手性净侧力, 蓝基准 (平行位) 下 CY 应 ≈0 — 这是 v0.96 表的第一道验收锚 (audit A6)。
 
 ## 1. 这是什么
 
@@ -42,7 +48,7 @@ lookup_aero(V, α, β, δ1, δ2, δ3, δ4) → (CL, CD, Cm, CY, Cl, Cn)
 | **舵效预研** | `deflect_stl.py` 任意舵偏几何 + 铰链轴定义 (r=1.63mm 销轴, 已确认) | 舵偏扫气在队列层2 |
 | **几何迭代** | 参数化管线全链路 (STEP→B 系→扫气→表), 换镖体只改配置 | — |
 
-## 3. 数据质量声明 (拟真性, v0.95 口径 — 数值等蓝表 A6 验收后回填)
+## 3. 数据质量声明 (拟真性, v0.96 口径 — 数值等蓝表 A6 验收后回填)
 
 | 项 | 状态 |
 |---|---|
@@ -78,10 +84,10 @@ lookup_aero(V, α, β, δ1, δ2, δ3, δ4) → (CL, CD, Cm, CY, Cl, Cn)
 
 | 路径 | 内容 |
 |---|---|
-| `guidance_sim/aero/aero_table.csv` | 气动长表 (**v0.95 起为平行基准**; v0.9 红表见下) |
+| `guidance_sim/aero/aero_table.csv` | 气动长表 (**v0.96 起为平行基准+填实几何**; v0.9 红表见下) |
 | `guidance_sim/aero/aero_table_foldedfin_T0.csv` | v0.9 红表归档 (折叠位形 = 全舵满偏 45° 标定点, 勿与蓝表混用) |
 | `guidance_sim/aero/lookup_aero.py` | 查表参考实现 (纯 numpy, 热加载) |
-| `openfoam/airframe-sweep/cad/v1/cfd_parallel/` | **B 系平行基准几何真源** (body+4 舵零位 STL + v2 assembly) |
+| `openfoam/airframe-sweep/cad/v1/cfd_parallel/` | **B 系平行基准几何真源** (填实 body + 4 舵零位 STL + assembly: 铰链=孔心精拟合) |
 | `openfoam/airframe-sweep/cad/v1/cfd/` | 旧装配角几何 (红基准存档) + MJCF + mass_properties |
 | `openfoam/airframe-sweep/audit_basis_check.py` | A6 基准锚审计 (CY 归零/β镜像/CL_α 漂移三锚) |
 | `openfoam/airframe-sweep/cad/v1/ANALYSIS.md` | 真镖体 STEP 分析报告 |

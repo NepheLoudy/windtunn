@@ -5,8 +5,14 @@ source "$HOME/OpenFOAM-12/etc/bashrc" 2>/dev/null
 unset DISPLAY; export HWLOC_COMPONENTS=-gl
 set -u
 # T0 优先: 若 T1 引擎在跑, 先停 (chain 会在 T0 完成后自动重启 T1)
-pkill -f "run_sweep_v[2]" 2>/dev/null; sleep 2
-pkill -f "foamRu[n]" 2>/dev/null; sleep 3
+# 子进程一并击杀 (孤儿 snappy 污染求解教训 10-30): 引擎/求解器/网格器全杀
+pkill -f "run_sweep_v[2]" 2>/dev/null; sleep 1
+pkill -f "foamRu[n]" 2>/dev/null
+pkill -f "snappyHexMes[h]" 2>/dev/null
+pkill -f "blockMes[h]" 2>/dev/null
+pkill -f "reconstructPa[r]" 2>/dev/null
+pkill -f "decomposePa[r]" 2>/dev/null
+sleep 3
 ROOT=$HOME/sweep_t0v2; NP=14
 rm -rf "$ROOT"
 mkdir -p "$ROOT"
