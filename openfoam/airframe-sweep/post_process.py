@@ -152,6 +152,7 @@ def main():
     if args.json:
         with open(args.json, "w", encoding="utf-8") as f:
             json.dump({"coeffs": row, "F_B": Fm, "M_B": Mm,
+                       "moment_ref": com, "moment_ref_src": com_src, "cofr_solve": cofr,
                        "residual_rel": Fres, "n_samples": n}, f, indent=2)
         print(f"json -> {args.json}")
     if args.out:
@@ -159,8 +160,11 @@ def main():
         with open(args.out, "a", encoding="utf-8") as f:
             if new:
                 # 表头写 CASEINFO 实际值 (10-30 拟真性审查: 硬编码占位值曾让 lookup_aero
-                # 元数据与行内系数脱钩 — lookup_aero 消费 S_REF, 差 1.71x)
-                f.write("# S_REF=%.12g L_REF=%.12g RHO=%.12g\n" % (S, L, rho))
+                # 元数据与行内系数脱钩 — lookup_aero 消费 S_REF, 差 1.71x)。
+                # MOMENT_REF = 本次 M_B 实际参考点 (10-31 底层审查: com 实测更新后
+                # 重算链必须知道每行当时用的参考点; recompute_cm.py 消费此字段)
+                f.write("# S_REF=%.12g L_REF=%.12g RHO=%.12g MOMENT_REF=%s\n"
+                        % (S, L, rho, ",".join("%.6g" % x for x in com)))
                 f.write("V,alpha,beta,de,da,dr,CL,CD,Cm,CY,Cl,Cn\n")
             f.write("%.4f,%.4f,%.4f,%.4f,%.4f,%.4f,%.6f,%.6f,%.6f,%.6f,%.6f,%.6f\n"
                     % (V, alpha, beta, 0.0, 0.0, 0.0, CL, CD, Cm, CY, Cl, Cn))

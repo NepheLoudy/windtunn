@@ -35,7 +35,7 @@ functions
         patches         (__SURFACES_LIST__);
         rho             rhoInf;
         rhoInf          1.225;
-        CofR            (__COFRX__ 0 0);   // 全系统质心 x (make_case.sh 按表元数据写入)
+        CofR            (__COFRX__ 0 0);   // B 系原点(=几何导出原点); 力矩后处理经 mass_properties.com_B 平移 (recompute_cm.py 可重算)
         pitchAxis       (0 1 0);
     }
 }

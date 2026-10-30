@@ -11,9 +11,14 @@
 替换进 sim_core 时由仿真器侧转换 (或经 Phase 0 会议统一口径, 见
 docs/mujoco_alignment_questions.md §4)。
 
-口径: 系数为稳定轴 (风轴) — CD 沿来流, CL 垂直来流 (向上/−z_B 为正), CY 沿 ŷ_s;
+口径: 系数为标准稳定轴 (风轴, 与生产端 post_process.wind_axes 同一定义, 有
+test_wind_axis_parity.py 往返对拍锁死) — CD 沿来流方向, CL 沿 z_s 反向
+(z_s = ẑ_B 在垂直来流平面内投影, 对称面内), CY 沿 y_s = z_s×x_s;
 Cm/Cl/Cn 绕体轴, Cm 正 = 抬头 (航空标准)。出域输入 clamp 到表边界并 warning
 (spec §6: 出域插值未标定)。
+S_REF 口径 = 几何包围盒横向最大尺寸 d 的外接圆面积 π/4·d² (保守: 真实迎风
+投影面积更小, 系数被系统性低估; 交付文档 dataset_delivery.md §口径);
+L_REF = 同一 d。MOMENT_REF = 力矩参考点 (当前 = B 系原点 = 占位 com)。
 
 依赖: 仅 numpy。纯函数, 引擎无关 (PyBullet / MuJoCo 均可直接调用)。
 """
@@ -101,6 +106,8 @@ class AeroTable:
     def _loc(self, key, x):
         """返回 (i0, w): 所在格下界索引与分数权重; 出域 clamp + 一次性 warning。"""
         v = self.values[key]
+        if len(v) == 1:
+            return 0, 0.0          # 单值维度 (如 T0 表的 δ=0-only): 无插值, 直接取该值
         lo, hi = v[0], v[-1]
         xc = float(np.clip(x, lo, hi))
         if not (lo - 1e-9 <= x <= hi + 1e-9):
@@ -147,11 +154,13 @@ class AeroTable:
         beta = float(np.degrees(np.arctan2(vv, np.hypot(u, w))))
         c = self.coeffs(V, alpha, beta, de, da, dr)
         qS = 0.5 * rho * V * V * S
-        # 稳定轴基: x_s=V̂; y_s=ŷ_B 在垂直来流平面投影; z_s=x_s×y_s (z 下)
+        # 标准稳定轴基 (与生产端 post_process.wind_axes 严格一致; 10-31 底层审查:
+        # 旧版用 ŷ_B 投影造侧向基, αβ 同非零时与生产端差 ~3° 平面旋转, 角点 CY/CL 差 ~5-7%):
+        #   z_s = ẑ_B 在垂直来流平面内投影 (对称面内指向下), y_s = z_s × x_s
         xh = V_B / V
-        ys = np.array([0.0, 1.0, 0.0]) - np.array([0.0, 1.0, 0.0]).dot(xh) * xh
-        ys /= np.linalg.norm(ys)
-        zs = np.cross(xh, ys)
+        zs = np.array([0.0, 0.0, 1.0]) - np.array([0.0, 0.0, 1.0]).dot(xh) * xh
+        zs /= np.linalg.norm(zs)
+        ys = np.cross(zs, xh)
         F = qS * (c["CD"] * (-xh) + c["CL"] * (-zs) + c["CY"] * ys)
         M = qS * L * (c["Cl"] * np.array([1.0, 0, 0])
                       + c["Cm"] * np.array([0, 1.0, 0])
