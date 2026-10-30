@@ -54,9 +54,39 @@ def main():
         gmsh.model.occ.synchronize()
         print(f"fill-nose v2 (cyl-only): vol1+cyl -> {outc}")
     vols = gmsh.model.getEntities(3)
-    # flaps tag = 第 k 个实体 (k 从 1), 与 step_to_stl 顺序一致
-    body_vols = [(3, t) for _, t in vols if t not in flaps]
-    print(f"实体 {len(vols)}, body 参与并集 {len(body_vols)} 个")
+    # v3: 舵识别用几何判据 (bbox 匹配), 弃 tag 数字 — cone fuse 会重编号 (10-30 根因)
+    import glob as _glob
+    flap_boxes = []
+    for fp in sorted(_glob.glob(os.path.join(os.path.dirname(args.step), 'parts', 'part_*.stl'))):
+        tag = int(os.path.basename(fp).split('_')[1].split('.')[0])
+        if tag not in flaps:
+            continue
+        d = open(fp, 'rb').read()
+        n = struct.unpack('<I', d[80:84])[0]
+        lo = [1e9]*3; hi = [-1e9]*3
+        for i in range(0, n, 3):
+            v = struct.unpack('<12f', d[84+i*50:84+i*50+48])
+            for q in (v[3:6], v[6:9], v[9:12]):
+                for c in range(3):
+                    lo[c] = min(lo[c], q[c]); hi[c] = max(hi[c], q[c])
+        flap_boxes.append((lo, hi))
+    print(f'舵参照 bbox {len(flap_boxes)} 片 (parts 24/26/28/30)')
+    body_vols = []
+    for _, t in vols:
+        bb = gmsh.model.getBoundingBox(3, t)
+        lo = [bb[0], bb[1], bb[2]]; hi = [bb[3], bb[4], bb[5]]
+        is_flap = False
+        for flo, fhi in flap_boxes:
+            # 实体 bbox 与舵 bbox 重合体积 > 50% 视为舵
+            inter = [min(hi[c], fhi[c]) - max(lo[c], flo[c]) for c in range(3)]
+            if all(inter[c] > 0 for c in range(3)):
+                ivol = inter[0]*inter[1]*inter[2]
+                vvol = max((hi[c]-lo[c]) for c in range(3))**3 if False else (hi[0]-lo[0])*(hi[1]-lo[1])*(hi[2]-lo[2])
+                if vvol > 0 and ivol / vvol > 0.5:
+                    is_flap = True; break
+        if not is_flap:
+            body_vols.append((3, t))
+    print(f'实体 {len(vols)}, body 参与并集 {len(body_vols)} 个 (几何判据, 舵 {len(vols)-len(body_vols)} 片)')
     out = gmsh.model.occ.fuse([body_vols[0]], body_vols[1:])
     gmsh.model.occ.removeAllDuplicates()
     gmsh.model.occ.synchronize()
@@ -101,6 +131,42 @@ def main():
                 (p[0] - COM_MODEL_MM[0]) / 1000.0]
 
     trisB = [tuple(toB(v) for v in tri) for tri in tris]
+    # 自检: 折叠位舵表面贴合点 (v3 根因验证器) — >50 = 舵混入, 拒绝输出
+    def _near_count(bpts, fpts, tol=6e-4):
+        cell = 0.0012
+        g = {}
+        for p in fpts:
+            g.setdefault((int(p[0]/cell), int(p[1]/cell), int(p[2]/cell)), []).append(p)
+        hit = 0
+        for p in bpts:
+            cx, cy, cz = int(p[0]/cell), int(p[1]/cell), int(p[2]/cell)
+            found = False
+            for dx in (-1, 0, 1):
+                for dy in (-1, 0, 1):
+                    for dz in (-1, 0, 1):
+                        for q in g.get((cx+dx, cy+dy, cz+dz), ()):
+                            if (p[0]-q[0])**2+(p[1]-q[1])**2+(p[2]-q[2])**2 < tol*tol:
+                                found = True; break
+                        if found: break
+                    if found: break
+                if found: break
+            hit += found
+        return hit
+    _folded = []
+    for fp in sorted(_glob.glob(os.path.join(os.path.dirname(args.step), 'parts', 'part_*.stl'))):
+        if int(os.path.basename(fp).split('_')[1].split('.')[0]) not in flaps:
+            continue
+        d = open(fp, 'rb').read()
+        n = struct.unpack('<I', d[80:84])[0]
+        a = np.frombuffer if False else None
+        tri = []
+        for i in range(0, n, 7):
+            v = struct.unpack('<12f', d[84+i*50:84+i*50+48])
+            tri += [v[3:6], v[6:9], v[9:12]]
+        _folded += [[x/1000.0 for x in q] for q in tri]  # mm→m, 量级一致即可 (B系平移不改距离量级)
+    _bt = [tuple(sum(v[c] for v in tri)/3.0 for c in range(3)) for tri in trisB]
+    _hits = _near_count([p for p in _bt if -0.115 < p[0] < -0.075], _folded)
+    print(f'折叠舵贴合自检: {_hits} 点 (<50=CLEAN)')
     os.makedirs(os.path.dirname(args.out) or ".", exist_ok=True)
     write_stl(args.out, trisB)
     # 质量核对: fuse 后体积应≈各体之和

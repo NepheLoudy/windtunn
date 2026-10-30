@@ -1,0 +1,42 @@
+{
+ "fin_1": {
+  "center_B": [
+   -0.085711,
+   0.01693,
+   0.022129
+  ],
+  "sharpness": 339.0,
+  "r_bore_mm": 1.48,
+  "dev_vs_assembly_mm": 1.58
+ },
+ "fin_2": {
+  "center_B": [
+   -0.085731,
+   0.01717,
+   -0.021689
+  ],
+  "sharpness": 339.0,
+  "r_bore_mm": 1.486,
+  "dev_vs_assembly_mm": 1.24
+ },
+ "fin_3": {
+  "center_B": [
+   -0.085711,
+   -0.022003,
+   -0.017256
+  ],
+  "sharpness": 339.0,
+  "r_bore_mm": 1.484,
+  "dev_vs_assembly_mm": 1.26
+ },
+ "fin_4": {
+  "center_B": [
+   -0.085671,
+   -0.017528,
+   0.021931
+  ],
+  "sharpness": 338.0,
+  "r_bore_mm": 1.487,
+  "dev_vs_assembly_mm": 1.301
+ }
+}

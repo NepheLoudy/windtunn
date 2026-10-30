@@ -211,8 +211,9 @@ function init3d(){
     renderer.setSize(holder.clientWidth||520,380);renderer.setClearColor(0x0d1220);
     holder.appendChild(renderer.domElement);
     const scene=new THREE.Scene();
-    scene.add(new THREE.AmbientLight(0xffffff,.55));
-    const dl=new THREE.DirectionalLight(0xffffff,.75);dl.position.set(2,3,4);scene.add(dl);
+    scene.add(new THREE.AmbientLight(0xffffff,.8));
+    const dl=new THREE.DirectionalLight(0xffffff,.6);dl.position.set(2,3,4);scene.add(dl);
+    const dl2=new THREE.DirectionalLight(0xffffff,.45);dl2.position.set(-3,-2,-4);scene.add(dl2); // 对向补光: 消灭背光黑舵 (曼波 10-30 灰舵)
     const cam=new THREE.PerspectiveCamera(40,(holder.clientWidth||520)/380,.01,10);
     // 拖动 = 轨道相机 (曼波 10-29 指正: 机身与来流相对关系必须锁定, 拖动只是换观察角度)
     const camSt={theta:2.35,phi:.32,R:.42,drag:false,px:0,py:0};
@@ -250,9 +251,16 @@ function init3d(){
         const geo=new THREE.BufferGeometry();
         const rel=[];for(let i=0;i<f.pos.length;i+=3)rel.push(f.pos[i]-f.hinge_point[0],f.pos[i+1]-f.hinge_point[1],f.pos[i+2]-f.hinge_point[2]);
         geo.setAttribute('position',new THREE.Float32BufferAttribute(rel,3));geo.computeVertexNormals();
-        const fm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x3ecf7a,metalness:.2,roughness:.5,side:THREE.DoubleSide}));
-        g.add(fm);dart.add(g);
-        T3.groups.push({g,axis:new THREE.Vector3(f.hinge_axis[0],f.hinge_axis[1],f.hinge_axis[2]).normalize(),base:f.hinge_point});
+        const fm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x3ecf7a,metalness:.2,roughness:.5,side:THREE.DoubleSide,emissive:0x0c3d1f}));
+        g.add(fm);
+        // 铰链轴线可视化: 品红线段穿过孔心, 随舵组旋转 — 转轴对不对一眼可验 (曼波 10-30)
+        const axDir=new THREE.Vector3(f.hinge_axis[0],f.hinge_axis[1],f.hinge_axis[2]).normalize();
+        const half=0.016;
+        const axGeo=new THREE.BufferGeometry().setFromPoints([
+          axDir.clone().multiplyScalar(-half), axDir.clone().multiplyScalar(half)]);
+        g.add(new THREE.Line(axGeo,new THREE.LineBasicMaterial({color:0xff4477})));
+        dart.add(g);
+        T3.groups.push({g,axis:axDir,base:f.hinge_point});
       });
       T3.ready=true;applyDeltas();
     });
