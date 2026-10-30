@@ -41,19 +41,19 @@
     ]
    ],
    "hinge_axis": [
-    -1e-06,
+    0.0,
     0.707107,
-    0.707106
+    0.707107
    ],
    "hinge_len_mm": 32.28,
-   "hinge_radius_mm": 1.69,
+   "hinge_radius_mm": 2.0,
    "range_deg": [
     -20.0,
     20.0
    ],
    "mix": null,
    "flip": false,
-   "status": "v2 平行基准零位 (精确角) + 铰链孔心精拟合 (fit_hinge_axis, 旧轴垂偏2.0mm 已修)",
+   "status": "v3 平行零位: OCC 解析圆柱轴 (r=2.000mm 精确, 残差0.00000)",
    "source_tag": 24,
    "alternates": [
     {
@@ -145,19 +145,19 @@
     ]
    ],
    "hinge_axis": [
-    -0.0,
+    0.0,
     0.707107,
-    -0.707106
+    -0.707107
    ],
    "hinge_len_mm": 32.28,
-   "hinge_radius_mm": 1.689,
+   "hinge_radius_mm": 2.0,
    "range_deg": [
     -20.0,
     20.0
    ],
    "mix": null,
    "flip": false,
-   "status": "v2 平行基准零位 (精确角) + 铰链孔心精拟合 (fit_hinge_axis, 旧轴垂偏2.0mm 已修)",
+   "status": "v3 平行零位: OCC 解析圆柱轴 (r=2.000mm 精确, 残差0.00000)",
    "source_tag": 26,
    "alternates": [
     {
@@ -249,19 +249,19 @@
     ]
    ],
    "hinge_axis": [
-    -0.0,
-    -0.707106,
+    0.0,
+    -0.707107,
     -0.707107
    ],
    "hinge_len_mm": 32.28,
-   "hinge_radius_mm": 1.69,
+   "hinge_radius_mm": 2.0,
    "range_deg": [
     -20.0,
     20.0
    ],
    "mix": null,
    "flip": false,
-   "status": "v2 平行基准零位 (精确角) + 铰链孔心精拟合 (fit_hinge_axis, 旧轴垂偏2.0mm 已修)",
+   "status": "v3 平行零位: OCC 解析圆柱轴 (r=2.000mm 精确, 残差0.00000)",
    "source_tag": 28,
    "alternates": [
     {
@@ -353,19 +353,19 @@
     ]
    ],
    "hinge_axis": [
-    -1e-06,
+    0.0,
     -0.707107,
-    0.707106
+    0.707107
    ],
    "hinge_len_mm": 32.28,
-   "hinge_radius_mm": 1.689,
+   "hinge_radius_mm": 2.0,
    "range_deg": [
     -20.0,
     20.0
    ],
    "mix": null,
    "flip": false,
-   "status": "v2 平行基准零位 (精确角) + 铰链孔心精拟合 (fit_hinge_axis, 旧轴垂偏2.0mm 已修)",
+   "status": "v3 平行零位: OCC 解析圆柱轴 (r=2.000mm 精确, 残差0.00000)",
    "source_tag": 30,
    "alternates": [
     {

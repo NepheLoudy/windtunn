@@ -1,0 +1,22 @@
+{
+ "fin_1": {
+  "wall_r_median_mm": 2.0,
+  "wall_pts": 670,
+  "face_nx_median": 0.997
+ },
+ "fin_2": {
+  "wall_r_median_mm": 2.0,
+  "wall_pts": 669,
+  "face_nx_median": 0.997
+ },
+ "fin_3": {
+  "wall_r_median_mm": 2.0,
+  "wall_pts": 665,
+  "face_nx_median": 0.997
+ },
+ "fin_4": {
+  "wall_r_median_mm": 2.0,
+  "wall_pts": 668,
+  "face_nx_median": 0.997
+ }
+}
