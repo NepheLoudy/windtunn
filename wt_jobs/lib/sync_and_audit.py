@@ -35,6 +35,16 @@ def ssh_cat(remote, local, timeout=180):
         return True
     return False
 
+def ssh_probe_int(remote, timeout=60):
+    """远端整数探测 (pgrep 等); 远程命令禁用单引号 — 外层就是单引号包裹"""
+    r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
+                        "ssh -o ConnectTimeout=15 %s '%s'" % (QS, remote)],
+                       capture_output=True, text=True, timeout=timeout)
+    try:
+        return int(r.stdout.strip().splitlines()[-1])
+    except (IndexError, ValueError):
+        return -1
+
 def load_table(path):
     rows = []
     try:
@@ -62,10 +72,13 @@ def parse_sweep_log(local_log):
     return cur, prog
 
 def run_audit(script, table, extra=()):
-    r = subprocess.run([sys.executable, os.path.join(AUDIT_DIR, script), table, *extra],
-                       capture_output=True, text=True, timeout=300,
-                       cwd=AUDIT_DIR)
-    return (r.stdout or '') + (r.stderr or '')
+    try:
+        r = subprocess.run([sys.executable, os.path.join(AUDIT_DIR, script), table, *extra],
+                           capture_output=True, text=True, timeout=300,
+                           cwd=AUDIT_DIR)
+        return (r.stdout or '') + (r.stderr or '')
+    except Exception as e:
+        return 'AUDIT ERR %s: %s' % (script, e)
 
 def main():
     for d in (STATE, WWW, OUT):
@@ -96,6 +109,10 @@ def main():
     except Exception:
         hist = []
     hist = [h for h in hist if time.time() - h[0] < 6 * 3600]
+    for i in range(1, len(hist)):
+        if hist[i][0] - hist[i - 1][0] > 2 * 3600:  # 停机断点 (断电等), 丢弃更早历史防 ETA 被稀释
+            hist = hist[i:]
+            break
     if not hist or hist[-1][1] != done:
         hist.append([time.time(), done])
     json.dump(hist[-200:], open(hist_p, 'w'))
@@ -108,18 +125,20 @@ def main():
             eta_src = 'rolling (%.2f case/min)' % (dd / dt / 60)
             break
     if eta_min is None and done:
-        eta_min = round((TOTAL - done) * 5.5)
-        eta_src = 'fixed 5.5min/case'
+        eta_min = round((TOTAL - done) * 15.0)
+        eta_src = 'fixed 15min/case (复用档下限; 含建网格的姿态档实测约30min)'
     data['t0'] = {'done': done, 'total': TOTAL, 'current': cur, 'phase': prog,
                   'eta_min': eta_min, 'eta_src': eta_src, 'source': 'qianli sweep_t0v2'}
     seen = {(r['V'], r['alpha'], r['beta']) for r in rows}
     data['coverage'] = {str(int(v)): [[1 if (v, a, b) in seen else 0 for b in BETAS] for a in ALPHAS] for v in VS}
     t1rows = load_table(t1p)
     data['t1'] = {'done': len(t1rows), 'total': TOTAL, 'note': 'chain: T0-v2 完成后自动续'}
+    lbm = ssh_probe_int('pgrep -cf "FluidX3[D]" || true')
     data['machines'] = {
         'qianli_cpu': {'role': 'T0-v2 蓝基准 L5/L7', 'status': 'solving' if okL else 'unknown',
                        'done': done, 'total': TOTAL},
-        'qianli_gpu': {'role': 'T2 R8b LBM 平行基准', 'status': 'running' if okL else 'unknown'},
+        'qianli_gpu': {'role': 'T2 R8b LBM 平行基准',
+                       'status': 'running' if lbm > 0 else 'paused (体素化玄学 T2 专项待查)'},
         'desktop': {'role': '审计/合并/交付 (只打杂)', 'status': 'idle'},
     }
 
@@ -140,7 +159,8 @@ def main():
         t2stat = {'n': len(t2), 't_last': t2[-1][0],
                   'fy_mean': statistics.mean(c[2] for c in tail),
                   'fx_mean': statistics.mean(c[1] for c in tail)}
-    data['t2'] = {'samples': dec, 'stats': t2stat, 'label': 'R8b 平行基准 α=12.5° (LBM lu)'}
+    data['t2'] = {'samples': dec, 'stats': t2stat, 'label': 'R8b 平行基准 α=12.5° (LBM lu)',
+                  'live': lbm > 0}
 
     # -- 曲线 (蓝表 β=0, per V) ----------------------------------------------
     curves = {'alpha': ALPHAS, 'byV': {}}
@@ -193,6 +213,7 @@ def main():
         if not lines: return 'SKIP'
         joined = '\n'.join(lines)
         if 'FAIL' in joined: return 'FAIL'
+        if 'AUDIT ERR' in joined: return 'ERR'
         if 'WARN' in joined: return 'WARN'
         if 'PASS' in joined: return 'PASS'
         return 'SKIP'

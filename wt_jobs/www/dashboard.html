@@ -135,7 +135,7 @@ function renderAll(){
   $('t1bar').style.width=(100*d.t1.done/d.t1.total)+'%';
   if(d.t2&&d.t2.stats){$('t2step').textContent='步 '+d.t2.stats.t_last;$('t2info').textContent='fy均值 '+d.t2.stats.fy_mean.toFixed(3)+' lu (对称性→0)';}
   else $('t2step').textContent='—';
-  const av=x=>({PASS:['PASS','ok'],FAIL:['FAIL','bad'],WARN:['WARN','warn'],SKIP:['SKIP','warn']}[x]||['—','']);
+  const av=x=>({PASS:['PASS','ok'],FAIL:['FAIL','bad'],WARN:['WARN','warn'],SKIP:['SKIP','warn'],ERR:['ERR','bad']}[x]||['—','']);
   const [a15t,a15c]=av(d.audit.a1a5),[a6t,a6c]=av(d.audit.a6);
   $('a15').textContent=a15t;$('a15').className=a15c;$('a6').textContent=a6t;$('a6').className=a6c;
   $('audnote').textContent='CY(β=0)中位/β镜像/CLα漂移 三锚';

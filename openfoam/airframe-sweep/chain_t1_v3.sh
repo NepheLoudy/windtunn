@@ -2,6 +2,11 @@
 # T1-v2 链式启动 v3 — 完成判据 + 补跑循环 (10-30 全量审查: 失败工况引擎一轮内不重试)
 # 逻辑: 引擎退出后查表行数, <364 就重启引擎(断点续传只补缺) 至多 3 轮;
 #       >=360 放行 T1 并为其拉起独立收割机; 3 轮后仍 <360 也放行 T1 但留警告。
+# 前置条件 (10-31 排雷, 违反必炸): $HOME/sweep_t1 必须是干净目录 —
+#   本脚本放行 T1 时不清理 sweep_t1, 若残留旧基准 case_*/results.json 或
+#   旧 t1_table.csv, run_sweep_v2 判重集会误跳/混表 (红蓝混合)。
+#   10-31 已将红遗骸整目录归档为 ~/sweep_t1_red_residual_1031 后重建空目录。
+#   桌面 qianli_guard 每 30min 探活本脚本, 掉线自动拉回 (wt_jobs/lib/qianli_guard.py)。
 set +u
 source "$HOME/OpenFOAM-12/etc/bashrc" 2>/dev/null
 unset DISPLAY; export HWLOC_COMPONENTS=-gl

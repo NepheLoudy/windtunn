@@ -7,4 +7,10 @@ echo     http://127.0.0.1:8123
 echo  先跑一次 J1 拉最新数据; 本窗口开着就一直在
 echo ============================================
 cd /d "%~dp0.."
+netstat -ano | findstr ":8123" | findstr "LISTENING" >nul 2>&1
+if not errorlevel 1 (
+  echo 仪表台已在运行: http://127.0.0.1:8123  (本窗口 3 秒后退出)
+  timeout /t 3 >nul
+  exit /b 0
+)
 py -3 lib\httpd.py www 8123

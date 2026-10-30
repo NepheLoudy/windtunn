@@ -8,10 +8,16 @@
 | 入口 | 干什么 | 时长 | 停止方式 |
 |---|---|---|---|
 | `jobs\j1_sync_audit.bat` | 从 qianli 拉蓝表/T2 数据 → 跑六锚审计 (A1-A5 + A6 基准锚) → 生成仪表台数据 | 2-5 min | 自动退出 |
-| `jobs\j2_dashboard.bat` | 起本机仪表台 **http://127.0.0.1:8123** (禁缓存, 自检面板) | 常驻 | 关窗口 / Ctrl+C |
+| `jobs\j2_dashboard.bat` | 起本机仪表台 **http://127.0.0.1:8123** (禁缓存, 自检面板; 已在跑则 3s 退出) | 常驻 | 关窗口 / Ctrl+C |
 | `jobs\j3_t2_report.bat` | 拉 R8b LBM 力数据 + 折叠位对照, 出 fy 对称性报告 | ~1 min | 自动退出 |
+| `jobs\j4_guard.bat` | **qianli 哨兵**: 探活 chain/reaper/引擎, 掉线自动拉回 + 空闲时 recover 回填补行 | ~30 s | 自动退出 (schtasks 每 30min 触发, `jobs\j5_register_tasks.bat` 安装) |
 
 **推荐流程**: 双击 J1 → 双击 J2 → 浏览器开 `http://127.0.0.1:8123`。数据旧了就再跑一次 J1 (J2 不用重启, 页面刷新即取新)。
+J2 服务端每 8min 自动跑一次 J1 (页面开着数据永远新鲜); 仪表台已注册登录自启 (启动文件夹)。
+
+> ⚠ 哨兵铁律 (10-31 定): qianli 断电重启后三守护零自启, 由本机 guard 隔 30min 拉回——
+> 它**永不调用 `launch_t0v2b.sh`** (那是 rm -rf 全清启动器), 引擎补拉一律走 chain v3 的
+> 判重补跑循环。细节见 `docs/project_review_1031.md`。
 
 ## 目录
 
