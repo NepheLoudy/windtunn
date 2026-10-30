@@ -45,7 +45,7 @@ svg text{fill:var(--dim);font-size:10px}
 </head>
 <body>
 <h1>🚀 镖体气动数据集监控台 <span style="color:var(--dim);font-size:13px">v2 · 平行基准</span></h1>
-<div class="sub" id="subtitle">数据加载中… <span style="opacity:.7">· 自动刷新 90s (服务端每 8min 拉新 qianli)</span></div>
+<div class="sub" id="subtitle">数据加载中… <span style="opacity:.7">· 自动刷新 90s (服务端每 8min 拉新 qianli)</span> <span id="verbadge" style="background:#4a3560;color:#ffd0f0;padding:2px 10px;border-radius:4px;margin-left:8px;font-weight:600">…</span></div>
 
 <div class="row">
   <div class="card" style="flex:2"><h3>T0-v2 蓝基准扫气 (qianli CPU)</h3><div class="big" id="t0done">—</div><div class="bar"><i id="t0bar" style="width:0%"></i></div><div class="note" id="t0info">—</div></div>
@@ -111,6 +111,11 @@ function loadData(){
     const same = DATA.d && DATA.d.generated_ts === d.generated_ts && DATA.d.t0.done === d.t0.done;
     DATA.d=d;renderAll();
     st('st_data','OK · '+d.generated_ts,'ok');
+    fetch('dart_parallel_mesh.json?_='+Date.now()).then(r=>r.json()).then(mm=>{
+      const el=document.getElementById('verbadge');
+      el.textContent = mm.data_version || 'mesh-无版本戳';
+      el.style.background = (mm.data_version||'').includes('V3') ? '#1d4a2c' : '#6a1d1d';
+    });
     if(!same) document.title = '('+d.t0.done+'/'+d.t0.total+') 镖体气动数据集监控台';
   })
   .catch(e=>{st('st_data','加载失败','bad');$('subtitle').textContent='数据加载失败 — 先跑一次 J1 (jobs\\j1_sync_audit.bat)';});

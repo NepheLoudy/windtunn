@@ -68,7 +68,8 @@ for tag in (24, 26, 28, 30):
     uSTEP = np.array([uB[2], uB[1], -uB[0]])
     uSTEP /= np.linalg.norm(uSTEP)
     pts = load_pts('cad/v1/parts/part_%d.stl' % tag)
-    rot = rot_axis(pts, pSTEP, uSTEP, ang[name])
+    # v3.1: 解析轴 JSON 方向与历史 δ 语义反向, 旋转角取负 (10-30 曼波指正: v3 曾把舵转成横在气流的阻流板)
+    rot = rot_axis(pts, pSTEP, uSTEP, -ang[name])
     tris_m = [(toB(rot[3*i]), toB(rot[3*i+1]), toB(rot[3*i+2])) for i in range(len(rot)//3)]
     write_tris('cad/v1/cfd_parallel/%s.stl' % name, tris_m)
     # ---- 自检 ----
@@ -86,10 +87,11 @@ for tag in (24, 26, 28, 30):
         n = np.cross(u1, v1); ln = np.linalg.norm(n)
         if ln > 1e-12:
             nx.append(abs(n[0]/ln))
-    nx_med = float(np.median(nx))
+    # 判据纠正 (10-30): 平行弹轴 = 板面法向⊥弹轴 = |n_x| 中位≈0 (管壁三角的 |n_x| 分布宽, 取 30% 分位防污染)
+    nx_med = float(np.quantile(nx, 0.3))
     report[name] = {'wall_r_median_mm': round(r_wall, 3), 'wall_pts': int(wall.sum()),
                     'face_nx_median': round(nx_med, 3)}
-    print('%s: 管壁点 %d 个, 中位半径 %.3fmm (应≈2.0) | 板面 |n_x| 中位 %.3f (平行应≈1)'
+    print('%s: 管壁点 %d 个, 中位半径 %.3fmm (应≈2.0) | 板面 |n_x| 30%%分位 %.3f (平行应≈0)'
           % (name, wall.sum(), r_wall, nx_med))
 
 json.dump(report, open('parallel_v3_selfcheck.json', 'w'), indent=1)
