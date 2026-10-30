@@ -1,0 +1,9 @@
+# NAS 迁移回执验证 2026-10-30 08:21:51
+runs/windtunnel3d-vtk|PASS|files=73|bytes=74877027250
+archive/windtunnel3d-vtk_prev|PASS|files=98|bytes=4632250935
+archive/windtunnel3d-vtk_oldmix|PASS|files=24|bytes=2382870619
+archive/fansim3d-vtk_prev|PASS|files=74|bytes=15957590266
+archive/fansim3d-vtk_smoke|PASS|files=18|bytes=639960474
+archive/renders-of|PASS|files=87|bytes=10495279526
+archive/flow3d_result.mat|PASS|files=1|bytes=305571468
+# RESULT: 7/7 PASS
