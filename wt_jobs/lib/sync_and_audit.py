@@ -45,6 +45,13 @@ def ssh_probe_int(remote, timeout=60):
     except (IndexError, ValueError):
         return -1
 
+def ssh_out(remote, timeout=90):
+    """远端多行文本拉取 (实时工况段); 禁用单引号"""
+    r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
+                        "ssh -o ConnectTimeout=15 %s '%s'" % (QS, remote)],
+                       capture_output=True, text=True, timeout=timeout)
+    return r.stdout or ''
+
 def load_table(path):
     rows = []
     try:
@@ -141,6 +148,110 @@ def main():
                        'status': 'running' if lbm > 0 else 'paused (体素化玄学 T2 专项待查)'},
         'desktop': {'role': '审计/合并/交付 (只打杂)', 'status': 'idle'},
     }
+
+    # -- 实时工况 (live): 正在算什么/算到哪/收敛动态 (10-31 UI 迭代) -------------
+    import re as _re
+    sys.path.insert(0, AUDIT_DIR)
+    try:
+        from post_process import wind_axes as _wind_axes
+    except Exception:
+        _wind_axes = None
+    live = {'phase': 'unknown'}
+    try:
+        raw = ssh_out(
+            'C=$(ls -td ~/sweep_t0v2/case_* 2>/dev/null | head -1); '
+            'echo "case=$(basename $C 2>/dev/null)"; '
+            'pgrep -f snappyHexMes[h] >/dev/null && echo phase=meshing || '
+            '{ pgrep -f foamRu[n] >/dev/null && echo phase=solving || '
+            '{ pgrep -f run_sweep_v[2] >/dev/null && echo phase=pipeline || echo phase=idle; }; }; '
+            'echo "chain=$(pgrep -cf chain_t1_v[3] || true)"; '
+            'echo "reaper=$(pgrep -cf case_reape[r] || true)"; '
+            'ping -c1 -W2 192.168.31.153 >/dev/null 2>&1 && echo nas=up || echo nas=down; '
+            'echo "steps=$(grep -c "^Time =" "$C"/log.foamRun 2>/dev/null)"; '
+            'grep "^endTime" "$C"/system/controlDict 2>/dev/null | head -1; '
+            'echo ---LOG---; tail -c 60000 "$C"/log.foamRun 2>/dev/null; '
+            'echo ---FORCES---; '
+            'if [ -f "$C/postProcessing/forces/0/forces.dat" ]; then tail -n 400 "$C/postProcessing/forces/0/forces.dat"; '
+            'else for f in "$C"/processor*/postProcessing/forces/0/forces.dat; do [ -f "$f" ] && tail -n 400 "$f"; done; fi; '
+            'echo ---MACH---; uptime; df -h / | tail -1; '
+            'echo ---TAIL---; tail -n 6 ~/sweep_t0v2/t0_table.csv 2>/dev/null', timeout=120)
+        head = raw.split('---FORCES---')[0] if '---FORCES---' in raw else raw
+        m = _re.search(r'^case=(.*)$', head, _re.M)
+        if m: live['case'] = m.group(1).strip()
+        m = _re.search(r'^phase=(.*)$', head, _re.M)
+        if m: live['phase'] = m.group(1).strip()
+        m = _re.search(r'^chain=(\d+)', head, _re.M)
+        if m: live['chain'] = int(m.group(1))
+        m = _re.search(r'^reaper=(\d+)', head, _re.M)
+        if m: live['reaper'] = int(m.group(1))
+        m = _re.search(r'^nas=(\w+)', head, _re.M)
+        if m: live['nas'] = m.group(1)
+        m = _re.search(r'^steps=(\d+)', head, _re.M)
+        if m: live['steps'] = int(m.group(1))
+        m = _re.search(r'^endTime\s+([\d.]+);?', head, _re.M)
+        if m: live['endTime'] = float(m.group(1))
+        m = _re.search(r'^Time\s*=\s*([\d.]+)', head.split('---LOG---')[-1], _re.M) if '---LOG---' in head else None
+        if m: live['last_time'] = float(m.group(1))
+        # 残差序列 (Ux / p): 求解日志尾部
+        log_tail = head.split('---LOG---')[-1] if '---LOG---' in head else ''
+        res = _re.findall(r'Solving for (\w+), Initial residual = ([\d.eE++-]+)', log_tail)
+        seq = {'Ux': [], 'p': []}
+        for var, val in res:
+            if var in seq and len(seq[var]) < 400:
+                seq[var].append(float(val))
+        live['residuals'] = seq
+        # 并行 forces 聚合 (14 processor 同 t 求和) → 实时 CL/CD
+        fsec = raw.split('---FORCES---')[1].split('---MACH---')[0] if '---FORCES---' in raw else ''
+        acc = {}
+        _tri = _re.compile(r'\(([-\d.eE+]+)\s+([-\d.eE+]+)\s+([-\d.eE+]+)\)')
+        for ln in fsec.splitlines():
+            tri = _tri.findall(ln)
+            if len(tri) not in (2, 4, 6):
+                continue
+            try:
+                t = float(ln.split()[0])
+            except (ValueError, IndexError):
+                continue
+            # 2 三元组 = case 级 master 聚合 (F, M); 4/6 = processor 分片 (p+v) — 求和口径同 post_process
+            if len(tri) == 2:
+                F = [float(tri[0][j]) for j in range(3)]
+            else:
+                h2 = len(tri) // 2
+                F = [sum(float(tri[i][j]) for i in range(h2)) for j in range(3)]
+            a = acc.setdefault(round(t, 3), [0.0, 0.0, 0.0])
+            for j in range(3):
+                a[j] += F[j]
+        if acc and _wind_axes and live.get('case'):
+            mc = _re.search(r'V([\d.]+)_a(-?[\d.]+)_b(-?[\d.]+)', live['case'])
+            if mc:
+                V, al, be = float(mc.group(1)), float(mc.group(2)), float(mc.group(3))
+                S_REF = 0.010306121
+                try:
+                    for ln in open(os.path.join(STATE, 't0_blue.csv'), encoding='utf-8', errors='replace'):
+                        if ln.startswith('#') and 'S_REF' in ln:
+                            S_REF = float(_re.search(r'S_REF=([\d.eE+.-]+)', ln).group(1))
+                            break
+                except Exception:
+                    pass
+                qS = 0.5 * 1.225 * V * V * S_REF
+                drag, lift, side = _wind_axes(al, be)
+                ser = []
+                for t in sorted(acc)[-400:]:
+                    F = acc[t]
+                    ser.append([t, sum(f * x for f, x in zip(F, lift)) / qS,
+                                sum(f * x for f, x in zip(F, drag)) / qS])
+                live['forces'] = ser
+        mach = raw.split('---MACH---')[1].split('---TAIL---')[0] if '---MACH---' in raw else ''
+        mm = _re.search(r'load average: ([\d.]+), ([\d.]+), ([\d.]+)', mach)
+        if mm: live['load'] = [float(mm.group(1)), float(mm.group(2)), float(mm.group(3))]
+        md = _re.search(r'(\S+)\s+\S+\s+\S+\s+\S+\s+(\S+)\s+\S+$', mach.strip().splitlines()[-1] if mach.strip() else '')
+        if md: live['disk_avail'] = md.group(2)
+        tt = raw.split('---TAIL---')[1] if '---TAIL---' in raw else ''
+        live['table_tail'] = [ln.strip() for ln in tt.splitlines()
+                              if ln.strip() and not ln.startswith('V,alpha') and not ln.startswith('#')][-5:]
+    except Exception as e:
+        live['err'] = (live.get('err') or '') + str(e)[:100]
+    data['live'] = live
 
     # -- T2 曲线 -------------------------------------------------------------
     t2 = []

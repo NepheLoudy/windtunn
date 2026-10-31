@@ -42,4 +42,7 @@ for k in (1, 2, 3, 4):
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
 mesh['data_version'] = 'V4B-QUANT-FIX-20261031'
 json.dump(mesh, open(OUT, 'w'), separators=(',', ':'))
+# 轻量版本戳: 仪表台 90s 轮询只拉这个小文件, 版本变了才重拉 14MB mesh (10-31 UI 迭代)
+with open(os.path.join(os.path.dirname(OUT), 'mesh_version.json'), 'w') as f:
+    json.dump({'data_version': mesh['data_version'], 'mesh_bytes': os.path.getsize(OUT)}, f)
 print('mesh json ->', OUT, '%.1f KB' % (os.path.getsize(OUT)/1024))

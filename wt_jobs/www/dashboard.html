@@ -3,82 +3,143 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>镖体气动数据集监控台 v2 — 平行基准</title>
+<title>镖体气动数据集监控台</title>
 <style>
-:root{--bg:#0d1220;--panel:#141b2e;--panel2:#1a2338;--tx:#dce3f2;--dim:#8792ad;--grn:#3ecf7a;--amb:#e8b13e;--red:#e05555;--blu:#4a90e2;--cyn:#38bdc8}
-*{box-sizing:border-box;margin:0;padding:0}
-body{background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI",system-ui,sans-serif;padding:14px}
-h1{font-size:19px;margin-bottom:2px}
-.sub{color:var(--dim);font-size:12px;margin-bottom:10px}
-.row{display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px}
-.card{background:var(--panel);border:1px solid #232e4a;border-radius:10px;padding:12px 14px;flex:1;min-width:220px}
-.card h3{font-size:12px;color:var(--dim);text-transform:uppercase;letter-spacing:.5px;margin-bottom:6px}
-.big{font-size:22px;font-weight:600}
-.ok{color:var(--grn)}.warn{color:var(--amb)}.bad{color:var(--red)}
-.bar{height:10px;background:#0a0e1a;border-radius:5px;overflow:hidden;margin-top:6px}
-.bar>i{display:block;height:100%;background:linear-gradient(90deg,var(--blu),var(--cyn))}
-.tabs{display:flex;gap:6px;margin:12px 0}
-.tabs button{background:var(--panel);color:var(--dim);border:1px solid #232e4a;border-radius:8px;padding:7px 14px;cursor:pointer;font-size:13px}
-.tabs button.on{background:var(--panel2);color:var(--tx);border-color:var(--blu)}
-.pane{display:none}.pane.on{display:block}
-table.hm{border-collapse:collapse}
-table.hm td,table.hm th{width:34px;height:26px;text-align:center;font-size:10px;color:var(--dim);border:1px solid #1c2540}
-td.d{background:rgba(62,207,122,.55)}td.m{background:#0a0e1a}td.c{background:rgba(232,177,62,.7);animation:pul 1.2s infinite alternate}
-@keyframes pul{to{background:rgba(232,177,62,.35)}}
-.vsel{display:inline-flex;gap:4px;margin-left:10px;vertical-align:middle}
-.vsel button{background:var(--panel);color:var(--dim);border:1px solid #232e4a;border-radius:6px;padding:3px 10px;cursor:pointer;font-size:12px}
-.vsel button.on{color:var(--tx);border-color:var(--cyn)}
-svg text{fill:var(--dim);font-size:10px}
-.legend{font-size:12px;color:var(--dim);margin-top:6px}
-.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin:0 4px 0 10px;vertical-align:-1px}
-.audit{font-family:Consolas,monospace;font-size:12px;white-space:pre-wrap;background:#0a0e1a;border-radius:8px;padding:10px;max-height:420px;overflow:auto}
-.slider{display:flex;align-items:center;gap:8px;margin:4px 0}
-.slider label{width:44px;color:var(--dim);font-size:12px}
-.slider input{flex:1}
-.slider output{width:52px;font-size:12px;color:var(--cyn)}
-#selftest{position:fixed;right:12px;bottom:12px;background:var(--panel);border:1px solid #232e4a;border-radius:8px;padding:8px 12px;font-size:11px;color:var(--dim);z-index:9}
-#selftest b{color:var(--tx)}
+:root{--bg:#0a0e1a;--panel:#111830;--panel2:#0d1220;--tx:#dbe4ff;--dim:#8892b0;--acc:#3ecf7a;--warn:#e8b13e;--bad:#e05555;--line:#1c2540}
+*{box-sizing:border-box}
+body{margin:0;padding:18px;background:var(--bg);color:var(--tx);font:14px/1.5 "Segoe UI","Microsoft YaHei",sans-serif}
+h1{margin:0 0 4px;font-size:20px}
+.sub{color:var(--dim);font-size:13px;margin-bottom:14px}
+.row{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:12px}
+.card{background:var(--panel);border:1px solid var(--line);border-radius:12px;padding:12px 16px;flex:1;min-width:230px}
+.card h3{margin:0 0 6px;font-size:13px;color:var(--dim);font-weight:600}
+.big{font-size:30px;font-weight:700;letter-spacing:.5px}
+.bar{height:8px;background:var(--panel2);border-radius:5px;overflow:hidden;margin:6px 0}
+.bar i{display:block;height:100%;background:linear-gradient(90deg,#2f9e63,var(--acc));transition:width .4s}
+.note{color:var(--dim);font-size:12px;margin-top:6px}
+.pill{display:inline-block;padding:2px 10px;border-radius:10px;font-size:12px;font-weight:600;margin-left:6px;vertical-align:middle}
+.pill.ok{background:#123622;color:#7be3a4}.pill.run{background:#0e2c44;color:#7cc4ff}.pill.warn{background:#3a2e10;color:#ffd97a}.pill.bad{background:#3a1414;color:#ff9a9a}.pill.idle{background:#23273a;color:#aab3d0}
+.tabs{margin:14px 0 10px;display:flex;gap:6px;flex-wrap:wrap}
+.tabs button{background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:8px;padding:7px 16px;cursor:pointer;font-size:13px}
+.tabs button.on{color:var(--tx);background:#1b2b4d;border-color:#3a55a0}
+.pane{display:none}
+.pane.on{display:block}
+#heatmap,#curves,#polar,#livecharts{overflow-x:auto}
+table.hm{border-collapse:collapse;margin:4px 0}
+table.hm th{color:var(--dim);font-size:11px;font-weight:400;padding:2px 6px}
+table.hm td{width:26px;height:26px;border:1px solid var(--line);border-radius:3px}
+table.hm td.d{background:rgba(62,207,122,.55)}
+table.hm td.c{background:rgba(232,177,62,.7);animation:blink 1.2s infinite}
+table.hm td.m{background:var(--panel2)}
+@keyframes blink{50%{opacity:.45}}
+.legend{color:var(--dim);font-size:12px;margin-top:8px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin:0 4px 0 12px;vertical-align:-2px}
+.vsel button{background:var(--panel);color:var(--dim);border:1px solid var(--line);border-radius:7px;padding:4px 13px;margin-right:5px;cursor:pointer}
+.vsel button.on{color:var(--tx);background:#1b2b4d;border-color:#3a55a0}
+.audit{white-space:pre-wrap;font:12px/1.6 Consolas,monospace;background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:12px;min-height:200px}
+.slider{display:flex;align-items:center;gap:10px;margin:10px 0}
+.slider label{width:28px;color:var(--dim)}
+.slider input[type=range]{flex:1}
+.slider output{width:44px;text-align:right;font-family:Consolas,monospace}
+#sliders{max-width:340px}
+.mono{font:12px/1.7 Consolas,monospace;color:var(--dim);background:var(--panel2);border:1px solid var(--line);border-radius:10px;padding:10px 14px;margin-top:10px;overflow-x:auto;white-space:pre}
+#selftest{position:fixed;right:14px;bottom:14px;background:rgba(13,18,32,.92);border:1px solid var(--line);border-radius:10px;padding:10px 14px;font-size:12px;color:var(--dim);z-index:9}
 .st{display:inline-block;width:8px;height:8px;border-radius:50%;margin-right:5px}
+.st.ok{background:var(--acc)}.st.warn{background:var(--warn)}.st.bad{background:var(--bad)}
 #selftest div{margin:2px 0}
-.note{color:var(--dim);font-size:12px;margin-top:8px}
+.kv{display:grid;grid-template-columns:auto 1fr;gap:2px 14px;font-size:13px}
+.kv b{color:var(--dim);font-weight:400}
+.meshbtn{background:#1b2b4d;color:var(--tx);border:1px solid #3a55a0;border-radius:7px;padding:3px 12px;cursor:pointer;font-size:12px}
 </style>
 </head>
 <body>
-<h1>🚀 镖体气动数据集监控台 <span style="color:var(--dim);font-size:13px">v2 · 平行基准</span></h1>
-<div class="sub" id="subtitle">数据加载中… <span style="opacity:.7">· 自动刷新 90s (服务端每 8min 拉新 qianli)</span> <span id="verbadge" style="background:#4a3560;color:#ffd0f0;padding:2px 10px;border-radius:4px;margin-left:8px;font-weight:600">…</span></div>
+<h1>🚀 镖体气动数据集监控台 <span style="color:var(--dim);font-size:13px">v3 · 平行基准 · 真铰链轴 v4</span></h1>
+<div class="sub" id="subtitle">数据加载中… <span style="opacity:.7">· 页面 90s 轮询 (服务端每 8min 拉 qianli)</span> <span id="verbadge" class="pill idle">…</span></div>
 
 <div class="row">
-  <div class="card" style="flex:2"><h3>T0-v2 蓝基准扫气 (qianli CPU)</h3><div class="big" id="t0done">—</div><div class="bar"><i id="t0bar" style="width:0%"></i></div><div class="note" id="t0info">—</div></div>
-  <div class="card"><h3>T1-v2 高保真 (链式排队)</h3><div class="big" id="t1done">—</div><div class="bar"><i id="t1bar" style="width:0%"></i></div><div class="note">T0 完成后自动续</div></div>
-  <div class="card"><h3>T2 R8b LBM (qianli GPU)</h3><div class="big" id="t2step">—</div><div class="note" id="t2info">—</div></div>
-  <div class="card"><h3>审计 A1-A5 / A6</h3><div class="big"><span id="a15">—</span> <span style="color:var(--dim);font-size:16px">/</span> <span id="a6">—</span></div><div class="note" id="audnote">—</div></div>
+  <div class="card" style="flex:2.2">
+    <h3>T0-v2c 蓝基准扫气 (qianli CPU · L5/L7) <span id="phasepill" class="pill idle">—</span></h3>
+    <div class="big" id="t0done">—</div>
+    <div class="bar"><i id="t0bar" style="width:0%"></i></div>
+    <div class="note" id="t0info">—</div>
+    <div class="bar" style="height:5px"><i id="stepbar" style="width:0%;background:linear-gradient(90deg,#2c6d9e,#7cc4ff)"></i></div>
+    <div class="note" id="stepinfo">本工况求解步数 —</div>
+  </div>
+  <div class="card">
+    <h3>吞吐 / ETA</h3>
+    <div class="big" id="rate">—</div>
+    <div class="note" id="rateinfo">—</div>
+    <div class="note" id="etainfo">—</div>
+  </div>
+  <div class="card">
+    <h3>qianli 机器 / 守护</h3>
+    <div class="big" style="font-size:22px" id="machline">—</div>
+    <div class="note" id="machinfo">负载 — · 磁盘 —</div>
+    <div class="note">chain <span id="g_chain" class="pill idle">—</span> reaper <span id="g_reaper" class="pill idle">—</span> NAS <span id="g_nas" class="pill idle">—</span></div>
+  </div>
+  <div class="card">
+    <h3>审计 A1-A5 / A6</h3>
+    <div class="big"><span id="a15">—</span> <span style="color:var(--dim);font-size:16px">/</span> <span id="a6">—</span></div>
+    <div class="note" id="audnote">CY(β=0)偏置 / β镜像 / CLα 漂移 三锚</div>
+  </div>
+  <div class="card">
+    <h3>T1-v2 高保真 / T2 LBM</h3>
+    <div class="big" style="font-size:22px"><span id="t1done">—</span> <span style="color:var(--dim);font-size:14px">· GPU</span> <span id="t2step">—</span></div>
+    <div class="note" id="t2info">T0 完成后 chain 自动续 T1; LBM 挂起 (体素化专项)</div>
+  </div>
 </div>
 
 <div class="tabs">
-  <button data-p="p1" class="on">覆盖热力图</button><button data-p="p2">系数曲线</button>
-  <button data-p="p3">极曲线</button><button data-p="p4">审计明细</button><button data-p="p5">3D 姿态 / 舵偏</button>
+  <button data-p="p0" class="on">实时收敛</button><button data-p="p1">覆盖热力图</button>
+  <button data-p="p2">系数曲线</button><button data-p="p3">极曲线</button>
+  <button data-p="p4">审计明细</button><button data-p="p5">3D 姿态 / 舵偏</button>
 </div>
 
-<div class="pane on" id="p1">
+<div class="pane on" id="p0">
+  <div class="row">
+    <div class="card" style="flex:1.4;min-width:520px">
+      <h3>当前工况收敛动态 <span id="livecase" class="pill idle">—</span></h3>
+      <div id="livecharts"></div>
+      <div class="note" id="livenote">等待首个求解工况 (meshing 阶段无残差流)…</div>
+    </div>
+    <div class="card" style="flex:1;min-width:300px">
+      <h3>蓝表最新行 (每完成一工况落一行)</h3>
+      <div class="mono" id="tabletail">—</div>
+      <h3 style="margin-top:14px">管线说明</h3>
+      <div class="note">blockMesh+snappy 建网格 (每姿态档首例) → clone 复用网格 (同姿态 4 个 V) → foamRun 14 核并行 → post_process 风轴系数落表 → case_reaper 清场。A1-A6 审计随每行落表自动跑。</div>
+      <div class="note">表: 364 = V{15,20,25,30} × α{13 档} × β{7 档} · δ=0 平行基准 · 几何 v4 真铰链轴</div>
+    </div>
+  </div>
+</div>
+
+<div class="pane" id="p1">
   <div style="margin-bottom:8px"><b>V 档:</b><span class="vsel" id="vsel"></span></div>
   <div id="heatmap"></div>
   <div class="legend"><i style="background:rgba(62,207,122,.55)"></i>完成 <i style="background:rgba(232,177,62,.7)"></i>当前 <i style="background:#0a0e1a;border:1px solid #1c2540"></i>待跑 <span style="margin-left:16px">行=α(攻角) 列=β(侧滑)</span></div>
 </div>
+
 <div class="pane" id="p2">
-  <b>曲线:</b><span class="vsel" id="csel"></span>
+  <b>系数:</b><span class="vsel" id="csel"></span>
   <div id="curves"></div>
   <div class="note" id="slopeinfo"></div>
 </div>
+
 <div class="pane" id="p3"><div id="polar"></div><div class="note">CL-CD 极曲线 (β=0), 越靠左上阻力效率越高</div></div>
+
 <div class="pane" id="p4"><div class="audit" id="auditdetail">—</div></div>
+
 <div class="pane" id="p5">
   <div class="row">
-    <div class="card" style="flex:2;min-width:420px"><h3>姿态 3D (拖转)</h3><div id="view3d" style="height:380px"></div></div>
+    <div class="card" style="flex:2;min-width:420px">
+      <h3>姿态 3D (自动缓旋 · 拖转 · 滚轮缩放)</h3>
+      <div id="view3d" style="height:400px"></div>
+      <div class="note" id="meshinfo">mesh 待加载…</div>
+    </div>
     <div class="card" style="flex:1;min-width:240px">
       <h3>舵偏 δ1..δ4 [deg]</h3>
       <div id="sliders"></div>
-      <div class="note">0° = 舵面平行弹轴 (v0.95 基准)。铰链轴来自 cfd_parallel assembly。</div>
-      <div class="note"><b>语义</b>: 机体固定 (风洞视角), α/β 滑块转来流箭头; 拖动 = 转相机视角 (机身↔来流相对关系锁定), 滚轮缩放。</div>
+      <div class="note">0° = 舵面平行弹轴 (v0.95 基准)。铰链轴 = v4 真轴 (双耳孔心连线)。</div>
+      <div class="note"><b>语义</b>: 机体固定 (风洞视角), α/β 滑块转来流箭头; 拖动 = 转相机视角, 滚轮缩放。</div>
       <div class="note" id="alphaNote">来流: α=0 β=0</div>
     </div>
   </div>
@@ -88,6 +149,7 @@ svg text{fill:var(--dim);font-size:10px}
   <div><span class="st" id="st_data"></span>数据 <b id="st_data_t">…</b></div>
   <div><span class="st" id="st_three"></span>three.js <b id="st_three_t">…</b></div>
   <div><span class="st" id="st_gl"></span>WebGL <b id="st_gl_t">…</b></div>
+  <div><span class="st" id="st_mesh"></span>mesh <b id="st_mesh_t">…</b></div>
 </div>
 
 <script src="three.min.js" onerror="window.__three_fail=1"></script>
@@ -95,51 +157,106 @@ svg text{fill:var(--dim);font-size:10px}
 'use strict';
 const $=id=>document.getElementById(id);
 const DATA={d:null,vSel:'25',cSel:'CL'};
+const PHASE={meshing:['网格 meshing','run'],solving:['求解 foamRun','run'],pipeline:['后处理/clone','run'],idle:['空闲','idle']};
 
 /* ---------- 自检面板 ---------- */
 function st(id,txt,cls){const d=$(id);if(d)d.className='st '+cls;const t=$(id+'_t');if(t)t.textContent=txt;}
-(function threeCheck(){ // 必须先于 3D 初始化
+(function threeCheck(){
   if(window.__three_fail){st('st_three','加载失败→2D降级','bad');}
   else if(window.THREE){st('st_three','r'+THREE.REVISION,'ok');}
   else{st('st_three','未就绪','warn');}
 })();
 
-/* ---------- 取数 (90s 自动轮询: J2 服务端每 8min 自动拉 qianli, 页面永远新鲜) ---------- */
+/* ---------- 取数 (90s 轮询; mesh 版本走轻量戳, 变了才整页刷新) ---------- */
 function loadData(){
   fetch('dashboard_data.json?_='+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()})
   .then(d=>{
-    const same = DATA.d && DATA.d.generated_ts === d.generated_ts && DATA.d.t0.done === d.t0.done;
     DATA.d=d;renderAll();
     st('st_data','OK · '+d.generated_ts,'ok');
-    fetch('dart_parallel_mesh.json?_='+Date.now()).then(r=>r.json()).then(mm=>{
-      const el=document.getElementById('verbadge');
-      el.textContent = mm.data_version || 'mesh-无版本戳';
-      el.style.background = (mm.data_version||'').includes('V4') ? '#1d4a2c' : '#6a1d1d';
-    });
-    if(!same) document.title = '('+d.t0.done+'/'+d.t0.total+') 镖体气动数据集监控台';
+    document.title='('+d.t0.done+'/'+d.t0.total+') 镖体气动数据集监控台';
   })
   .catch(e=>{st('st_data','加载失败','bad');$('subtitle').textContent='数据加载失败 — 先跑一次 J1 (jobs\\j1_sync_audit.bat)';});
+  fetch('mesh_version.json?_='+Date.now()).then(r=>r.json()).then(mv=>{
+    if(window.__meshVer && window.__meshVer!==mv.data_version){location.reload();return;}
+    const el=$('verbadge');
+    el.textContent=mv.data_version||'mesh-无版本戳';
+    el.className='pill '+((''+mv.data_version).includes('V4')?'ok':'bad');
+  }).catch(()=>{});
 }
 loadData();
 setInterval(loadData, 90000);
 
 function renderAll(){
   const d=DATA.d;
-  $('subtitle').textContent='生成于 '+d.generated_ts+' · 蓝表 '+d.sync.n_blue+'/'+d.t0.total+' (qianli 实时拉取)';
-  // 顶部卡
+  $('subtitle').innerHTML='生成于 '+d.generated_ts+' · 蓝表 '+d.sync.n_blue+'/'+d.t0.total+' (qianli 实时拉取)';
+  // --- T0 卡 ---
   $('t0done').textContent=d.t0.done+' / '+d.t0.total;
   $('t0bar').style.width=(100*d.t0.done/d.t0.total)+'%';
   const eta=d.t0.eta_min?('ETA ~'+Math.floor(d.t0.eta_min/60)+'h'+String(d.t0.eta_min%60).padStart(2,'0')+'m'+(d.t0.eta_src?' ('+d.t0.eta_src+')':'')):'';
-  $('t0info').textContent=(d.t0.current||'—')+'  '+eta;
-  $('t1done').textContent=d.t1.done+' / '+d.t1.total;
-  $('t1bar').style.width=(100*d.t1.done/d.t1.total)+'%';
-  if(d.t2&&d.t2.stats){$('t2step').textContent='步 '+d.t2.stats.t_last;$('t2info').textContent='fy均值 '+d.t2.stats.fy_mean.toFixed(3)+' lu (对称性→0)';}
-  else $('t2step').textContent='—';
-  const av=x=>({PASS:['PASS','ok'],FAIL:['FAIL','bad'],WARN:['WARN','warn'],SKIP:['SKIP','warn'],ERR:['ERR','bad']}[x]||['—','']);
+  const lv=d.live||{};
+  const ph=PHASE[lv.phase]||['—','idle'];
+  const pp=$('phasepill');pp.textContent=lv.phase?ph[0]:'—';pp.className='pill '+ph[1];
+  $('t0info').textContent=(lv.case?('正在算 '+lv.case):('下一例 '+(d.t0.current||'—')))+'  '+eta;
+  // --- 本工况步数 ---
+  if(lv.steps!=null&&lv.endTime){
+    $('stepbar').style.width=Math.min(100,100*lv.steps/lv.endTime)+'%';
+    $('stepinfo').textContent='求解进度 '+lv.steps+' / '+lv.endTime+' 步'+(lv.last_time!=null?' (物理时 '+lv.last_time.toFixed(2)+'s)':'');
+  }else{$('stepbar').style.width='0%';$('stepinfo').textContent='本工况步数 — '+(lv.phase==='meshing'?'(网格阶段, 无求解步)':'');}
+  // --- 吞吐 ---
+  if(d.t0.eta_src&&d.t0.eta_src.startsWith('rolling')){
+    const mh=d.t0.eta_src.match(/([\d.]+) case\/min/);
+    if(mh){const cph=(+mh[1]*60).toFixed(1);$('rate').textContent=cph+' 工况/h';}
+    $('rateinfo').textContent='滚动实测 (近 6h 窗口, 自动剔除停机断点)';
+    const fin=new Date(Date.now()+d.t0.eta_min*60000);
+    $('etainfo').textContent='预计出全: '+fin.toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})+' '+fin.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+  }else{$('rate').textContent='—';$('rateinfo').textContent='滚动速率待数据 (≥2 行后自动接管)';$('etainfo').textContent=eta;}
+  // --- 机器/守护 ---
+  if(lv.load){
+    $('machline').textContent='负载 '+lv.load[0].toFixed(1)+' / 14 核';
+    $('machinfo').textContent='磁盘余 '+($('machinfo').dataset.d=lv.disk_avail||'—')+(lv.disk_avail?'':'');
+    const lamp=(id,ok,okT,badT)=>{const e=$(id);e.textContent=ok?okT:badT;e.className='pill '+(ok?'ok':'bad');};
+    lamp('g_chain',(lv.chain||0)>0,'在岗','掉线!');
+    lamp('g_reaper',(lv.reaper||0)>0,'在岗','掉线!');
+    const nn=$('g_nas');nn.textContent=(lv.nas||'—').toUpperCase();nn.className='pill '+((lv.nas==='up')?'ok':'warn');
+  }
+  // --- 审计/T1/T2 ---
+  const av=x=>({PASS:['PASS','ok'],FAIL:['FAIL','bad'],WARN:['WARN','warn'],SKIP:['SKIP','warn'],ERR:['ERR','bad']}[x]||['—','idle']);
   const [a15t,a15c]=av(d.audit.a1a5),[a6t,a6c]=av(d.audit.a6);
-  $('a15').textContent=a15t;$('a15').className=a15c;$('a6').textContent=a6t;$('a6').className=a6c;
-  $('audnote').textContent='CY(β=0)中位/β镜像/CLα漂移 三锚';
-  drawHeat();drawCurves();drawPolar();drawAudit();init3d();
+  $('a15').textContent=a15t;$('a15').className='pill '+a15c;$('a6').textContent=a6t;$('a6').className='pill '+a6c;
+  $('t1done').textContent='T1 '+d.t1.done+' / '+d.t1.total;
+  if(d.t2&&d.t2.stats){$('t2step').textContent='步 '+d.t2.stats.t_last;$('t2info').textContent='fy均值 '+d.t2.stats.fy_mean.toFixed(3)+' lu'+(d.t2.live?'':' · paused');}
+  drawLive();drawHeat();drawCurves();drawPolar();drawAudit();init3d();
+}
+
+/* ---------- 实时收敛 ---------- */
+function drawLive(){
+  const d=DATA.d;if(!d||!d.live)return;
+  const lv=d.live;
+  $('livecase').textContent=lv.case||'—';
+  $('livecase').className='pill '+(PHASE[lv.phase]?PHASE[lv.phase][1]:'idle');
+  const charts=[];
+  const res=lv.residuals||{};
+  const nU=(res.Ux||[]).length,nP=(res.p||[]).length;
+  if(nU>3||nP>3){
+    const nn=Math.max(nU,nP);
+    const mk=(arr)=>arr.map((v,i)=>[i,Math.log10(Math.max(v,1e-12))]);
+    const series=[];
+    if(nU>3)series.push({n:'Ux 残差 (log10)',c:'#38bdc8',pts:mk(res.Ux)});
+    if(nP>3)series.push({n:'p 残差 (log10)',c:'#e8b13e',pts:mk(res.p)});
+    charts.push('<div style="margin-bottom:10px">'+svgLine(880,220,{l:46,r:16,t:18,b:30},[0,nn-1],[-8,0],'求解步 (最近 '+nn+' 步)','initial residual',series)+'</div>');
+  }
+  const F=lv.forces||[];
+  if(F.length>3){
+    const series=[
+      {n:'CL (风轴, 14核聚合)',c:'#3ecf7a',pts:F.map(p=>[p[0],p[1]])},
+      {n:'CD',c:'#e05555',pts:F.map(p=>[p[0],p[2]])}];
+    let cl=0,cn=0;F.slice(-40).forEach(p=>{cl+=p[1];cn+=p[2];});
+    charts.push('<div>'+svgLine(880,220,{l:46,r:16,t:18,b:30},[F[0][0],F[F.length-1][0]],[-1.2,1.2],'物理时间 t [s] — 末 40 样本均值 CL='+ (cl/Math.min(40,F.length)).toFixed(3)+' CD='+(cn/Math.min(40,F.length)).toFixed(3),series.length?'CL / CD':'',series)+'</div>');
+  }
+  $('livecharts').innerHTML=charts.join('')||'<div class="note">暂无求解数据 — '+(lv.phase==='meshing'?'当前工况在网格阶段 (blockMesh+snappy), 进入 foamRun 后残差/力曲线出现':'待引擎数据')+'</div>';
+  $('livenote').textContent=lv.err?('live 拉取异常: '+lv.err):(lv.phase==='solving'?'foamRun 并行求解中 — 曲线平稳下降=收敛健康; 阶跃=clone 切新工况':'—');
+  // 表尾
+  if(lv.table_tail&&lv.table_tail.length)$('tabletail').textContent=lv.table_tail.join('\n');
 }
 
 /* ---------- 热力图 ---------- */
@@ -148,7 +265,7 @@ function drawHeat(){
   const d=DATA.d;if(!d)return;
   const A=[-15,-12.5,-10,-7.5,-5,-2.5,0,2.5,5,7.5,10,12.5,15],B=[-15,-10,-5,0,5,10,15];
   const m=d.coverage[DATA.vSel]||[];
-  const cur=d.t0.current||'';
+  const cur=(d.live&&d.live.case)||d.t0.current||'';
   const cm=cur.match(/a(-?[\d.]+)_b(-?[\d.]+)/);
   let h='<table class="hm"><tr><th>α\\β</th>'+B.map(b=>'<th>'+b+'</th>').join('')+'</tr>';
   A.forEach((a,i)=>{h+='<tr><th>'+a+'</th>'+B.map((b,j)=>{
@@ -160,30 +277,31 @@ function drawHeat(){
 
 /* ---------- SVG 曲线 ---------- */
 function svgLine(w,h,pad,xr,yr,xlab,ylab,series,extra){
-  const X=x=>pad.l+(x-xr[0])/(xr[1]-xr[0])*(w-pad.l-pad.r);
-  const Y=y=>h-pad.b-(y-yr[0])/(yr[1]-yr[0])*(h-pad.t-pad.b);
+  const X=x=>pad.l+(x-xr[0])/(xr[1]-xr[0]||1)*(w-pad.l-pad.r);
+  const Y=y=>h-pad.b-(y-yr[0])/(yr[1]-yr[0]||1)*(h-pad.t-pad.b);
   let s='<svg width="'+w+'" height="'+h+'" style="background:var(--panel);border-radius:10px;max-width:100%">';
   const yt=(yr[1]-yr[0])/5;
-  for(let i=0;i<=5;i++){const y=yr[0]+yt*i;s+='<line x1="'+X(xr[0])+'" y1="'+Y(y)+'" x2="'+X(xr[1])+'" y2="'+Y(y)+'" stroke="#1c2540"/><text x="4" y="'+(Y(y)+3)+'">'+y.toFixed(2)+'</text>';}
+  for(let i=0;i<=5;i++){const y=yr[0]+yt*i;s+='<line x1="'+X(xr[0])+'" y1="'+Y(y)+'" x2="'+X(xr[1])+'" y2="'+Y(y)+'" stroke="#1c2540"/><text x="4" y="'+(Y(y)+3)+'" fill="#8892b0" font-size="11">'+y.toFixed(2)+'</text>';}
   const xt=(xr[1]-xr[0])/6;
-  for(let i=0;i<=6;i++){const x=xr[0]+xt*i;s+='<text x="'+(X(x)-8)+'" y="'+(h-6)+'">'+(+x.toFixed(1))+'</text><line x1="'+X(x)+'" y1="'+Y(yr[0])+'" x2="'+X(x)+'" y2="'+Y(yr[1])+'" stroke="#1c2540"/>';}
-  series.forEach(sr=>{let p='';sr.pts.forEach((pt,i)=>{if(!pt)return;p+=(i?'L':'M')+X(pt[0]).toFixed(1)+' '+Y(pt[1]).toFixed(1)+' ';});
+  for(let i=0;i<=6;i++){const x=xr[0]+xt*i;s+='<text x="'+(X(x)-8)+'" y="'+(h-6)+'" fill="#8892b0" font-size="11">'+(+x.toFixed(1))+'</text><line x1="'+X(x)+'" y1="'+Y(yr[0])+'" x2="'+X(x)+'" y2="'+Y(yr[1])+'" stroke="#1c2540"/>';}
+  series.forEach(sr=>{let p='',pen=false;sr.pts.forEach(pt=>{if(!pt||!isFinite(pt[1])){pen=false;return;}p+=(pen?'L':'M')+X(pt[0]).toFixed(1)+' '+Y(pt[1]).toFixed(1)+' ';pen=true;});
     s+='<path d="'+p+'" fill="none" stroke="'+sr.c+'" stroke-width="2"/>';});
   if(extra)s+=extra(X,Y);
-  s+='<text x="'+(w/2)+'" y="14" text-anchor="middle">'+xlab+'</text><text x="12" y="'+(h/2)+'" transform="rotate(-90 12 '+(h/2)+')">'+ylab+'</text>';
-  let lg='';series.forEach((sr,i)=>{lg+='<rect x="'+(w-120)+'" y="'+(20+i*16)+'" width="10" height="4" fill="'+sr.c+'"/><text x="'+(w-105)+'" y="'+(24+i*16)+'">'+sr.n+'</text>';});
+  s+='<text x="'+(w/2)+'" y="14" text-anchor="middle" fill="#8892b0" font-size="12">'+xlab+'</text><text x="12" y="'+(h/2)+'" transform="rotate(-90 12 '+(h/2)+')" fill="#8892b0" font-size="12">'+ylab+'</text>';
+  let lg='';series.forEach((sr,i)=>{lg+='<rect x="'+(w-130)+'" y="'+(20+i*16)+'" width="10" height="4" fill="'+sr.c+'"/><text x="'+(w-115)+'" y="'+(24+i*16)+'" fill="#aab3d0" font-size="11">'+sr.n+'</text>';});
   return s+lg+'</svg>';
 }
 const VCOL={'15':'#38bdc8','20':'#4a90e2','25':'#3ecf7a','30':'#e8b13e'};
+const CCONF={CL:{yr:[-1.4,1.4],yl:'CL'},CD:{yr:[0,1.6],yl:'CD'},Cm:{yr:[-0.5,0.5],yl:'Cm (抬头+)'},CY:{yr:[-0.9,0.9],yl:'CY (右+)'}};
 function drawCurves(){
   const d=DATA.d;if(!d)return;
-  const csel=$('csel');if(!csel.children.length)['CL','CD','Cm'].forEach(n=>{const b=document.createElement('button');b.textContent=n;b.onclick=()=>{DATA.cSel=n;[...csel.children].forEach(x=>x.classList.toggle('on',x===b));drawCurves();};if(n==='CL')b.classList.add('on');csel.appendChild(b);});
-  const A=d.curves.blue.alpha,yrMap={CL:[-1.4,1.4],CD:[0,1.6],Cm:[-0.5,0.5]};
-  const ylMap={CL:'CL',CD:'CD',Cm:'Cm (抬头+)'},xl='α [deg]';
-  const html='<div class="row">'+['CL','CD','Cm'].map((k)=>'<div class="card" style="min-width:520px">'+svgLine(560,250,{l:44,r:16,t:18,b:24},[-15,15],[yrMap[k][0],yrMap[k][1]],xl,ylMap[k],
-    (()=>{const ss=[];Object.keys(d.curves.blue.byV).forEach(v=>{const ys=d.curves.blue.byV[v][k];ss.push({n:'V='+v,c:VCOL[v]||'#888',pts:A.map((a,j)=>ys[j]==null?null:[a,ys[j]])});});
-      if(k===DATA.cSel&&d.curves.red_v25.alpha)ss.push({n:'V=25 红',c:'#e05555',pts:d.curves.red_v25.alpha.map((a,i)=>[a,d.curves.red_v25.CL[i]])});return ss;})())+'</div>').join('')+'</div>';
-  $('curves').innerHTML=html;
+  const csel=$('csel');if(!csel.children.length)['CL','CD','Cm','CY'].forEach(n=>{const b=document.createElement('button');b.textContent=n;b.onclick=()=>{DATA.cSel=n;[...csel.children].forEach(x=>x.classList.toggle('on',x===b));drawCurves();};if(n===DATA.cSel)b.classList.add('on');csel.appendChild(b);});
+  const k=DATA.cSel,cf=CCONF[k];
+  const A=d.curves.blue.alpha;
+  const ss=[];
+  Object.keys(d.curves.blue.byV).forEach(v=>{const ys=d.curves.blue.byV[v][k];ss.push({n:'V='+v,c:VCOL[v]||'#888',pts:A.map((a,j)=>ys[j]==null?null:[a,ys[j]])});});
+  if(k==='CL'&&d.curves.red_v25.alpha)ss.push({n:'V=25 红基准(折叠)',c:'#e05555',pts:d.curves.red_v25.alpha.map((a,i)=>[a,d.curves.red_v25.CL[i]])});
+  $('curves').innerHTML='<div>'+svgLine(980,430,{l:48,r:16,t:20,b:30},[-15,15],[cf.yr[0],cf.yr[1]],'α [deg]  (β=0 行, 蓝线随扫气生长)',cf.yl,ss)+'</div>';
   $('slopeinfo').textContent=d.curves.cl_slope_per_rad?('蓝表 CL_α (V=25, β=0, |α|≤7.5 线性拟合) = '+d.curves.cl_slope_per_rad.toFixed(2)+' /rad — 锚定验收值 2.52/rad'):'蓝表 β=0 行尚不足, 斜率待数据';
 }
 
@@ -191,7 +309,7 @@ function drawCurves(){
 function drawPolar(){
   const d=DATA.d;if(!d||!d.curves.polar)return;
   const series=Object.keys(d.curves.polar).map(v=>({n:'V='+v,c:VCOL[v]||'#888',pts:d.curves.polar[v].map(p=>[p[0],p[1]])}));
-  $('polar').innerHTML=svgLine(900,420,{l:44,r:16,t:18,b:28},[0,1.6],[-1.4,1.4],'CD','CL',series);
+  $('polar').innerHTML=svgLine(940,430,{l:48,r:16,t:20,b:30},[0,1.6],[-1.4,1.4],'CD','CL',series);
 }
 
 /* ---------- 审计明细 ---------- */
@@ -201,11 +319,12 @@ function drawAudit(){
 }
 
 /* ---------- 3D 姿态 ---------- */
-let T3={ready:false,groups:[]};
+let T3={ready:false,groups:[],ver:null};
+function setMeshInfo(txt,cls){$('meshinfo').innerHTML=txt;st('st_mesh',cls==='ok'?'OK':(cls==='bad'?'失败':'加载中'),cls);}
 function init3d(){
   if(T3.started)return;T3.started=true;
   const holder=$('view3d');
-  if(window.__three_fail||!window.THREE){ // 2D 降级
+  if(window.__three_fail||!window.THREE){
     st('st_gl','未用(2D)','warn');
     holder.innerHTML='<canvas id="c2d" width="520" height="380" style="width:100%"></canvas>';
     T3.d2=true;draw2d();return;
@@ -213,14 +332,13 @@ function init3d(){
   try{
     const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
     st('st_gl','OK','ok');
-    renderer.setSize(holder.clientWidth||520,380);renderer.setClearColor(0x0d1220);
+    renderer.setSize(holder.clientWidth||520,400);renderer.setClearColor(0x0d1220);
     holder.appendChild(renderer.domElement);
     const scene=new THREE.Scene();
     scene.add(new THREE.AmbientLight(0xffffff,.8));
     const dl=new THREE.DirectionalLight(0xffffff,.6);dl.position.set(2,3,4);scene.add(dl);
-    const dl2=new THREE.DirectionalLight(0xffffff,.45);dl2.position.set(-3,-2,-4);scene.add(dl2); // 对向补光: 消灭背光黑舵 (曼波 10-30 灰舵)
-    const cam=new THREE.PerspectiveCamera(40,(holder.clientWidth||520)/380,.01,10);
-    // 拖动 = 轨道相机 (曼波 10-29 指正: 机身与来流相对关系必须锁定, 拖动只是换观察角度)
+    const dl2=new THREE.DirectionalLight(0xffffff,.45);dl2.position.set(-3,-2,-4);scene.add(dl2); // 对向补光: 消灭背光黑舵
+    const cam=new THREE.PerspectiveCamera(40,(holder.clientWidth||520)/400,.01,10);
     const camSt={theta:2.35,phi:.32,R:.42,drag:false,px:0,py:0};
     function applyCam(){cam.position.set(
       camSt.R*Math.cos(camSt.phi)*Math.cos(camSt.theta),
@@ -229,7 +347,6 @@ function init3d(){
       cam.lookAt(0,0,0);}
     applyCam();
     const grid=new THREE.GridHelper(.3,15,0x223055,0x1a2440);grid.position.y=-.07;scene.add(grid);
-    // 来流箭头: 风洞语义 (机体固定 B 系, 箭头表示气流运动方向 U, α/β 滑块驱动)
     const flow=new THREE.Group();
     const FL=.12;
     const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.0025,.0025,FL),new THREE.MeshBasicMaterial({color:0x38bdc8}));
@@ -240,45 +357,57 @@ function init3d(){
     function setFlow(alphaDeg,betaDeg){
       const A=alphaDeg*Math.PI/180,B2=betaDeg*Math.PI/180;
       const U=new THREE.Vector3(-Math.cos(A)*Math.cos(B2),-Math.sin(B2),-Math.sin(A)*Math.cos(B2));
-      flow.position.copy(U.multiplyScalar(-.17)); // 尾端在上游 (-U 方向)
+      flow.position.copy(U.clone().multiplyScalar(-.17));
       flow.quaternion.setFromUnitVectors(new THREE.Vector3(1,0,0),U.normalize());
     }
     setFlow(0,0);window.__applyFlow=setFlow;
-    // 镖体组
     const dart=new THREE.Group();scene.add(dart);
-    fetch('dart_parallel_mesh.json?_='+Date.now()).then(r=>r.json()).then(mesh=>{
-      const mat=new THREE.MeshStandardMaterial({color:0x7a86b8,metalness:.15,roughness:.6,side:THREE.DoubleSide});
-      const bgeo=new THREE.BufferGeometry();
-      bgeo.setAttribute('position',new THREE.Float32BufferAttribute(mesh.body.pos,3));
-      bgeo.computeVertexNormals();dart.add(new THREE.Mesh(bgeo,mat));
-      mesh.fins.forEach(f=>{
-        const g=new THREE.Group();g.position.set(f.hinge_point[0],f.hinge_point[1],f.hinge_point[2]);
-        const geo=new THREE.BufferGeometry();
-        const rel=[];for(let i=0;i<f.pos.length;i+=3)rel.push(f.pos[i]-f.hinge_point[0],f.pos[i+1]-f.hinge_point[1],f.pos[i+2]-f.hinge_point[2]);
-        geo.setAttribute('position',new THREE.Float32BufferAttribute(rel,3));geo.computeVertexNormals();
-        const fm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x3ecf7a,metalness:.2,roughness:.5,side:THREE.DoubleSide,emissive:0x0c3d1f}));
-        g.add(fm);
-        // 铰链轴线可视化: 品红线段穿过孔心, 随舵组旋转 — 转轴对不对一眼可验 (曼波 10-30)
-        const axDir=new THREE.Vector3(f.hinge_axis[0],f.hinge_axis[1],f.hinge_axis[2]).normalize();
-        const half=0.016;
-        const axGeo=new THREE.BufferGeometry().setFromPoints([
-          axDir.clone().multiplyScalar(-half), axDir.clone().multiplyScalar(half)]);
-        g.add(new THREE.Line(axGeo,new THREE.LineBasicMaterial({color:0xff4477})));
-        dart.add(g);
-        T3.groups.push({g,axis:axDir,base:f.hinge_point});
-      });
-      T3.ready=true;applyDeltas();
-    });
+    T3.dart=dart;T3.scene=scene;
+    // mesh 一次性加载 (版本变了由 loadData 触发整页刷新), 失败可重试 — 10-31 UI 迭代:
+    // 旧版把 13.9MB mesh fetch 放在 90s 轮询里且无 catch, 静默失败=场景空转 (曼波: "3D 没有显示")
+    window.__loadMesh=function(){
+      setMeshInfo('mesh 加载中… (约 14MB, 本地秒到)','warn');
+      fetch('dart_parallel_mesh.json?_='+Date.now()).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
+      .then(mesh=>{
+        while(dart.children.length)dart.remove(dart.children[0]);
+        T3.groups=[];
+        const mat=new THREE.MeshStandardMaterial({color:0x7a86b8,metalness:.15,roughness:.6,side:THREE.DoubleSide});
+        const bgeo=new THREE.BufferGeometry();
+        bgeo.setAttribute('position',new THREE.Float32BufferAttribute(mesh.body.pos,3));
+        bgeo.computeVertexNormals();dart.add(new THREE.Mesh(bgeo,mat));
+        mesh.fins.forEach(f=>{
+          const g=new THREE.Group();g.position.set(f.hinge_point[0],f.hinge_point[1],f.hinge_point[2]);
+          const geo=new THREE.BufferGeometry();
+          const rel=[];for(let i=0;i<f.pos.length;i+=3)rel.push(f.pos[i]-f.hinge_point[0],f.pos[i+1]-f.hinge_point[1],f.pos[i+2]-f.hinge_point[2]);
+          geo.setAttribute('position',new THREE.Float32BufferAttribute(rel,3));geo.computeVertexNormals();
+          const fm=new THREE.Mesh(geo,new THREE.MeshStandardMaterial({color:0x3ecf7a,metalness:.2,roughness:.5,side:THREE.DoubleSide,emissive:0x0c3d1f}));
+          g.add(fm);
+          const axDir=new THREE.Vector3(f.hinge_axis[0],f.hinge_axis[1],f.hinge_axis[2]).normalize();
+          const half=0.016;
+          const axGeo=new THREE.BufferGeometry().setFromPoints([
+            axDir.clone().multiplyScalar(-half), axDir.clone().multiplyScalar(half)]);
+          g.add(new THREE.Line(axGeo,new THREE.LineBasicMaterial({color:0xff4477})));
+          dart.add(g);
+          T3.groups.push({g,axis:axDir,base:f.hinge_point});
+        });
+        T3.ready=true;window.__meshVer=mesh.data_version;applyDeltas();
+        setMeshInfo('mesh OK · '+mesh.data_version+' · '+mesh.body.pos.length/9+' 面片 — 拖转/滚轮/滑块均可','ok');
+      })
+      .catch(e=>{setMeshInfo('mesh 加载失败: '+String(e).slice(0,60)+' <button class="meshbtn" onclick="__loadMesh()">重试</button>','bad');
+        st('st_mesh','失败','bad');});
+    };
+    window.__loadMesh();
     renderer.domElement.addEventListener('pointerdown',e=>{camSt.drag=true;camSt.px=e.clientX;camSt.py=e.clientY;});
     window.addEventListener('pointerup',()=>camSt.drag=false);
     window.addEventListener('pointermove',e=>{if(!camSt.drag)return;
       camSt.theta-=(e.clientX-camSt.px)*.01;camSt.phi=Math.max(-1.4,Math.min(1.4,camSt.phi+(e.clientY-camSt.py)*.008));
       camSt.px=e.clientX;camSt.py=e.clientY;applyCam();});
-    window.__cam=camSt; // 调试/测试钩子
+    window.__cam=camSt;
     renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();
       camSt.R=Math.max(.2,Math.min(.9,camSt.R+e.deltaY*.0004));applyCam();},{passive:false});
     (function loop(){requestAnimationFrame(loop);
-      if(window.__pause_raf)return; // 截图/隐藏页签时冻结画面, 让 capture 拿得到稳定帧
+      if(window.__pause_raf)return;
+      if(!camSt.drag&&!T3.d2){camSt.theta+=.0016;applyCam();} // 空闲自动缓旋 (10-31: 3D 要自己活)
       renderer.render(scene,cam);})();
     document.addEventListener('visibilitychange',()=>{window.__pause_raf=document.hidden;});
   }catch(e){st('st_gl','err: '+String(e).slice(0,40),'bad');T3.d2=true;holder.innerHTML='<canvas id="c2d" width="520" height="380" style="width:100%"></canvas>';draw2d();}
