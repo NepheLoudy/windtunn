@@ -40,6 +40,6 @@ for k in (1, 2, 3, 4):
     })
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
-mesh['data_version'] = 'V3-ANALYTIC-AXIS-20261030'
+mesh['data_version'] = 'V4-TRUE-HINGE-AXIS-20261031'
 json.dump(mesh, open(OUT, 'w'), separators=(',', ':'))
 print('mesh json ->', OUT, '%.1f KB' % (os.path.getsize(OUT)/1024))

@@ -114,7 +114,7 @@ function loadData(){
     fetch('dart_parallel_mesh.json?_='+Date.now()).then(r=>r.json()).then(mm=>{
       const el=document.getElementById('verbadge');
       el.textContent = mm.data_version || 'mesh-无版本戳';
-      el.style.background = (mm.data_version||'').includes('V3') ? '#1d4a2c' : '#6a1d1d';
+      el.style.background = (mm.data_version||'').includes('V4') ? '#1d4a2c' : '#6a1d1d';
     });
     if(!same) document.title = '('+d.t0.done+'/'+d.t0.total+') 镖体气动数据集监控台';
   })

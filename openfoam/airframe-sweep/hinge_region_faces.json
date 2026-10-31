@@ -1,0 +1,410 @@
+[
+ {
+  "surf": 1849,
+  "type": "Cylinder",
+  "vols": [
+   24
+  ],
+  "vol_is_fin": [
+   "fin_1"
+  ],
+  "center_B_mm": [
+   -84.849,
+   28.837,
+   33.048
+  ],
+  "len_mm": 32.3,
+  "near": [
+   "fin_1"
+  ],
+  "r_mm": 2.0,
+  "arc_deg": 180.0,
+  "axis_B": [
+   -0.0,
+   0.707107,
+   0.707107
+  ]
+ },
+ {
+  "surf": 1833,
+  "type": "Plane",
+  "vols": [
+   24
+  ],
+  "vol_is_fin": [
+   "fin_1"
+  ],
+  "center_B_mm": [
+   -89.62,
+   31.341,
+   32.806
+  ],
+  "len_mm": 35.5,
+  "near": [
+   "fin_1"
+  ]
+ },
+ {
+  "surf": 1838,
+  "type": "Plane",
+  "vols": [
+   24
+  ],
+  "vol_is_fin": [
+   "fin_1"
+  ],
+  "center_B_mm": [
+   -95.228,
+   38.016,
+   24.726
+  ],
+  "len_mm": 38.5,
+  "near": [
+   "fin_1"
+  ]
+ },
+ {
+  "surf": 1842,
+  "type": "Plane",
+  "vols": [
+   24
+  ],
+  "vol_is_fin": [
+   "fin_1"
+  ],
+  "center_B_mm": [
+   -97.183,
+   36.672,
+   26.274
+  ],
+  "len_mm": 38.2,
+  "near": [
+   "fin_1"
+  ]
+ },
+ {
+  "surf": 1850,
+  "type": "Plane",
+  "vols": [
+   24
+  ],
+  "vol_is_fin": [
+   "fin_1"
+  ],
+  "center_B_mm": [
+   -86.791,
+   33.341,
+   30.806
+  ],
+  "len_mm": 35.5,
+  "near": [
+   "fin_1"
+  ]
+ },
+ {
+  "surf": 1912,
+  "type": "Cylinder",
+  "vols": [
+   26
+  ],
+  "vol_is_fin": [
+   "fin_2"
+  ],
+  "center_B_mm": [
+   -84.849,
+   28.837,
+   -32.848
+  ],
+  "len_mm": 32.3,
+  "near": [
+   "fin_2"
+  ],
+  "r_mm": 2.0,
+  "arc_deg": 180.0,
+  "axis_B": [
+   0.0,
+   -0.707107,
+   0.707107
+  ]
+ },
+ {
+  "surf": 1896,
+  "type": "Plane",
+  "vols": [
+   26
+  ],
+  "vol_is_fin": [
+   "fin_2"
+  ],
+  "center_B_mm": [
+   -86.791,
+   33.341,
+   -30.606
+  ],
+  "len_mm": 35.5,
+  "near": [
+   "fin_2"
+  ]
+ },
+ {
+  "surf": 1901,
+  "type": "Plane",
+  "vols": [
+   26
+  ],
+  "vol_is_fin": [
+   "fin_2"
+  ],
+  "center_B_mm": [
+   -97.224,
+   36.604,
+   -25.938
+  ],
+  "len_mm": 38.5,
+  "near": [
+   "fin_2"
+  ]
+ },
+ {
+  "surf": 1905,
+  "type": "Plane",
+  "vols": [
+   26
+  ],
+  "vol_is_fin": [
+   "fin_2"
+  ],
+  "center_B_mm": [
+   -95.18,
+   38.089,
+   -24.658
+  ],
+  "len_mm": 38.2,
+  "near": [
+   "fin_2"
+  ]
+ },
+ {
+  "surf": 1913,
+  "type": "Plane",
+  "vols": [
+   26
+  ],
+  "vol_is_fin": [
+   "fin_2"
+  ],
+  "center_B_mm": [
+   -89.62,
+   31.341,
+   -32.606
+  ],
+  "len_mm": 35.5,
+  "near": [
+   "fin_2"
+  ]
+ },
+ {
+  "surf": 1975,
+  "type": "Cylinder",
+  "vols": [
+   28
+  ],
+  "vol_is_fin": [
+   "fin_3"
+  ],
+  "center_B_mm": [
+   -84.849,
+   -33.148,
+   -28.937
+  ],
+  "len_mm": 32.3,
+  "near": [
+   "fin_3"
+  ],
+  "r_mm": 2.0,
+  "arc_deg": 180.0,
+  "axis_B": [
+   0.0,
+   0.707107,
+   0.707107
+  ]
+ },
+ {
+  "surf": 1959,
+  "type": "Plane",
+  "vols": [
+   28
+  ],
+  "vol_is_fin": [
+   "fin_3"
+  ],
+  "center_B_mm": [
+   -86.791,
+   -30.906,
+   -33.441
+  ],
+  "len_mm": 35.5,
+  "near": [
+   "fin_3"
+  ]
+ },
+ {
+  "surf": 1964,
+  "type": "Plane",
+  "vols": [
+   28
+  ],
+  "vol_is_fin": [
+   "fin_3"
+  ],
+  "center_B_mm": [
+   -97.224,
+   -26.238,
+   -36.704
+  ],
+  "len_mm": 38.5,
+  "near": [
+   "fin_3"
+  ]
+ },
+ {
+  "surf": 1968,
+  "type": "Plane",
+  "vols": [
+   28
+  ],
+  "vol_is_fin": [
+   "fin_3"
+  ],
+  "center_B_mm": [
+   -95.18,
+   -24.958,
+   -38.189
+  ],
+  "len_mm": 38.2,
+  "near": [
+   "fin_3"
+  ]
+ },
+ {
+  "surf": 1976,
+  "type": "Plane",
+  "vols": [
+   28
+  ],
+  "vol_is_fin": [
+   "fin_3"
+  ],
+  "center_B_mm": [
+   -89.62,
+   -32.906,
+   -31.441
+  ],
+  "len_mm": 35.5,
+  "near": [
+   "fin_3"
+  ]
+ },
+ {
+  "surf": 2038,
+  "type": "Cylinder",
+  "vols": [
+   30
+  ],
+  "vol_is_fin": [
+   "fin_4"
+  ],
+  "center_B_mm": [
+   -84.849,
+   -29.237,
+   33.048
+  ],
+  "len_mm": 32.3,
+  "near": [
+   "fin_4"
+  ],
+  "r_mm": 2.0,
+  "arc_deg": 180.0,
+  "axis_B": [
+   0.0,
+   0.707107,
+   -0.707107
+  ]
+ },
+ {
+  "surf": 2022,
+  "type": "Plane",
+  "vols": [
+   30
+  ],
+  "vol_is_fin": [
+   "fin_4"
+  ],
+  "center_B_mm": [
+   -86.791,
+   -33.741,
+   30.806
+  ],
+  "len_mm": 35.5,
+  "near": [
+   "fin_4"
+  ]
+ },
+ {
+  "surf": 2027,
+  "type": "Plane",
+  "vols": [
+   30
+  ],
+  "vol_is_fin": [
+   "fin_4"
+  ],
+  "center_B_mm": [
+   -97.224,
+   -37.004,
+   26.138
+  ],
+  "len_mm": 38.5,
+  "near": [
+   "fin_4"
+  ]
+ },
+ {
+  "surf": 2031,
+  "type": "Plane",
+  "vols": [
+   30
+  ],
+  "vol_is_fin": [
+   "fin_4"
+  ],
+  "center_B_mm": [
+   -95.18,
+   -38.489,
+   24.858
+  ],
+  "len_mm": 38.2,
+  "near": [
+   "fin_4"
+  ]
+ },
+ {
+  "surf": 2039,
+  "type": "Plane",
+  "vols": [
+   30
+  ],
+  "vol_is_fin": [
+   "fin_4"
+  ],
+  "center_B_mm": [
+   -89.62,
+   -31.741,
+   32.806
+  ],
+  "len_mm": 35.5,
+  "near": [
+   "fin_4"
+  ]
+ }
+]

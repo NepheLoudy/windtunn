@@ -1,0 +1,90 @@
+{
+ "fin_1": {
+  "chosen_sign": 1,
+  "angle_used": 44.936,
+  "face_nx_q30": 0.0737,
+  "eyes": {
+   "r1.90@[20.7, 21.0]": {
+    "r_median_mm": 1.9,
+    "expect_mm": 1.9,
+    "pts": 90
+   },
+   "r1.15@[40.1, 40.4]": {
+    "r_median_mm": 2.138,
+    "expect_mm": 1.15,
+    "pts": 491
+   }
+  },
+  "body_min_gap_mm": 0.284,
+  "hole_center_on_axis_resid_mm": [
+   1e-05,
+   1e-05
+  ]
+ },
+ "fin_2": {
+  "chosen_sign": 1,
+  "angle_used": -45.039,
+  "face_nx_q30": 0.0741,
+  "eyes": {
+   "r1.90@[20.7, -20.8]": {
+    "r_median_mm": 1.9,
+    "expect_mm": 1.9,
+    "pts": 90
+   },
+   "r1.15@[40.1, -40.2]": {
+    "r_median_mm": 2.138,
+    "expect_mm": 1.15,
+    "pts": 491
+   }
+  },
+  "body_min_gap_mm": 0.282,
+  "hole_center_on_axis_resid_mm": [
+   1e-05,
+   1e-05
+  ]
+ },
+ "fin_3": {
+  "chosen_sign": 1,
+  "angle_used": -45.094,
+  "face_nx_q30": 0.0732,
+  "eyes": {
+   "r1.90@[-21.1, -20.8]": {
+    "r_median_mm": 1.9,
+    "expect_mm": 1.9,
+    "pts": 90
+   },
+   "r1.15@[-40.5, -40.2]": {
+    "r_median_mm": 2.138,
+    "expect_mm": 1.15,
+    "pts": 491
+   }
+  },
+  "body_min_gap_mm": 0.285,
+  "hole_center_on_axis_resid_mm": [
+   1e-05,
+   1e-05
+  ]
+ },
+ "fin_4": {
+  "chosen_sign": 1,
+  "angle_used": -45.071,
+  "face_nx_q30": 0.0736,
+  "eyes": {
+   "r1.90@[-21.1, 21.0]": {
+    "r_median_mm": 1.9,
+    "expect_mm": 1.9,
+    "pts": 90
+   },
+   "r1.15@[-40.5, 40.4]": {
+    "r_median_mm": 2.138,
+    "expect_mm": 1.15,
+    "pts": 491
+   }
+  },
+  "body_min_gap_mm": 0.284,
+  "hole_center_on_axis_resid_mm": [
+   1e-05,
+   1e-05
+  ]
+ }
+}
