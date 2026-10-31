@@ -141,6 +141,12 @@ table.hm td.m{background:var(--panel2)}
       <div class="note">0° = 舵面平行弹轴 (v0.95 基准)。铰链轴 = v4 真轴 (双耳孔心连线)。</div>
       <div class="note"><b>语义</b>: 机体固定 (风洞视角), α/β 滑块转来流箭头; 拖动 = 转相机视角, 滚轮缩放。</div>
       <div class="note" id="alphaNote">来流: α=0 β=0</div>
+      <h3 style="margin-top:14px">质量属性 (轴线选重心 + 重量)</h3>
+      <div class="slider"><label>m</label><input type="number" id="massIn" min="10" max="2000" step="0.1" style="width:90px"><output id="massOut">g</output></div>
+      <div class="slider"><label>x_cg</label><input type="range" id="cgIn" min="-0.1" max="0.1" step="0.0005"><output id="cgOut">—</output></div>
+      <div class="note" id="cgNote">—</div>
+      <button class="meshbtn" id="massSave">保存质量属性</button> <span id="massStat" class="note"></span>
+      <div class="note">🟠 橙线 = 自动锁定中轴线 (mesh 顶点 PCA, 换任意几何自适应); 🟠 橙球 = 你定的重心 (沿轴滑动)。保存入 UI 意图层 — 在跑的 T0-v2c 不受影响, 蓝表出全后随合并步骤应用正本+qianli 并以新 com 重算全表力矩。</div>
     </div>
   </div>
 </div>
@@ -375,6 +381,47 @@ function init3d(){
         const bgeo=new THREE.BufferGeometry();
         bgeo.setAttribute('position',new THREE.Float32BufferAttribute(mesh.body.pos,3));
         bgeo.computeVertexNormals();dart.add(new THREE.Mesh(bgeo,mat));
+        // ---- 自动锁定中轴线: body 顶点 PCA 主轴 + 截面质心 (任意镖体自适应, 曼波 11-01) ----
+        (function(){
+          const bp=mesh.body.pos,n=bp.length/3;
+          let cx=0,cy=0,cz=0;
+          for(let i=0;i<bp.length;i+=3){cx+=bp[i];cy+=bp[i+1];cz+=bp[i+2];}
+          cx/=n;cy/=n;cz/=n;
+          let vx=1,vy=0,vz=0;
+          for(let it=0;it<24;it++){
+            let nx=0,ny=0,nz=0;
+            for(let i=0;i<bp.length;i+=3){
+              const dx=bp[i]-cx,dy=bp[i+1]-cy,dz=bp[i+2]-cz,d=dx*vx+dy*vy+dz*vz;
+              nx+=dx*d;ny+=dy*d;nz+=dz*d;
+            }
+            const ln=Math.hypot(nx,ny,nz)||1;vx=nx/ln;vy=ny/ln;vz=nz/ln;
+          }
+          if(vx<0){vx=-vx;vy=-vy;vz=-vz;}   // 指向 +x (镖头)
+          let tmin=1e9,tmax=-1e9;
+          for(let i=0;i<bp.length;i+=3){
+            const t=(bp[i]-cx)*vx+(bp[i+1]-cy)*vy+(bp[i+2]-cz)*vz;
+            if(t<tmin)tmin=t;if(t>tmax)tmax=t;
+          }
+          T3.axis={c:[cx,cy,cz],u:[vx,vy,vz],tmin:tmin,tmax:tmax};
+          const a0=new THREE.Vector3(cx+vx*(tmin-.012),cy+vy*(tmin-.012),cz+vz*(tmin-.012));
+          const a1=new THREE.Vector3(cx+vx*(tmax+.012),cy+vy*(tmax+.012),cz+vz*(tmax+.012));
+          // X 光穿透渲染: 轴线/重心在体内也可见 (com 在弹轴上必然被机身包住)
+          const xray={depthTest:false,transparent:true,opacity:.95};
+          const axisLine=new THREE.Line(new THREE.BufferGeometry().setFromPoints([a0,a1]),
+            new THREE.LineBasicMaterial({color:0xff9a3c,...xray}));
+          axisLine.renderOrder=998;dart.add(axisLine);
+          const tickG=new THREE.BufferGeometry().setFromPoints([new THREE.Vector3(0,0,0),new THREE.Vector3(0,.012,.012)]);
+          [a0,a1].forEach(p=>{const tk=new THREE.Line(tickG.clone(),new THREE.LineBasicMaterial({color:0xff9a3c,...xray}));tk.renderOrder=998;tk.position.copy(p);dart.add(tk);});
+          const cg=new THREE.Mesh(new THREE.SphereGeometry(.006,16,12),
+            new THREE.MeshBasicMaterial({color:0xffb020,depthTest:false,transparent:true,opacity:1}));
+          cg.renderOrder=999;dart.add(cg);
+          const cgRodG=new THREE.BufferGeometry().setFromPoints(
+            [new THREE.Vector3(0,-.05,0),new THREE.Vector3(0,.05,0)]);
+          const cgRod=new THREE.Line(cgRodG,new THREE.LineBasicMaterial({color:0xffb020,depthTest:false,transparent:true,opacity:.9}));
+          cgRod.renderOrder=999;cg.add(cgRod);
+          T3.cg=cg;
+          initMassUI();
+        })();
         mesh.fins.forEach(f=>{
           const g=new THREE.Group();g.position.set(f.hinge_point[0],f.hinge_point[1],f.hinge_point[2]);
           const geo=new THREE.BufferGeometry();
@@ -448,6 +495,36 @@ function applyDeltas(){
   const ds=[...document.querySelectorAll('#sliders input[type=range]')].slice(0,4).map(i=>+i.value);
   T3.groups.forEach((fg,i)=>{const dd=ds[i]||0;const q=new THREE.Quaternion().setFromAxisAngle(fg.axis,dd*Math.PI/180);fg.g.quaternion.copy(q);});
   if(T3.d2)draw2d();
+}
+/* ---------- 质量属性 UI: 轴线选重心 + 重量 (曼波 11-01) ---------- */
+function setCG(t){
+  const a=T3.axis;if(!a||!T3.cg)return;
+  T3.cg.position.set(a.c[0]+a.u[0]*t,a.c[1]+a.u[1]*t,a.c[2]+a.u[2]*t);
+  const xmm=(a.c[0]+a.u[0]*t)*1000;
+  const headDist=(a.tmax-t)*1000;
+  $('cgOut').textContent=xmm.toFixed(1)+'mm';
+  $('cgNote').innerHTML='距镖头 <b>'+headDist.toFixed(1)+'</b> mm · 弹轴坐标 x='+xmm.toFixed(1)+' mm (y=z=0, 轴上) · 落盘后随蓝表出全统一应用 (recompute_cm 零重跑重算全表力矩)';
+}
+function initMassUI(){
+  const a=T3.axis,ci=$('cgIn');
+  ci.min=a.tmin;ci.max=a.tmax;ci.step=0.0005;
+  ci.oninput=()=>setCG(+ci.value);
+  $('massSave').onclick=()=>{
+    const t=+ci.value, xmm=(a.c[0]+a.u[0]*t)*1000;
+    $('massStat').textContent='保存中…';
+    fetch('/api/mass_props',{method:'POST',headers:{'Content-Type':'application/json'},
+      body:JSON.stringify({mass_g:+$('massIn').value,com_x_mm:xmm})})
+    .then(r=>r.json()).then(r=>{
+      $('massStat').innerHTML=r.ok?('已存 ✓ '+r.saved.updated):('失败: '+r.err);
+    }).catch(e=>{$('massStat').textContent='失败: '+String(e).slice(0,60);});
+  };
+  fetch('/api/mass_props').then(r=>r.json()).then(mp=>{
+    $('massIn').value=mp.mass_g;
+    let t=(mp.com_x_mm/1000-a.c[0])/a.u[0];
+    ci.value=Math.max(a.tmin,Math.min(a.tmax,t));
+    setCG(+ci.value);
+    if(mp.updated)$('massStat').innerHTML='已存定值 · '+mp.updated;
+  });
 }
 /* tabs */
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
