@@ -4,7 +4,7 @@
 
 fins 附带 hinge_axis / hinge_point (来自 cfd_parallel/airframe_assembly.json),
 前端用它们做 δ 滑块绕铰链旋转。body 全量三角形 (降采样会破面变点云, 10-29 曼波截图抓到),
-坐标 3 位小数 (亚毫米, 纯显示够) 控体积。
+坐标 4 位小数 (0.1mm; 3 位=1mm 网格曾致每顶点 0.5mm 抖动, 曼波 10-31 报表面坑洞) 控体积。
 输出: wt_jobs/www/dart_parallel_mesh.json
 """
 import json, os, struct
@@ -28,7 +28,7 @@ def flat(tris, nd=4):
 asm = json.load(open(os.path.join(CAD, 'airframe_assembly.json'), encoding='utf-8'))
 hinge = {s['name']: (s['hinge_axis'], s['hinge_line'][0]) for s in asm['control_surfaces']}
 
-mesh = {'body': {'pos': flat(load_tris(os.path.join(CAD, 'body.stl')), 3)}, 'fins': []}
+mesh = {'body': {'pos': flat(load_tris(os.path.join(CAD, 'body.stl')), 4)}, 'fins': []}
 for k in (1, 2, 3, 4):
     name = 'fin_%d' % k
     ax, pt = hinge[name]
@@ -40,6 +40,6 @@ for k in (1, 2, 3, 4):
     })
 
 os.makedirs(os.path.dirname(OUT), exist_ok=True)
-mesh['data_version'] = 'V4-TRUE-HINGE-AXIS-20261031'
+mesh['data_version'] = 'V4B-QUANT-FIX-20261031'
 json.dump(mesh, open(OUT, 'w'), separators=(',', ':'))
 print('mesh json ->', OUT, '%.1f KB' % (os.path.getsize(OUT)/1024))
