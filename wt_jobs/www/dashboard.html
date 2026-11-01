@@ -447,7 +447,8 @@ function init3d(){
     renderer.domElement.addEventListener('pointerdown',e=>{camSt.drag=true;camSt.px=e.clientX;camSt.py=e.clientY;});
     window.addEventListener('pointerup',()=>camSt.drag=false);
     window.addEventListener('pointermove',e=>{if(!camSt.drag)return;
-      camSt.theta-=(e.clientX-camSt.px)*.01;camSt.phi=Math.max(-1.4,Math.min(1.4,camSt.phi+(e.clientY-camSt.py)*.008));
+      // 拖向=视觉跟随 (曼波 11-01: 原方向反了, 两轴符号翻转) — 拖右→镖体跟右转, 拖下→看俯视
+      camSt.theta+=(e.clientX-camSt.px)*.01;camSt.phi=Math.max(-1.4,Math.min(1.4,camSt.phi-(e.clientY-camSt.py)*.008));
       camSt.px=e.clientX;camSt.py=e.clientY;applyCam();});
     window.__cam=camSt;
     renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();
