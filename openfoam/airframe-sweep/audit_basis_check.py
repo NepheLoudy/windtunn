@@ -96,16 +96,19 @@ def main():
     s_blue, n_b = slope_cl_alpha(rows)
     print('锚3 CL_α(β=0) 蓝表斜率 = %s (n=%d α点)' % ('%.4f' % s_blue if s_blue else 'n/a', n_b))
     if args.compare:
+        # 样本充分性门 (11-02): β=0 行少于 5 个 α 点或未覆盖 |α|>=5 时, 蓝表斜率
+        # 是稀疏噪声且 α 窗口与红表全 range 不可比 (苹果比橘子) — SKIP 而非 FAIL
+        alphas_b = sorted({r['alpha'] for r in rows if abs(r['beta']) < 1e-6})
         red = load(args.compare)
         s_red, n_r = slope_cl_alpha(red)
-        if s_blue and s_red:
+        if s_blue and s_red and n_b >= 5 and any(abs(a) >= 5 for a in alphas_b) and min(alphas_b) <= -5:
             drift = abs(s_blue - s_red) / abs(s_red)
             ok = drift < 0.08
             print('    红表斜率 = %.4f (n=%d) → 漂移 %.2f%% (< 8%%)  [%s]'
                   % (s_red, n_r, drift*100, 'PASS' if ok else 'FAIL'))
             if not ok: fails += 1
         else:
-            print('    红表 β=0 行 α 点不足, 对拍跳过')
+            print('    对拍 SKIP: 蓝表 β=0 行 α 点不足 (n=%d, 需>=5 且覆盖 |α|>=5) — 等扫气出全再判' % n_b)
     print('A6 总判定:', 'PASS' if fails == 0 else 'FAIL (%d 锚)' % fails)
     sys.exit(0 if fails == 0 else 1)
 

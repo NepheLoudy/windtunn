@@ -11,6 +11,11 @@
 蓝表未满 364 前不动 master aero_table.csv (验收通过才换)。
 """
 import csv, json, os, statistics, subprocess, sys, time
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 
 HERE = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
 ROOT = os.path.normpath(os.path.join(HERE, '..'))
@@ -29,7 +34,7 @@ TOTAL = len(VS) * len(ALPHAS) * len(BETAS)
 def ssh_cat(remote, local, timeout=180):
     r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
                         "ssh -o ConnectTimeout=15 %s 'cat %s 2>/dev/null'" % (QS, remote)],
-                       capture_output=True, text=True, timeout=timeout)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     if r.returncode == 0 and r.stdout.strip():
         open(local, 'w', newline='').write(r.stdout)
         return True
@@ -39,7 +44,7 @@ def ssh_probe_int(remote, timeout=60):
     """远端整数探测 (pgrep 等); 远程命令禁用单引号 — 外层就是单引号包裹"""
     r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
                         "ssh -o ConnectTimeout=15 %s '%s'" % (QS, remote)],
-                       capture_output=True, text=True, timeout=timeout)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     try:
         return int(r.stdout.strip().splitlines()[-1])
     except (IndexError, ValueError):
@@ -49,7 +54,7 @@ def ssh_out(remote, timeout=90):
     """远端多行文本拉取 (实时工况段); 禁用单引号"""
     r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
                         "ssh -o ConnectTimeout=15 %s '%s'" % (QS, remote)],
-                       capture_output=True, text=True, timeout=timeout)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     return r.stdout or ''
 
 def load_table(path):
@@ -81,13 +86,32 @@ def parse_sweep_log(local_log):
 def run_audit(script, table, extra=()):
     try:
         r = subprocess.run([sys.executable, os.path.join(AUDIT_DIR, script), table, *extra],
-                           capture_output=True, text=True, timeout=300,
+                           capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300,
                            cwd=AUDIT_DIR)
         return (r.stdout or '') + (r.stderr or '')
     except Exception as e:
         return 'AUDIT ERR %s: %s' % (script, e)
 
 def main():
+    # 单飞锁 (11-02): schtasks 2min 触发 + 人工 J1 可能并发, 双写 dashboard_data.json
+    # 曾致浏览器抓到半截 JSON — mkdir 原子锁, 6min 视为死锁自动接管
+    lock = os.path.join(STATE, '.sync.lock')
+    os.makedirs(STATE, exist_ok=True)
+    if os.path.exists(lock) and time.time() - os.path.getmtime(lock) < 360:
+        print('sync skipped: another J1 running (lock fresh)')
+        return
+    try:
+        os.mkdir(lock)
+    except FileExistsError:
+        print('sync skipped: another J1 running (lock)')
+        return
+    try:
+        _main_locked()
+    finally:
+        try: os.rmdir(lock)
+        except OSError: pass
+
+def _main_locked():
     for d in (STATE, WWW, OUT):
         os.makedirs(d, exist_ok=True)
     t0 = time.time()
@@ -253,6 +277,36 @@ def main():
         live['err'] = (live.get('err') or '') + str(e)[:100]
     data['live'] = live
 
+    # -- T2 GPU 队列 (11-02): summary CSV + 队列日志尾 + 运行标志 -----------------
+    t2q = {'cases': 0, 'running': False}
+    try:
+        ok_s = ssh_cat('~/fluidx3d_v3/FluidX3D-master/bin/out/t2_queue_summary.csv',
+                       os.path.join(STATE, 't2_queue_summary.csv'))
+        if ok_s:
+            rows_q = [ln for ln in open(os.path.join(STATE, 't2_queue_summary.csv'),
+                                        encoding='utf-8', errors='replace') if ln.strip()]
+            t2q['cases'] = max(0, len(rows_q) - 1)   # 减表头
+            last = rows_q[-1].strip().split(',')
+            if len(last) >= 10:
+                t2q['last'] = {'tag': last[0], 'alpha': last[1], 'beta': last[2],
+                               'nx': last[3], 'fx': last[8], 'fy': last[9], 'fz': last[10]}
+        ok_l = ssh_cat('~/fluidx3d_v3/FluidX3D-master/bin/t2_queue_run.log',
+                       os.path.join(STATE, 't2_queue_run.log'))
+        if ok_l:
+            ql = [ln for ln in open(os.path.join(STATE, 't2_queue_run.log'),
+                                    encoding='utf-8', errors='replace') if ln.strip()]
+            t2q['log_tail'] = [ln.strip()[:90] for ln in ql][-3:]
+            if ql and ql[-1].startswith('['):
+                import re as _re2
+                m2 = _re2.match(r'\[([0-9-]+) ([0-9:]+)\]', ql[-1])
+                if m2:
+                    t2q['last_case_start'] = m2.group(1) + ' ' + m2.group(2)
+        lbm2 = ssh_probe_int('pgrep -cf "FluidX3[D]" || true')
+        t2q['running'] = lbm2 > 0
+    except Exception as e:
+        t2q['err'] = str(e)[:100]
+    data['t2q'] = t2q
+
     # -- T2 曲线 -------------------------------------------------------------
     t2 = []
     try:
@@ -334,7 +388,10 @@ def main():
 
     # -- 写产物 --------------------------------------------------------------
     jp = os.path.join(WWW, 'dashboard_data.json')
-    json.dump(data, open(jp, 'w', encoding='utf-8'), ensure_ascii=False, separators=(',', ':'))
+    jp_tmp = jp + '.tmp'
+    with open(jp_tmp, 'w', encoding='utf-8') as f:
+        json.dump(data, f, ensure_ascii=False, separators=(',', ':'))
+    os.replace(jp_tmp, jp)  # 原子替换: 浏览器永不抓到半截 JSON
     rep = ['== J1 同步+审计报告 %s ==' % data['generated_ts'],
            '蓝表: %d/%d (拉取%s)' % (done, TOTAL, 'OK' if ok0 else 'FAIL'),
            '当前: %s %s' % (cur, prog),

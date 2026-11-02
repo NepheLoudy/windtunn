@@ -26,6 +26,11 @@ qianli 断电重启后什么都不会自动拉起 (三个守护都是 setsid noh
 双引号 + 字符类断自匹配 (chain_t1_v[3] 教训); pgrep 只回 0/1 不回计数。
 """
 import os
+import sys as _sys
+try:
+    _sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+except Exception:
+    pass
 import subprocess
 import sys
 import time
@@ -52,7 +57,7 @@ ping -c1 -W2 192.168.31.153 >/dev/null 2>&1 && echo "nas=up" || echo "nas=down"
 def ssh_run(cmd, timeout=90):
     r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
                         "ssh -o ConnectTimeout=15 %s %s" % (QS, "'%s'" % cmd)],
-                       capture_output=True, text=True, timeout=timeout)
+                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     return r.returncode, (r.stdout or ''), (r.stderr or '')
 
 

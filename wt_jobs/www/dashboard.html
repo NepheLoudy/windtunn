@@ -54,7 +54,7 @@ table.hm td.m{background:var(--panel2)}
 </head>
 <body>
 <h1>🚀 镖体气动数据集监控台 <span style="color:var(--dim);font-size:13px">v3 · 平行基准 · 真铰链轴 v4</span></h1>
-<div class="sub" id="subtitle">数据加载中… <span style="opacity:.7">· 页面 90s 轮询 (服务端每 8min 拉 qianli)</span> <span id="verbadge" class="pill idle">…</span></div>
+<div class="sub" id="subtitle">数据加载中… <span style="opacity:.7">· 本机每 2min 拉新 qianli (WT_sync) · 页面 30s 轮询</span> <span id="subtext">数据加载中…</span> <span id="agebadge" class="pill idle">…</span> <span id="verbadge" class="pill idle">…</span></div>
 
 <div class="row">
   <div class="card" style="flex:2.2">
@@ -83,9 +83,10 @@ table.hm td.m{background:var(--panel2)}
     <div class="note" id="audnote">CY(β=0)偏置 / β镜像 / CLα 漂移 三锚</div>
   </div>
   <div class="card">
-    <h3>T1-v2 高保真 / T2 LBM</h3>
-    <div class="big" style="font-size:22px"><span id="t1done">—</span> <span style="color:var(--dim);font-size:14px">· GPU</span> <span id="t2step">—</span></div>
-    <div class="note" id="t2info">T0 完成后 chain 自动续 T1; LBM 挂起 (体素化专项)</div>
+    <h3>T2 GPU 队列 (5070 · v4 真轴) <span id="t2qpill" class="pill idle">—</span></h3>
+    <div class="big" style="font-size:22px"><span id="t1done">—</span> <span style="color:var(--dim);font-size:14px">· GPU</span> <span id="t2qdone">—</span></div>
+    <div class="note" id="t2qinfo">队列待同步…</div>
+    <div class="note" id="t2qlast">—</div>
   </div>
 </div>
 
@@ -180,8 +181,12 @@ function loadData(){
     DATA.d=d;renderAll();
     st('st_data','OK · '+d.generated_ts,'ok');
     document.title='('+d.t0.done+'/'+d.t0.total+') 镖体气动数据集监控台';
+    const ageMin=(Date.now()/1000-(d.generated_epoch||0))/60;
+    const ab=$('agebadge');
+    ab.textContent='数据年龄 '+ageMin.toFixed(1)+' min';
+    ab.className='pill '+(ageMin<5?'ok':(ageMin<15?'warn':'bad'));
   })
-  .catch(e=>{st('st_data','加载失败','bad');$('subtitle').textContent='数据加载失败 — 先跑一次 J1 (jobs\\j1_sync_audit.bat)';});
+  .catch(e=>{window.__loadErr=(e&&e.stack||String(e));st('st_data','加载失败','bad');$('subtext').textContent='数据加载失败 — 先跑一次 J1 (jobs\\j1_sync_audit.bat)';});
   fetch('mesh_version.json?_='+Date.now()).then(r=>r.json()).then(mv=>{
     if(window.__meshVer && window.__meshVer!==mv.data_version){location.reload();return;}
     const el=$('verbadge');
@@ -190,11 +195,11 @@ function loadData(){
   }).catch(()=>{});
 }
 loadData();
-setInterval(loadData, 90000);
+setInterval(loadData, 30000);
 
 function renderAll(){
   const d=DATA.d;
-  $('subtitle').innerHTML='生成于 '+d.generated_ts+' · 蓝表 '+d.sync.n_blue+'/'+d.t0.total+' (qianli 实时拉取)';
+  $('subtext').textContent='生成于 '+d.generated_ts+' · 蓝表 '+d.sync.n_blue+'/'+d.t0.total+' (qianli 实时拉取)';
   // --- T0 卡 ---
   $('t0done').textContent=d.t0.done+' / '+d.t0.total;
   $('t0bar').style.width=(100*d.t0.done/d.t0.total)+'%';
@@ -230,7 +235,11 @@ function renderAll(){
   const [a15t,a15c]=av(d.audit.a1a5),[a6t,a6c]=av(d.audit.a6);
   $('a15').textContent=a15t;$('a15').className='pill '+a15c;$('a6').textContent=a6t;$('a6').className='pill '+a6c;
   $('t1done').textContent='T1 '+d.t1.done+' / '+d.t1.total;
-  if(d.t2&&d.t2.stats){$('t2step').textContent='步 '+d.t2.stats.t_last;$('t2info').textContent='fy均值 '+d.t2.stats.fy_mean.toFixed(3)+' lu'+(d.t2.live?'':' · paused');}
+  const tq=d.t2q||{};
+  $('t2qdone').textContent='T2q '+tq.cases+' 例';
+  const tp=$('t2qpill');tp.textContent=tq.running?'队列在跑':'空闲/完成';tp.className='pill '+(tq.running?'run':'idle');
+  if(tq.last)$('t2qinfo').textContent='末例 '+tq.last.tag+' (α='+tq.last.alpha+'° β='+tq.last.beta+'° NX='+tq.last.nx+')';
+  if(tq.last)$('t2qlast').textContent='fx='+tq.last.fx+' fy='+tq.last.fy+' fz='+tq.last.fz+(tq.log_tail?(' · '+tq.log_tail[tq.log_tail.length-1].slice(0,60)):'');
   drawLive();drawHeat();drawCurves();drawPolar();drawAudit();init3d();
 }
 

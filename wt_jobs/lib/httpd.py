@@ -6,29 +6,13 @@ usage: py -3 lib/httpd.py [docroot] [port]
 默认 docroot = ../www, 端口 8123。禁缓存头是修"浏览器看到空白"的根: 任何资源
 永不 304, 数据 JSON 每次拉新。
 """
-import http.server, json, os, socketserver, subprocess, sys, threading, time
+import http.server, json, os, socketserver, subprocess, sys, time
 
-# 自动拉新线程: 每 8 分钟后台跑一次 sync_and_audit (页面开着数据就永远新鲜, 不依赖手动 J1)
-_sync_lock = threading.Lock()
-def auto_sync():
-    lib = os.path.dirname(os.path.abspath(__file__))
-    script = os.path.join(lib, 'sync_and_audit.py')
-    while True:
-        time.sleep(480)
-        if not _sync_lock.acquire(blocking=False):
-            continue  # 上轮未完 (ssh 慢), 跳过本轮防叠加
-        try:
-            r = subprocess.run([sys.executable, script], capture_output=True, text=True, timeout=600)
-            print('[auto-sync] %s' % ('ok' if r.returncode == 0 else 'FAIL ' + r.stderr[-200:]))
-        except Exception as e:
-            print('[auto-sync] err %s' % e)
-        finally:
-            _sync_lock.release()
-        sys.stdout.flush()
-
-threading.Thread(target=auto_sync, daemon=True).start()
+# 11-02: auto-sync 线程已移除 — 同步外置为 schtasks WT_sync (每 2min 跑 j1, 幂等自动退出)。
+# httpd 内部线程曾静默死亡致数据 30h 不更新; 外置任务+guard 模式才是可靠架构。
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
+
 docroot = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'www')
 port = int(sys.argv[2]) if len(sys.argv) > 2 else 8123
 docroot = os.path.normpath(os.path.join(os.getcwd(), docroot)) if not os.path.isabs(docroot) else docroot
