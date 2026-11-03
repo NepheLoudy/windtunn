@@ -51,7 +51,7 @@ cd ~/openfoam/windtunnel-mrf"
 | T6 | Q 差距主攻 A：瞬态旋转可行性调研 | ✅ 2026-10-06：`docs/transient_rotation_plan.md`（两阶段：瞬态 MRF → createNonConformalCouples 真滑移；overset 无教程生态排除；核心洞察=790/1080 发散可能是稳态解存在性问题，瞬态可解锁扫掠） | §4.6 |
 | T7 | 3mm OF 交叉验证可行性评估（.wslconfig 扩内存 → 全域加密档位测算） | ⬜ | §4.7 |
 | T8 | 全量代码与结构审查 | 🔶 定向预审完成（probe_flow P1 坐标错位已修、sphere_run 弃用标注、extract_sweep legend 修复、fixline/.broken 归档）；剩 gen_openfoam_mrf.m 本体全量审计 | — |
-| T9 | 遗留数据 NAS 迁移（~101 GiB，wt migrate 计划已出） | ⬜ 等 §6 两项决策（NAS 挂载 / vtk_old_inline 处置）后 `bash wt/wt.sh migrate --exec` | docs/data-vault.md §2 |
+| T9 | 遗留数据 NAS 迁移（~101 GiB，wt migrate 计划已出） | ✅ **11-03 销账**：回执 7/7 PASS 属实（v1 日志失败记录是老版本残影）；NAS 实测 flow3d_result.mat=305,571,468 字节完整在档，vault 六项+表推送齐（evt_003 风险→evt_004 解除） | docs/data-vault.md §2、migration_receipt_1030.md |
 
 **完成 T1-T4 后**（预计全部核心管线闭环），回到本表追加下阶段任务（头脑风暴产出，见 §7）。
 

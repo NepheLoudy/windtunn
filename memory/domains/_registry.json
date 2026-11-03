@@ -1,0 +1,11 @@
+{
+  "domains": [
+    {
+      "id": "wt",
+      "name": "风洞套件工程域",
+      "description": "WindTunnelSuite 双线（镖体扫气+涵道风洞）的工程事件流：审查/管线/渲染/运维发现",
+      "repo": "D:/WindTunnelSuite",
+      "machines": ["desktop", "laptop"]
+    }
+  ]
+}

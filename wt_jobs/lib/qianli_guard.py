@@ -50,6 +50,9 @@ pgrep -af "case_reape[r].sh" | grep -q sweep_t0v2 && echo "reaper_t0=1" || echo 
 pgrep -af "case_reape[r].sh" | grep -q "sweep_t1 " && echo "reaper_t1=1" || echo "reaper_t1=0"
 [ -f "$HOME/sweep_t0v2/t0_table.csv" ] && echo "rows=$(( $(wc -l < "$HOME/sweep_t0v2/t0_table.csv") - 2 ))" || echo "rows=0"
 [ -f "$HOME/sweep_t1/sweep.log" ] && echo "t1=started" || echo "t1=no"
+pgrep -cf "FluidX3[D]" >/dev/null && echo "gpu_run=1" || echo "gpu_run=0"
+pgrep -cf "t[23]_queue.s[h]" >/dev/null && echo "gpu_queue=1" || echo "gpu_queue=0"
+ls "$HOME" | grep -q "^t[0-9_]*_queue\.sh$" && echo "gpu_next=$(ls "$HOME" | grep "^t[0-9_]*_queue\.sh$" | sort | tail -1)" || echo "gpu_next="
 ping -c1 -W2 192.168.31.153 >/dev/null 2>&1 && echo "nas=up" || echo "nas=down"
 """
 
@@ -71,7 +74,7 @@ def probe():
             k, _, v = ln.partition('=')
             st[k.strip()] = v.strip()
     need = {'chain', 'eng_sweep', 'eng_foam', 'eng_snap', 'reaper_t0',
-            'reaper_t1', 'rows', 't1', 'nas'}
+            'reaper_t1', 'rows', 't1', 'nas', 'gpu_run', 'gpu_queue', 'gpu_next'}
     if not need.issubset(st):
         return None, 'probe incomplete: %s' % sorted(st)
     return st, ''
@@ -119,6 +122,16 @@ def main():
             actions.append(relaunch(
                 'setsid nohup bash "$HOME/case_reaper.sh" "$HOME/sweep_t1" 600 '
                 '>> "$HOME/sweep_t1/reaper.log" 2>&1 < /dev/null & sleep 1', 'reaper_t1'))
+        # GPU 队列接续 (11-03 E1): T2 收官后空转 6h 的根治 — GPU 闲着、队列脚本
+        # 没在跑、且 $HOME 下有待跑队列 (gpu_next 取字典序最新, t3_queue.sh > t2),
+        # 用无明文包装拉起 (11-02 三坑: ssh cmdline 明文目标串会撞 mkdir 锁)。
+        # 队列自身断点续跑+原子锁, 拉重了也安全。
+        if st['gpu_run'] == '0' and st['gpu_queue'] == '0' and st.get('gpu_next'):
+            actions.append(relaunch(
+                'printf "#!/usr/bin/env bash\\nsetsid nohup bash \\"$HOME/%s\\" '
+                '>> \\"$HOME/fluidx3d_v3/FluidX3D-master/bin/gpu_queue_relaunch.log\\" 2>&1 < /dev/null &\\n" '
+                '> "$HOME/.gpu_go.sh" && bash "$HOME/.gpu_go.sh"; sleep 2; '
+                'pgrep -cf "FluidX3[D]" >/dev/null && echo gpu-alive || echo gpu-starting', 'gpu_queue:' + st['gpu_next']))
         if not engine:
             for root, label in (('sweep_t0v2', 't0'), ('sweep_t1', 't1')):
                 if root == 'sweep_t1' and not t1_started:

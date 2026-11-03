@@ -84,10 +84,13 @@ def parse_sweep_log(local_log):
     return cur, prog
 
 def run_audit(script, table, extra=()):
+    # 子进程 stdout 强制 utf-8: 无头会话 python 默认 GBK 编码非 ASCII 输出,
+    # 而这里按 utf-8 解码 → 希腊字母/中文 mojibake 进 JSON (11-03, 11-02 病根④同族)
+    env = dict(os.environ, PYTHONIOENCODING='utf-8')
     try:
         r = subprocess.run([sys.executable, os.path.join(AUDIT_DIR, script), table, *extra],
                            capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=300,
-                           cwd=AUDIT_DIR)
+                           cwd=AUDIT_DIR, env=env)
         return (r.stdout or '') + (r.stderr or '')
     except Exception as e:
         return 'AUDIT ERR %s: %s' % (script, e)
@@ -95,11 +98,19 @@ def run_audit(script, table, extra=()):
 def main():
     # 单飞锁 (11-02): schtasks 2min 触发 + 人工 J1 可能并发, 双写 dashboard_data.json
     # 曾致浏览器抓到半截 JSON — mkdir 原子锁, 6min 视为死锁自动接管
+    # (11-03 修复: 原实现里过期锁落到 os.mkdir 必抛 FileExistsError → 接管路径
+    #  从未生效, 硬杀留锁后死锁 7h 全部 skip; 现在 >360s 先 rmdir 旧锁再接管。
+    #  J1 正常一次 <2min, 6min 窗口内 fresh 锁照旧跳过)
     lock = os.path.join(STATE, '.sync.lock')
     os.makedirs(STATE, exist_ok=True)
-    if os.path.exists(lock) and time.time() - os.path.getmtime(lock) < 360:
-        print('sync skipped: another J1 running (lock fresh)')
-        return
+    if os.path.exists(lock):
+        if time.time() - os.path.getmtime(lock) < 360:
+            print('sync skipped: another J1 running (lock fresh)')
+            return
+        try:
+            os.rmdir(lock)
+        except OSError:
+            pass
     try:
         os.mkdir(lock)
     except FileExistsError:
@@ -153,7 +164,9 @@ def _main_locked():
         dd = done - h[1]
         if dt > 900 and dd > 0:  # 至少 15 分钟窗口且有推进
             eta_min = round((TOTAL - done) / (dd / dt) / 60)
-            eta_src = 'rolling (%.2f case/min)' % (dd / dt / 60)
+            # dd/dt 是 case/s, case/min 要 ×60 (11-03 修复: 原写 /60 缩小 3600 倍,
+            # 真值 2.7 工况/h 显示成 0.00, 前端再 ×60 也救不回)
+            eta_src = 'rolling (%.2f case/min)' % (dd / dt * 60)
             break
     if eta_min is None and done:
         eta_min = round((TOTAL - done) * 15.0)

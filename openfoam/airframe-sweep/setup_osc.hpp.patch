@@ -1,0 +1,58 @@
+// setup_osc.hpp.patch — F4 动导数探针 (强迫振荡单自由度) — 2026-11-03 设计稿
+//
+// 目的: 静扫表不含动导数 (Cmq/Cnr/Clp, fidelity_1101 §4 诚实清单第一项)。
+// LBM 瞬态天然适配强迫振荡: 让镖体绕某体轴做小幅正弦俯仰/偏航/滚转,
+// 测力和力矩的同频响应 → 提取 in-phase (刚度) 与 quadrature (阻尼=动导数) 分量。
+// spec §4.5.1 的 damp 补偿层 (lookup_aero 的 damp dict) 等着这组数。
+//
+// 用法 (T3 队列跑完后发车, 零 CPU 冲突):
+//   cd ~/fluidx3d_v3/FluidX3D-master && patch -p0 < setup_osc.hpp.patch && make
+//   OSC_AXIS=1 OSC_AMP=2.0 OSC_FREQ=0.05 ALPHA=5 BETA=0 NX=440 NU=0.02 STEPS=1200000 TAG=_osc_q \
+//     bin/FluidX3D
+//   (OSC_AXIS: 1=俯仰 Cmq / 2=偏航 Cnr / 3=滚转 Clp; AMP=deg; FREQ=无量纲 ω)
+//
+// 物理口径:
+//   - 振幅 ±2° (线性区, 叠加在静态 ALPHA 上), 频率取 reduced freq k=ωL/2V≈0.05-0.2
+//     (巡航准定常 k≪1 与机动区 k~0.2 之间取两个频率点各跑一例)
+//   - 提取: fy(t),Mz(t) 对 sin(ωt) 的基波分量 (锁相放大) → 同相=导数主值,
+//     正交=阻尼; 每周期 500 步采样 × ≥40 周期统计
+//   - 参考点: 力矩绕表头 MOMENT_REF (与 T0/T1 同口径, recompute_cm 链兼容)
+//
+// --- 补丁主体 (对 setup.cpp v2) ---
+// 在 `const float3 U = ...` 行之前插入:
+//
+//  // F4 动导数探针: 强迫振荡 — 来流矢量按俯仰/偏航/滚转正弦摆动 (等效姿态振荡,
+//  // 与真实体振荡在准定常+小振幅下动导数等价, 免去动网格/逐帧重体素化)
+//  const char* osc_env = getenv("OSC_AXIS");
+//  const int   OSC_AXIS = osc_env ? atoi(osc_env) : 0;
+//  const float OSC_AMP  = (getenv("OSC_AMP") ? atof(getenv("OSC_AMP")) : 2.0f) * 3.14159265f/180.0f;
+//  const float OSC_OMEGA= getenv("OSC_FREQ") ? atof(getenv("OSC_FREQ")) : 0.05f;
+//  // 采样升频: OSC 时 SAMPLE 由 500 → 100 (锁相提取每周期 ≥100 点)
+//  const uint  SAMPLE   = OSC_AXIS ? 100u : 500u;
+//
+// 主循环内 (lbm.run(SAMPLE) 之后) 替换固定 U:
+//  // 姿态振荡 → 来流矢量在 (α,β) 平面绕静态点转圈: α(t)=α0+A·sin(ωt), β(t)=β0
+//  float A_ = A, B2_ = B2;
+//  if (OSC_AXIS == 1) A_  = A  + OSC_AMP * sinf(OSC_OMEGA * (float)(t+SAMPLE));
+//  if (OSC_AXIS == 2) B2_ = B2 + OSC_AMP * sinf(OSC_OMEGA * (float)(t+SAMPLE));
+//  // (OSC_AXIS==3 滚转: 需绕 x 轴转来流横向分量 — 对 X 对称构型 Clp 主通道,
+//  //  实现为 U 绕弹轴 x 旋转: u 不变, (v,w) 转 θ(t))
+//  const float3 U_ = OSC_AXIS == 3
+//    ? float3{U.x,
+//             U.y*cosf(th) - U.z*sinf(th),
+//             U.y*sinf(th) + U.z*cosf(th)}   // th = OSC_AMP·sin(ωt)
+//    : float3(-V_lbm*cosf(A_)*cosf(B2_), -V_lbm*sinf(B2_), -V_lbm*sinf(A_)*cosf(B2_));
+//  parallel_for(lbm.get_N(), [&](ulong n) { uint x,y,z; lbm.coordinates(n,x,y,z);
+//    if (x == 0u) lbm.u.x[n]=U_.x, lbm.u.y[n]=U_.y, lbm.u.z[n]=U_.z; });  // 入口面刷新
+//
+// 注意 (实现时逐条核对, 别直接抄设计稿):
+//  ①入口面刷新只重写 x==0 边界格 (TYPE_E 之外), 不要全场重置 — 会抹掉已建立的尾流
+//  ②t 循环变量在 v2 里是 t+=SAMPLE, 振荡相位用 (t+SAMPLE) 保持单调
+//  ③OSC_AXIS==3 的 th 变量在分支前定义 (float th = OSC_AMP*sinf(...))
+//  ④CSV 首列仍写 t; 桌面侧提取脚本对 (sin ωt, cos ωt) 做锁相回归, 报
+//    Cmq_im = <Mz·cos>/A / (q̄SL²/2V·(ωL/2V)) 归一化 — 归一化系数实现时对 spec §4.5.1
+//  ⑤每频率点先跑 200k 步建立周期态再开始锁相窗口 (照抄长时序的瞬态建立段结论)
+//  ⑥编译注意: 远端 ASCII locale, 补丁文件只写 ASCII 注释 (11-02 坑①)
+//
+// 算力预算: 1.2M 步@440 ≈ 70min (长时序实测), 每轴×2 频率 = 6 例 ≈ 7h GPU
+// 建议入队时机: T3 队列 ALL DONE 后 guard 自动接续 (E1 已装) 或手动发车
