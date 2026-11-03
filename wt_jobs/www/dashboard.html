@@ -591,30 +591,37 @@ function aeroBilinear(a,b){
    均匀来流 + 沿弹轴源分布(细长体排挤, 椭球 R(x)) + 下游尾迹亏损 + 尾涡摆动。
    纯解析可积分 — 流线=RK2 追迹, 色标=局部速度 jet 色表, 无需 CFD 场数据。 */
 const AEROBODY={x0:-.115,x1:.115,R:.057,NSEG:24};
+function bodyR(x){ // 镖体真实包络: ⌀46 筒身+X 翼展 0.113 包络+头尾锥 (11-04 真实性修正)
+  const ax=Math.abs(x);
+  if(ax>.115) return 0;
+  if(ax<.075) return .058;
+  return .058+(.015-.058)*((ax-.075)/.04);
+}
 function flowVel(px,py,pz,U,tNow,out){
-  // U: 单位来流矢量; out: {x,y,z} 写入目标。返回局部速度大小 (U=1 归一)。
-  let vx=U.x,vy=U.y,vz=U.z;
-  const s=px*U.x+py*U.y+pz*U.z;                       // 沿流向距离
-  const rx=px-U.x*s, ry=py-U.y*s, rz=pz-U.z*s;        // 垂直来流分量
-  const r=Math.sqrt(rx*rx+ry*ry+rz*rz);               // 垂直来流距离 (尾迹亏损核用)
-  // 源排挤: 离散段点源, 强度 Q_i=U·ΔA_i (细长体 dA/dx 积分形式)
-  const half=(AEROBODY.x1-AEROBODY.x0)/2, dx=(AEROBODY.x1-AEROBODY.x0)/AEROBODY.NSEG;
-  for(let i=0;i<AEROBODY.NSEG;i++){
-    const xc=AEROBODY.x0+dx*(i+.5), t2=1-(xc/half)*(xc/half);
-    const R0=AEROBODY.R*Math.sqrt(Math.max(t2,.02)), R1=AEROBODY.R*Math.sqrt(Math.max(1-((xc+dx/2)/half)*((xc+dx/2)/half),.02));
-    const Q=Math.PI*(R1*R1-R0*R0);                    // 段排挤流量 (U=1)
-    const cx=px-xc, cy2=py, cz2=pz;                    // 源在体轴上 (y=z=0)
-    const r2=cx*cx+cy2*cy2+cz2*cz2, rr=Math.max(r2,1e-5);
-    const f=Q/(12.566*rr*Math.sqrt(rr));               // 1/(4π r³)
-    vx+=f*cx; vy+=f*cy2; vz+=f*cz2;
+  // 细长体横向绕流 (2D 偶极子/轴段): v = U_x·x̂ + U_perp·(1-R²/r²) + 尾迹
+  // 真实性 (11-04 曼波: 渲染严格按仿真): r=R 处横向速度→0 = 贴体滑移, 流线不穿体;
+  //   旧版源分布对等直圆柱段排挤失效 (dA/dx=0 无源) → 流线被"吸入"体表假象。
+  let vx=U.x, vy=U.y, vz=U.z;
+  const xc=Math.max(-.1, Math.min(.1, px));
+  const R=bodyR(xc);
+  if(R>.004){
+    const denom=Math.max(py*py+pz*pz, R*R*.96);   // r² 下限≈R²: 表面滑移
+    const f=1-(R*R)/denom;
+    vy=U.y*f; vz=U.z*f;                            // 横向分量绕流修正, 轴向不变 (2D)
   }
-  // 尾迹 (s>体尾): 亏损核 + 尾涡摆动 (幅度随攻角感 — 由调用方传 wakeAmp)
+  // 头端驻点: 迎风头锥区轴向渐止 (U.x<0 → 头在 +x; U.x>0 → 头在 -x)
+  // 只衰减"会撞端面"的流线 (r_perp<包络); r 包络外的绕体流线放行 (物理: 绕过头部继续)
+  if(U.x<0 && px>.085 && px<.116 && Math.hypot(py,pz)<bodyR(px)) vx*=Math.max(0,(.115-px)/.03);
+  else if(U.x>0 && px<-.085 && px>-.116 && Math.hypot(py,pz)<bodyR(px)) vx*=Math.max(0,(px+.115)/.03);
+  const s=px*U.x+py*U.y+pz*U.z;                    // 沿流向距离
+  const rx=px-U.x*s, ry=py-U.y*s, rz=pz-U.z*s;
+  const r=Math.sqrt(rx*rx+ry*ry+rz*rz);            // 垂直来流距离 (尾迹核用)
   if(s>AEROBODY.x1&&out){
     const decay=Math.exp(-(s-AEROBODY.x1)/.4);
     const core=Math.exp(-(r*r)/(0.035*0.035));
     vx-=U.x*.45*core*decay; vy-=U.y*.45*core*decay; vz-=U.z*.45*core*decay;
     const sw=.14*out.wakeAmp*Math.sin(20*s-6*tNow)*core*decay;
-    vz+=sw*out.wakeDir.y; vy+=sw*out.wakeDir.x*.3;      // 摆动主向场景 z, 少量 y
+    vz+=sw*out.wakeDir.y; vy+=sw*out.wakeDir.x*.3;
   }
   const sp=Math.sqrt(vx*vx+vy*vy+vz*vz);
   out.x=vx;out.y=vy;out.z=vz;return sp;
@@ -650,19 +657,29 @@ function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
   // 起点盘: 上游 0.24, 极坐标 9 环 + 轴心 5 点 ≈ 239 条
   const starts=[];
   for(let ring=0;ring<9;ring++){const rr=.008+ring*.0115, nk=Math.max(6,ring*5)+6;
+    if(rr<.064) continue;                                  // 剔除体包络内起点 (本应驻点分流, 2D 势流无该解→不画)
     for(let k=0;k<nk;k++){const th=k/nk*6.2832;starts.push([rr*Math.cos(th),rr*Math.sin(th)]);}}
-  starts.push([0,0],[0,.03],[0,-.03],[.03,0],[-.03,0]);
   const pos=[],cg=[],lines=[];
   const c0=new THREE.Vector3(),c1=new THREE.Vector3();
   for(const st of starts){
     let px=-U.x*.24+e1.x*st[0]+e2.x*st[1], py=-U.y*.24+e1.y*st[0]+e2.y*st[1], pz=-U.z*.24+e1.z*st[0]+e2.z*st[1];
     const pts=[[px,py,pz,1]];
+    let hitBody=false;
     for(let step=0;step<NSEG;step++){
       flowVel(px,py,pz,U,tNow,out);
       const mx=px+out.x*h*.5,my=py+out.y*h*.5,mz=pz+out.z*h*.5;
       const sp2=flowVel(mx,my,mz,U,tNow,out), inv=sp2>1e-5?h/sp2:h;
       px+=out.x*inv; py+=out.y*inv; pz+=out.z*inv;
+      // 体表碰撞投影 (11-04 真实性修正: 势流点源离散不足致流线切入体 —
+      //   CFD 后处理标准做法: 体内点沿径向投影到体表面外, 流线只能贴体不能穿体)
+      const sx=px*U.x+py*U.y+pz*U.z;
+      if(sx>AEROBODY.x0&&sx<AEROBODY.x1){
+        const Rb=bodyR(sx)+.002;
+        const ry2=py-U.y*sx, rz2=pz-U.z*sx, rb=Math.hypot(ry2,rz2);
+        if(rb<Rb){const f=Rb/rb;py=U.y*sx+ry2*f;pz=U.z*sx+rz2*f;}
+      }
       if(px*U.x+py*U.y+pz*U.z>.34)break;
+      if(sp2<.03){hitBody=true;break;}                    // 驻点截断: 流线终止于驻点 (物理)
       pts.push([px,py,pz,sp2]);
     }
     lines.push(pts);
