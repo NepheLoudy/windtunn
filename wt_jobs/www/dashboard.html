@@ -136,7 +136,7 @@ table.hm td.m{background:var(--panel2)}
       <div id="view3d" style="height:400px"></div>
       <div class="note" id="meshinfo">mesh 待加载…</div>
       <div class="note" id="aeroread" style="font-family:Consolas,monospace;font-size:12px">气动查表: 待 aero_blue.json…</div>
-      <div class="note" style="font-size:11px">图例: <span style="color:#5ad0e0">━ 粒子来流</span> · <span style="color:#3ecf7a">━ 升力 L</span> · <span style="color:#e05555">━ 阻力 D</span> · <span style="color:#e8b13e">━ 侧力 Y</span> · 表面: <span style="color:#e07050">红=迎风(高压)</span>/<span style="color:#5070d0">蓝=背风(低压)</span> — 系数查 T0 蓝表 (α,β 双线性, V 钝感&lt;1%)</div>
+      <div class="note" style="font-size:11px">图例: <span style="color:#5ad0e0">━ 流线(色=速度 青→红)</span> · <span style="color:#3ecf7a">━ 升力 L</span> · <span style="color:#e05555">━ 阻力 D</span> · <span style="color:#e8b13e">━ 侧力 Y</span> · 表面: 速度色阶(驻点青→侧面红) — 系数查 T0 蓝表 (α,β 双线性, V 钝感&lt;1%)</div>
     </div>
     <div class="card" style="flex:1;min-width:240px">
       <h3>舵偏 δ1..δ4 [deg]</h3>
@@ -587,15 +587,49 @@ function aeroBilinear(a,b){
   out.mode=outside?'域外外推':(a===a0&&rs.some(r=>r.a===a&&r.b===b)?'表内点':'插值点');
   return out;
 }
+/* ---------- 势流解析场 (11-04 升级: 曼波要贴体流线效果 — 参考成熟 CFD 后处理) ----------
+   均匀来流 + 沿弹轴源分布(细长体排挤, 椭球 R(x)) + 下游尾迹亏损 + 尾涡摆动。
+   纯解析可积分 — 流线=RK2 追迹, 色标=局部速度 jet 色表, 无需 CFD 场数据。 */
+const AEROBODY={x0:-.115,x1:.115,R:.057,NSEG:24};
+function flowVel(px,py,pz,U,tNow,out){
+  // U: 单位来流矢量; out: {x,y,z} 写入目标。返回局部速度大小 (U=1 归一)。
+  let vx=U.x,vy=U.y,vz=U.z;
+  const s=px*U.x+py*U.y+pz*U.z;                       // 沿流向距离
+  const rx=px-U.x*s, ry=py-U.y*s, rz=pz-U.z*s;        // 垂直来流分量
+  const r=Math.sqrt(rx*rx+ry*ry+rz*rz);               // 垂直来流距离 (尾迹亏损核用)
+  // 源排挤: 离散段点源, 强度 Q_i=U·ΔA_i (细长体 dA/dx 积分形式)
+  const half=(AEROBODY.x1-AEROBODY.x0)/2, dx=(AEROBODY.x1-AEROBODY.x0)/AEROBODY.NSEG;
+  for(let i=0;i<AEROBODY.NSEG;i++){
+    const xc=AEROBODY.x0+dx*(i+.5), t2=1-(xc/half)*(xc/half);
+    const R0=AEROBODY.R*Math.sqrt(Math.max(t2,.02)), R1=AEROBODY.R*Math.sqrt(Math.max(1-((xc+dx/2)/half)*((xc+dx/2)/half),.02));
+    const Q=Math.PI*(R1*R1-R0*R0);                    // 段排挤流量 (U=1)
+    const cx=px-xc, cy2=py, cz2=pz;                    // 源在体轴上 (y=z=0)
+    const r2=cx*cx+cy2*cy2+cz2*cz2, rr=Math.max(r2,1e-5);
+    const f=Q/(12.566*rr*Math.sqrt(rr));               // 1/(4π r³)
+    vx+=f*cx; vy+=f*cy2; vz+=f*cz2;
+  }
+  // 尾迹 (s>体尾): 亏损核 + 尾涡摆动 (幅度随攻角感 — 由调用方传 wakeAmp)
+  if(s>AEROBODY.x1&&out){
+    const decay=Math.exp(-(s-AEROBODY.x1)/.4);
+    const core=Math.exp(-(r*r)/(0.035*0.035));
+    vx-=U.x*.45*core*decay; vy-=U.y*.45*core*decay; vz-=U.z*.45*core*decay;
+    const sw=.14*out.wakeAmp*Math.sin(20*s-6*tNow)*core*decay;
+    vz+=sw*out.wakeDir.y; vy+=sw*out.wakeDir.x*.3;      // 摆动主向场景 z, 少量 y
+  }
+  const sp=Math.sqrt(vx*vx+vy*vy+vz*vz);
+  out.x=vx;out.y=vy;out.z=vz;return sp;
+}
+const JET=[[0,[0,.55,1]],[.25,[0,.92,.62]],[.5,[.45,1,.25]],[.72,[1,.92,.1]],[.88,[1,.45,0]],[1,[1,.08,.05]]];
+function jetColor(t){ // 速度归一 → 青绿黄红 (对齐参考图色标)
+  t=Math.max(0,Math.min(1,t));
+  for(let i=1;i<JET.length;i++) if(t<=JET[i][0]){
+    const w=(t-JET[i-1][0])/(JET[i][0]-JET[i-1][0]),a=JET[i-1][1],b=JET[i][1];
+    return [a[0]+(b[0]-a[0])*w,a[1]+(b[1]-a[1])*w,a[2]+(b[2]-a[2])*w];}
+  return JET[JET.length-1][1];
+}
 function initAeroFX(scene,dart){
-  // ① 粒子来流场: 450 粒子沿 U 推进, 近体圆柱段径向偏转 (绕流示意)
-  const N=450,pos=new Float32Array(N*3),seed=[];
-  for(let i=0;i<N;i++){const p={x:-.28+Math.random()*.56,y:(Math.random()-.5)*.15,z:(Math.random()-.5)*.11};seed.push(p);
-    pos[i*3]=p.x;pos[i*3+1]=p.y;pos[i*3+2]=p.z;}
-  const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
-  const pm=new THREE.PointsMaterial({color:0x5ad0e0,size:.008,transparent:true,opacity:.9,depthWrite:false});
-  const pts=new THREE.Points(pg,pm);scene.add(pts);
-  AERO.parts={pts,pos,seed,N};
+  // ① 流线系统: 起点上游客盘 → RK2 追迹 → LineSegments (顶点色=局部速度 jet)
+  AERO.scene=scene; AERO.orbit={pts:null,t:0};
   // ② 力矢量三箭头 (起点沿方向外移出机身防遮挡; depthTest 关 — X 光穿透, 机身永不见)
   const mkArr=c=>{const a=new THREE.ArrowHelper(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,0),.1,c,.035,.02);
     a.visible=false;a.line.material.depthTest=false;a.cone.material.depthTest=false;
@@ -604,19 +638,67 @@ function initAeroFX(scene,dart){
   fetch('aero_blue.json?_='+Date.now()).then(r=>r.json()).then(j=>{AERO.rows=j.rows;updateAero();})
     .catch(()=>{$('aeroread').textContent='气动查表: aero_blue.json 未就绪 (等 J1 下一轮)';});
 }
-function paintPressure(U){ // ③ 表面迎/背风顶点色 (节流 120ms)
-  const now=performance.now();if(now-AERO.lastPaint<120)return;AERO.lastPaint=now;
+function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
+  if(AERO.sl)  {AERO.scene.remove(AERO.sl);  AERO.sl.geometry.dispose();}
+  if(AERO.glow){AERO.scene.remove(AERO.glow);AERO.glow.geometry.dispose();}
+  const ins=document.querySelectorAll('#sliders input[type=range]');
+  const wakeAmp=.35+Math.abs(+ins[4].value)/15*.9;               // 尾涡摆幅随攻角
+  const wd=new THREE.Vector3(0,0,1); if(Math.abs(U.z)>.9) wd.set(0,1,0);
+  const e1=new THREE.Vector3(0,1,0).cross(U).normalize(); if(e1.lengthSq()<.5)e1.set(1,0,0);
+  const e2=new THREE.Vector3().crossVectors(U,e1);
+  const NSEG=110,h=.005,out={wakeAmp,wakeDir:wd,x:0,y:0,z:0};
+  // 起点盘: 上游 0.24, 极坐标 9 环 + 轴心 5 点 ≈ 239 条
+  const starts=[];
+  for(let ring=0;ring<9;ring++){const rr=.008+ring*.0115, nk=Math.max(6,ring*5)+6;
+    for(let k=0;k<nk;k++){const th=k/nk*6.2832;starts.push([rr*Math.cos(th),rr*Math.sin(th)]);}}
+  starts.push([0,0],[0,.03],[0,-.03],[.03,0],[-.03,0]);
+  const pos=[],cg=[],lines=[];
+  const c0=new THREE.Vector3(),c1=new THREE.Vector3();
+  for(const st of starts){
+    let px=-U.x*.24+e1.x*st[0]+e2.x*st[1], py=-U.y*.24+e1.y*st[0]+e2.y*st[1], pz=-U.z*.24+e1.z*st[0]+e2.z*st[1];
+    const pts=[[px,py,pz,1]];
+    for(let step=0;step<NSEG;step++){
+      flowVel(px,py,pz,U,tNow,out);
+      const mx=px+out.x*h*.5,my=py+out.y*h*.5,mz=pz+out.z*h*.5;
+      const sp2=flowVel(mx,my,mz,U,tNow,out), inv=sp2>1e-5?h/sp2:h;
+      px+=out.x*inv; py+=out.y*inv; pz+=out.z*inv;
+      if(px*U.x+py*U.y+pz*U.z>.34)break;
+      pts.push([px,py,pz,sp2]);
+    }
+    lines.push(pts);
+    for(let i=0;i<pts.length-1;i++){
+      pos.push(...pts[i].slice(0,3),...pts[i+1].slice(0,3));
+      cg.push(...jetColor(Math.max(0,Math.min(1,(pts[i][3]-.55)/.75))),
+              ...jetColor(Math.max(0,Math.min(1,(pts[i+1][3]-.55)/.75))));
+    }
+  }
+  const pg=new THREE.BufferGeometry();
+  pg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+  pg.setAttribute('color',new THREE.Float32BufferAttribute(cg,3));
+  AERO.sl=new THREE.LineSegments(pg,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.5}));
+  AERO.scene.add(AERO.sl);
+  // 流光点: 每 4 条流线 3 个亮点沿弧长参数循环滑动 (aeroTick 推进 t)
+  const glow=[];AERO.glowRef=[];
+  lines.forEach((pts,li)=>{if(li%4)return;
+    for(let g=0;g<3;g++){glow.push(...pts[0].slice(0,3));AERO.glowRef.push({pts,t:(g/3+li*.11)%1});}});
+  const gg=new THREE.BufferGeometry();
+  gg.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(glow),3));
+  AERO.glow=new THREE.Points(gg,new THREE.PointsMaterial({color:0xeaffff,size:.007,transparent:true,opacity:.95,depthWrite:false}));
+  AERO.scene.add(AERO.glow);
+}
+let _t0=performance.now();
+function tNow0(){return (performance.now()-_t0)/1000;}
+function paintPressure(U){ // ③ 表面速度色阶 (jet: 驻点青→侧面红, 对齐参考图; 节流 250ms)
+  const now=performance.now();if(now-AERO.lastPaint<250)return;AERO.lastPaint=now;
   const mesh=T3.dart&&T3.dart.children.find(c=>c.isMesh);if(!mesh||!mesh.geometry)return;
-  const g=mesh.geometry,ps=g.attributes.position,nrm=g.attributes.normal,cnt=ps.count;
+  const g=mesh.geometry,ps=g.attributes.position,cnt=ps.count;
   if(!g.attributes.color)g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(cnt*3),3));
   const col=g.attributes.color.array;
-  const Un=U.clone().normalize();
+  const out={wakeAmp:0,wakeDir:{x:0,y:0,z:0},x:0,y:0,z:0},tN=tNow0();
   for(let i=0;i<cnt;i++){
-    const nx=nrm.getX(i),ny=nrm.getY(i),nz=nrm.getZ(i);
-    const d=-(nx*Un.x+ny*Un.y+nz*Un.z);           // >0 迎风 (法线朝上游)
-    const t=Math.max(0,Math.min(1,Math.abs(d)));   // |dot| 强度
-    if(d>0){col[i*3]=.95;col[i*3+1]=.28+.25*(1-t);col[i*3+2]=.15;}         // 红=迎风高压
-    else   {col[i*3]=.15;col[i*3+1]=.35+.2*(1-t);col[i*3+2]=.85;}          // 蓝=背风低压
+    const sp=flowVel(ps.getX(i),ps.getY(i),ps.getZ(i),U,tN,out);
+    const c=jetColor(Math.max(0,Math.min(1,(sp-.45)/.85)));
+    col[i*3]=c[0];col[i*3+1]=c[1];col[i*3+2]=c[2];
   }
   g.attributes.color.needsUpdate=true;
   if(!mesh.material.vertexColors){mesh.material.vertexColors=true;mesh.material.color.set(0xffffff);mesh.material.needsUpdate=true;}
@@ -630,6 +712,11 @@ function updateAero(){ // α/β 滑块与 aero_blue 就绪时统一入口
   const U=new THREE.Vector3(-Math.cos(A)*Math.cos(B2),-Math.sin(B2),-Math.sin(A)*Math.cos(B2));
   if(window.__applyFlow)window.__applyFlow(a,b);
   paintPressure(U);
+  { // 流线重建节流: 400ms 内只建一次 (势流积分 ~30ms)
+    const now=performance.now();
+    if(now-(AERO.lastRebuild||0)>400){AERO.lastRebuild=now;
+      try{rebuildStreamlines(U,tNow0());}catch(e){AERO.slErr=String(e).slice(0,60);}}
+  }
   const c=aeroBilinear(a,b);
   const el=$('aeroread');
   if(!AERO.rows){return;}
@@ -652,23 +739,19 @@ function updateAero(){ // α/β 滑块与 aero_blue 就绪时统一入口
   set(c,'CL',lift);set(c,'CD',drag);set(c,'CY',side);
   el.innerHTML='V=20 (跨V&lt;1%) α='+a+'° β='+b+'° → <b style="color:#3ecf7a">CL='+c.CL.toFixed(3)+'</b> <b style="color:#e05555">CD='+c.CD.toFixed(3)+'</b> <b style="color:#e8b13e">CY='+c.CY.toFixed(3)+'</b> · Cm='+c.Cm.toFixed(3)+' Cl='+c.Cl.toFixed(3)+' Cn='+c.Cn.toFixed(3)+' · <b>'+c.mode+'</b> (δ 查表未含, 蓝表 δ=0)';
 }
-function aeroTick(){ // 粒子推进 (每帧; p5 不可见时由 __aeroVisible 跳过)
-  if(!AERO.parts||window.__aeroVisible===false)return;
-  const {pts,pos,seed,N}=AERO.parts;
-  const ins=document.querySelectorAll('#sliders input[type=range]');
-  const a=+ins[4].value*Math.PI/180,b=+ins[5].value*Math.PI/180;
-  const U=new THREE.Vector3(-Math.cos(a)*Math.cos(b),-Math.sin(b),-Math.sin(a)*Math.cos(b));
-  const sp=.9/60; // 格/帧 (~0.9 场长/秒)
-  for(let i=0;i<N;i++){
-    let x=pos[i*3]+U.x*sp,y=pos[i*3+1]+U.y*sp,z=pos[i*3+2]+U.z*sp;
-    // 绕流偏转: 近体圆柱 (r<0.045, |x|<0.13) 内径向推出
-    const r=Math.hypot(y,z);
-    if(Math.abs(x)<.13&&r<.045&&r>1e-4){const f=(.045-r)/r*.12;y+=y*f;z+=z*f;}
-    if(x>.3||Math.abs(y)>.14||Math.abs(z)>.12){ // 出界重生上游
-      x=-.28;y=(Math.random()-.5)*.2;z=(Math.random()-.5)*.16;}
-    pos[i*3]=x;pos[i*3+1]=y;pos[i*3+2]=z;
+function aeroTick(){ // 流光点沿线滑动 (每帧; p5 不可见/窗口遮挡时由调用侧跳过)
+  if(!AERO.glowRef||window.__aeroVisible===false)return;
+  const att=AERO.glow.geometry.attributes.position, dt=1/60;
+  for(let gi=0;gi<AERO.glowRef.length;gi++){
+    const g=AERO.glowRef[gi], pts=g.pts;
+    g.t=(g.t+dt*.55)%1;
+    const fi=g.t*(pts.length-1), i0=Math.floor(fi), fr=fi-i0;
+    const a=pts[Math.min(i0,pts.length-1)], b=pts[Math.min(i0+1,pts.length-1)];
+    att.array[gi*3]  =a[0]+(b[0]-a[0])*fr;
+    att.array[gi*3+1]=a[1]+(b[1]-a[1])*fr;
+    att.array[gi*3+2]=a[2]+(b[2]-a[2])*fr;
   }
-  pts.geometry.attributes.position.needsUpdate=true;
+  att.needsUpdate=true;
 }
 
 </script>

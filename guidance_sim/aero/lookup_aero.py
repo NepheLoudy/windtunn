@@ -135,16 +135,25 @@ class AeroTable:
 
     # ---------- 上层: 合成 B 系力/力矩 ----------
 
-    def aero_forces(self, V_B, omega_B=None, de=0.0, da=0.0, dr=0.0, damp=None):
+    def aero_forces(self, V_B, omega_B=None, de=0.0, da=0.0, dr=0.0, damp=None,
+                    wind_noise_std=0.0):
         """V_B: B 系速度 (3,) [m/s]; omega_B: B 系角速度 (3,) [rad/s] (阻尼用)。
 
         damp: 动导数补偿 dict, 键 'Cmq','Cnr','Clp' (量纲: q̄SL_ref²/(2V)·ω̄ 折算),
         spec §4.5.1 补偿层 — 静扫表不含动导数, 工程值由算法侧标定后传入;
         None = 不加阻尼 (与纯表语义一致)。
+        wind_noise_std: 训练期风速大小噪声 σ [m/s] (11-04 曼波需求: RL 域随机化)。
+            >0 时对 |V_B| 注入 N(0,σ) 扰动后查表 — 方向不变 (纯大小扰动)。
+            跨 V 系数钝感 (<1%, fidelity_1101 §1.1) → σ≤2 m/s 时表内插值误差 <1%,
+            安全; σ 大到 V_eff 出 [15,30] 会走 coeffs 的 clamp+warning (预期行为)。
+            episode 级风速偏置 (恒定风) 由训练侧在 V_B 上自行加, 本参数只做步级抖动。
+            eval 时传 0 关闭。默认 0 = 无噪声 (parity 测试不受影响)。
         返回 (F_B[3], M_B[3]), 力矩参考点 = 全系统质心 (meta.MOMENT_REF)。
         """
         V_B = np.asarray(V_B, float)
         V = float(np.linalg.norm(V_B))
+        if wind_noise_std and wind_noise_std > 0 and V > 1e-6:
+            V = float(max(1e-3, V + np.random.normal(0.0, wind_noise_std)))
         S, L = self.meta["S_REF"], self.meta["L_REF"]
         rho = self.meta.get("RHO", 1.225)
         if V < 1e-6:
