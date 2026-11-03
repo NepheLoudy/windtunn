@@ -142,6 +142,23 @@ def _main_locked():
     red = load_table(RED_TABLE)
     data['sync'] = {'t0_ok': ok0, 'log_ok': okL, 'n_blue': len(rows), 'n_red': len(red)}
 
+    # -- 蓝表系数导出 (飞镖工况动态渲染数据源, 11-04) --------------------------
+    # 观察台 3D 视图查表用: 每行 V/α/β + 六系数 (δ 恒 0), 几 KB 静态文件,
+    # 前端 (α,β) 双线性插值 → 力矢量/表面压力着色实时联动。独立文件不走
+    # dashboard_data.json, 90s 轮询的 mesh_version 机制不受影响。
+    try:
+        aero = [{'V': r['V'], 'a': r['alpha'], 'b': r['beta'],
+                 'CL': r['CL'], 'CD': r['CD'], 'Cm': r['Cm'],
+                 'CY': r['CY'], 'Cl': r['Cl'], 'Cn': r['Cn']} for r in rows]
+        ap = os.path.join(WWW, 'aero_blue.json')
+        ap_tmp = ap + '.tmp'
+        with open(ap_tmp, 'w', encoding='utf-8') as f:
+            json.dump({'generated_ts': data['generated_ts'], 'n': len(aero), 'rows': aero},
+                      f, ensure_ascii=False, separators=(',', ':'))
+        os.replace(ap_tmp, ap)
+    except Exception as e:
+        data['aero_export_err'] = str(e)[:80]
+
     # -- 进度 (ETA 滚动实测: 用 J1 自己的拉取历史斜率, 不再拍固定单耗) ----------
     cur, prog = parse_sweep_log(logp)
     done = len(rows)

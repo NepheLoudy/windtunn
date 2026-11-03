@@ -93,7 +93,7 @@ table.hm td.m{background:var(--panel2)}
 <div class="tabs">
   <button data-p="p0" class="on">实时收敛</button><button data-p="p1">覆盖热力图</button>
   <button data-p="p2">系数曲线</button><button data-p="p3">极曲线</button>
-  <button data-p="p4">审计明细</button><button data-p="p5">3D 姿态 / 舵偏</button>
+  <button data-p="p4">审计明细</button><button data-p="p5">3D 受风工况</button>
 </div>
 
 <div class="pane on" id="p0">
@@ -132,9 +132,11 @@ table.hm td.m{background:var(--panel2)}
 <div class="pane" id="p5">
   <div class="row">
     <div class="card" style="flex:2;min-width:420px">
-      <h3>姿态 3D (自动缓旋 · 拖转 · 滚轮缩放)</h3>
+      <h3>受风工况动态渲染 (来流粒子 · 力矢量 · 表面压力)</h3>
       <div id="view3d" style="height:400px"></div>
       <div class="note" id="meshinfo">mesh 待加载…</div>
+      <div class="note" id="aeroread" style="font-family:Consolas,monospace;font-size:12px">气动查表: 待 aero_blue.json…</div>
+      <div class="note" style="font-size:11px">图例: <span style="color:#5ad0e0">━ 粒子来流</span> · <span style="color:#3ecf7a">━ 升力 L</span> · <span style="color:#e05555">━ 阻力 D</span> · <span style="color:#e8b13e">━ 侧力 Y</span> · 表面: <span style="color:#e07050">红=迎风(高压)</span>/<span style="color:#5070d0">蓝=背风(低压)</span> — 系数查 T0 蓝表 (α,β 双线性, V 钝感&lt;1%)</div>
     </div>
     <div class="card" style="flex:1;min-width:240px">
       <h3>舵偏 δ1..δ4 [deg]</h3>
@@ -447,6 +449,7 @@ function init3d(){
           T3.groups.push({g,axis:axDir,base:f.hinge_point});
         });
         T3.ready=true;window.__meshVer=mesh.data_version;applyDeltas();
+        initAeroFX(scene,dart);window.__aeroVisible=true; // 飞镖工况动态渲染 (11-04)
         setMeshInfo('mesh OK · '+mesh.data_version+' · '+mesh.body.pos.length/9+' 面片 — 拖转/滚轮/滑块均可','ok');
       })
       .catch(e=>{setMeshInfo('mesh 加载失败: '+String(e).slice(0,60)+' <button class="meshbtn" onclick="__loadMesh()">重试</button>','bad');
@@ -456,8 +459,9 @@ function init3d(){
     renderer.domElement.addEventListener('pointerdown',e=>{camSt.drag=true;camSt.px=e.clientX;camSt.py=e.clientY;});
     window.addEventListener('pointerup',()=>camSt.drag=false);
     window.addEventListener('pointermove',e=>{if(!camSt.drag)return;
-      // 拖向=视觉跟随 (曼波 11-01: 原方向反了, 两轴符号翻转) — 拖右→镖体跟右转, 拖下→看俯视
-      camSt.theta+=(e.clientX-camSt.px)*.01;camSt.phi=Math.max(-1.4,Math.min(1.4,camSt.phi-(e.clientY-camSt.py)*.008));
+      // 拖向=视觉跟随 (曼波 11-01: 原方向反了, 两轴符号翻转; 11-04: 垂直轴(phi)再翻回 —
+      // phi-=dy 时拖下变仰视, 与"拖下→看俯视"相反; theta 轴正确保持不变)
+      camSt.theta+=(e.clientX-camSt.px)*.01;camSt.phi=Math.max(-1.4,Math.min(1.4,camSt.phi+(e.clientY-camSt.py)*.008));
       camSt.px=e.clientX;camSt.py=e.clientY;applyCam();});
     window.__cam=camSt;
     renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();
@@ -465,8 +469,10 @@ function init3d(){
     (function loop(){requestAnimationFrame(loop);
       if(window.__pause_raf)return;
       if(!camSt.drag&&!T3.d2){camSt.theta+=.0016;applyCam();} // 空闲自动缓旋 (10-31: 3D 要自己活)
+      aeroTick(); // 受风渲染: 粒子推进 (p5 不可见时内部自跳过)
       renderer.render(scene,cam);})();
     document.addEventListener('visibilitychange',()=>{window.__pause_raf=document.hidden;});
+    window.__renderOnce=()=>{renderer.render(scene,cam);}; // 调试口: 窗口遮挡 rAF 冻结时手动单帧 (11-04)
   }catch(e){st('st_gl','err: '+String(e).slice(0,40),'bad');T3.d2=true;holder.innerHTML='<canvas id="c2d" width="520" height="380" style="width:100%"></canvas>';draw2d();}
 }
 /* 2D 降级: 俯视示意 */
@@ -537,10 +543,134 @@ function initMassUI(){
   });
 }
 /* tabs */
+window.__aeroVisible=true;
 document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===b.dataset.p));
+  window.__aeroVisible=(b.dataset.p==='p5'); // 受风渲染: 非 p5 页暂停粒子推进 (省 CPU)
 });
+// α/β 滑块 → 查表/矢量/压力联动 (δ 滑块只动几何, 查表未含)
+(function(){
+  const ins=document.querySelectorAll('#sliders input[type=range]');
+  if(ins.length>=6){ins[4].addEventListener('input',updateAero);ins[5].addEventListener('input',updateAero);}
+})();
+
+/* ---------- 飞镖工况动态渲染 (11-04, 曼波: 风洞线不做但飞镖工况要) ----------
+   组件: ①来流粒子场(绕流偏转示意) ②气动力三箭头(查 T0 蓝表) ③表面迎/背风着色
+   ④系数读出行。数据: aero_blue.json (J1 每 2min 同步蓝表), (α,β) 双线性查表,
+   V 维忽略 (跨 V <1% 实测)。舵偏 δ 只转几何, 查表未含 (蓝表 δ=0)。 */
+const AERO={rows:null,parts:null,arrows:null,lastPaint:0};
+function aeroBilinear(a,b){
+  // 双线性: α 最近两剖面 + β 最近两行; 蓝表 δ=0。
+  // α 超出已扫域: 回退一档线性外推 (攻角线性区外推物理合理, RL 侧 lookup_aero 另有
+  //   严格 clamp+warning 兜底) — 11-04 修: 原版 i 推到末档 a1===a0 → wa=0 钉死边缘值,
+  //   α=+8° 显示 α=-2.5° 的 CL (正攻角全部错值)。
+  // β 侧向: 大侧滑外推危险 (CY sin 径), 保持 clamp。
+  const rs=AERO.rows;if(!rs||!rs.length)return null;
+  const alphas=[...new Set(rs.map(r=>r.a))].sort((x,y)=>x-y);
+  const n=alphas.length;
+  let i=0;while(i<n-1&&a>alphas[i+1])i++;
+  if(i>=n-1)i=n-2; if(i<0)i=0;                 // 域外→用边缘两档线性外推
+  const a0=alphas[i],a1=alphas[i+1];
+  const wa=a1===a0?0:(a-a0)/(a1-a0);
+  const pick=av=>{const sub=rs.filter(r=>r.a===av).sort((x,y)=>x.b-y.b);
+    if(!sub.length)return null;
+    let j=0;while(j<sub.length-1&&b>sub[j+1].b)j++;
+    const r0=sub[j],r1=sub[Math.min(j+1,sub.length-1)];
+    const wb=r1.b===r0.b?0:(b-r0.b)/(r1.b-r0.b);
+    const out={};for(const k of ['CL','CD','Cm','CY','Cl','Cn'])out[k]=r0[k]+(r1[k]-r0[k])*wb;
+    return out;};
+  const p0=pick(a0),p1=a1===a0?p0:pick(a1);
+  if(!p0||!p1)return null;
+  const out={};for(const k of ['CL','CD','Cm','CY','Cl','Cn'])out[k]=p0[k]+(p1[k]-p0[k])*wa;
+  const outside=a<alphas[0]||a>alphas[n-1];
+  out.mode=outside?'域外外推':(a===a0&&rs.some(r=>r.a===a&&r.b===b)?'表内点':'插值点');
+  return out;
+}
+function initAeroFX(scene,dart){
+  // ① 粒子来流场: 450 粒子沿 U 推进, 近体圆柱段径向偏转 (绕流示意)
+  const N=450,pos=new Float32Array(N*3),seed=[];
+  for(let i=0;i<N;i++){const p={x:-.28+Math.random()*.56,y:(Math.random()-.5)*.15,z:(Math.random()-.5)*.11};seed.push(p);
+    pos[i*3]=p.x;pos[i*3+1]=p.y;pos[i*3+2]=p.z;}
+  const pg=new THREE.BufferGeometry();pg.setAttribute('position',new THREE.BufferAttribute(pos,3));
+  const pm=new THREE.PointsMaterial({color:0x5ad0e0,size:.008,transparent:true,opacity:.9,depthWrite:false});
+  const pts=new THREE.Points(pg,pm);scene.add(pts);
+  AERO.parts={pts,pos,seed,N};
+  // ② 力矢量三箭头 (起点沿方向外移出机身防遮挡; depthTest 关 — X 光穿透, 机身永不见)
+  const mkArr=c=>{const a=new THREE.ArrowHelper(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,0),.1,c,.035,.02);
+    a.visible=false;a.line.material.depthTest=false;a.cone.material.depthTest=false;
+    a.renderOrder=997;scene.add(a);return a;};
+  AERO.arrows={L:mkArr(0x3ecf7a),D:mkArr(0xff6655),Y:mkArr(0xffd23e)};
+  fetch('aero_blue.json?_='+Date.now()).then(r=>r.json()).then(j=>{AERO.rows=j.rows;updateAero();})
+    .catch(()=>{$('aeroread').textContent='气动查表: aero_blue.json 未就绪 (等 J1 下一轮)';});
+}
+function paintPressure(U){ // ③ 表面迎/背风顶点色 (节流 120ms)
+  const now=performance.now();if(now-AERO.lastPaint<120)return;AERO.lastPaint=now;
+  const mesh=T3.dart&&T3.dart.children.find(c=>c.isMesh);if(!mesh||!mesh.geometry)return;
+  const g=mesh.geometry,ps=g.attributes.position,nrm=g.attributes.normal,cnt=ps.count;
+  if(!g.attributes.color)g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(cnt*3),3));
+  const col=g.attributes.color.array;
+  const Un=U.clone().normalize();
+  for(let i=0;i<cnt;i++){
+    const nx=nrm.getX(i),ny=nrm.getY(i),nz=nrm.getZ(i);
+    const d=-(nx*Un.x+ny*Un.y+nz*Un.z);           // >0 迎风 (法线朝上游)
+    const t=Math.max(0,Math.min(1,Math.abs(d)));   // |dot| 强度
+    if(d>0){col[i*3]=.95;col[i*3+1]=.28+.25*(1-t);col[i*3+2]=.15;}         // 红=迎风高压
+    else   {col[i*3]=.15;col[i*3+1]=.35+.2*(1-t);col[i*3+2]=.85;}          // 蓝=背风低压
+  }
+  g.attributes.color.needsUpdate=true;
+  if(!mesh.material.vertexColors){mesh.material.vertexColors=true;mesh.material.color.set(0xffffff);mesh.material.needsUpdate=true;}
+}
+function updateAero(){ // α/β 滑块与 aero_blue 就绪时统一入口
+  const ai=document.querySelector('#sliders input[step="1"][min="-15"]');
+  if(!ai)return;
+  const ins=document.querySelectorAll('#sliders input[type=range]');
+  const a=+ins[4].value,b=+ins[5].value; // 第 5/6 个滑块=α/β (前 4 是 δ)
+  const A=a*Math.PI/180,B2=b*Math.PI/180;
+  const U=new THREE.Vector3(-Math.cos(A)*Math.cos(B2),-Math.sin(B2),-Math.sin(A)*Math.cos(B2));
+  if(window.__applyFlow)window.__applyFlow(a,b);
+  paintPressure(U);
+  const c=aeroBilinear(a,b);
+  const el=$('aeroread');
+  if(!AERO.rows){return;}
+  if(!c){el.textContent='气动查表: 表空';return;}
+  // ④ 力矢量: 稳定轴基 (drag=+U 方向, lift=场景上向在垂直来流面投影, side=lift×drag)
+  //   坑(11-04): 标量×向量必须 addScaledVector — `n*vec` 在 JS 是 number×object=NaN,
+  //   曾致 L/Y 箭头 position=NaN 消失 (D 幸存因不经过此式)
+  const drag=U.clone().normalize();
+  const up0=new THREE.Vector3(0,1,0);
+  const lift=up0.clone().addScaledVector(drag,-up0.dot(drag)).normalize();
+  const side=new THREE.Vector3().crossVectors(lift,drag);
+  const L=.12;
+  const set=(arr,key,dir)=>{const v=c[key],ar=AERO.arrows[key==='CL'?'L':key==='CD'?'D':'Y'];
+    // 起点/长度: 底长 0.05 保证可见, 起点 = 方向×(0.055+len/2) 把箭头推出机身外
+    const len=.05+Math.abs(v)*.14, sgn=v>=0?1:-1;
+    ar.visible=Math.abs(v)>.004;
+    ar.setLength(len,.03,.016);
+    ar.position.copy(dir.clone().multiplyScalar(sgn*.055+len/2*sgn));
+    ar.setDirection(dir.clone().multiplyScalar(sgn));};
+  set(c,'CL',lift);set(c,'CD',drag);set(c,'CY',side);
+  el.innerHTML='V=20 (跨V&lt;1%) α='+a+'° β='+b+'° → <b style="color:#3ecf7a">CL='+c.CL.toFixed(3)+'</b> <b style="color:#e05555">CD='+c.CD.toFixed(3)+'</b> <b style="color:#e8b13e">CY='+c.CY.toFixed(3)+'</b> · Cm='+c.Cm.toFixed(3)+' Cl='+c.Cl.toFixed(3)+' Cn='+c.Cn.toFixed(3)+' · <b>'+c.mode+'</b> (δ 查表未含, 蓝表 δ=0)';
+}
+function aeroTick(){ // 粒子推进 (每帧; p5 不可见时由 __aeroVisible 跳过)
+  if(!AERO.parts||window.__aeroVisible===false)return;
+  const {pts,pos,seed,N}=AERO.parts;
+  const ins=document.querySelectorAll('#sliders input[type=range]');
+  const a=+ins[4].value*Math.PI/180,b=+ins[5].value*Math.PI/180;
+  const U=new THREE.Vector3(-Math.cos(a)*Math.cos(b),-Math.sin(b),-Math.sin(a)*Math.cos(b));
+  const sp=.9/60; // 格/帧 (~0.9 场长/秒)
+  for(let i=0;i<N;i++){
+    let x=pos[i*3]+U.x*sp,y=pos[i*3+1]+U.y*sp,z=pos[i*3+2]+U.z*sp;
+    // 绕流偏转: 近体圆柱 (r<0.045, |x|<0.13) 内径向推出
+    const r=Math.hypot(y,z);
+    if(Math.abs(x)<.13&&r<.045&&r>1e-4){const f=(.045-r)/r*.12;y+=y*f;z+=z*f;}
+    if(x>.3||Math.abs(y)>.14||Math.abs(z)>.12){ // 出界重生上游
+      x=-.28;y=(Math.random()-.5)*.2;z=(Math.random()-.5)*.16;}
+    pos[i*3]=x;pos[i*3+1]=y;pos[i*3+2]=z;
+  }
+  pts.geometry.attributes.position.needsUpdate=true;
+}
+
 </script>
 </body>
 </html>
