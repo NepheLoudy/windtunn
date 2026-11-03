@@ -4,13 +4,10 @@ title J2 仪表台 http://127.0.0.1:8123  (关窗口或 Ctrl+C 即停)
 echo ============================================
 echo  J2 本机仪表台服务 — 浏览器打开:
 echo     http://127.0.0.1:8123
-echo  先跑一次 J1 拉最新数据; 本窗口开着就一直在
+echo  先跑一次 J1 拉最新数据; 已在跑则本窗口直接退出
 echo ============================================
 cd /d "%~dp0.."
+rem no-paren-block: cmd+chcp65001+UTF-8 block parse aborts silently on this box
 netstat -ano | findstr ":8123" | findstr "LISTENING" >nul 2>&1
-if not errorlevel 1 (
-  echo 仪表台已在运行: http://127.0.0.1:8123  (本窗口 3 秒后退出)
-  timeout /t 3 >nul
-  exit /b 0
-)
+if not errorlevel 1 exit /b 0
 py -3 lib\httpd.py www 8123
