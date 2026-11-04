@@ -591,11 +591,13 @@ function aeroBilinear(a,b){
    均匀来流 + 沿弹轴源分布(细长体排挤, 椭球 R(x)) + 下游尾迹亏损 + 尾涡摆动。
    纯解析可积分 — 流线=RK2 追迹, 色标=局部速度 jet 色表, 无需 CFD 场数据。 */
 const AEROBODY={x0:-.115,x1:.115,R:.057,NSEG:24};
+const sstep=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
 function bodyR(x){ // 镖体真实包络: ⌀46 筒身+X 翼展 0.113 包络+头尾锥 (11-04 真实性修正)
+  // 平段→锥段 smoothstep 混合: 原线性过渡 R(x) 导数跳变 → 速度场沿轴向跳色 (头部环状色带, 曼波截图指认)
   const ax=Math.abs(x);
   if(ax>.115) return 0;
-  if(ax<.075) return .058;
-  return .058+(.015-.058)*((ax-.075)/.04);
+  const taper=sstep((ax-.06)/.055);
+  return .058*(1-taper)+.012*taper;
 }
 function flowVel(px,py,pz,U,tNow,out){
   // 细长体横向绕流 (2D 偶极子/轴段): v = U_x·x̂ + U_perp·(1-R²/r²) + 尾迹
@@ -611,8 +613,15 @@ function flowVel(px,py,pz,U,tNow,out){
   }
   // 头端驻点: 迎风头锥区轴向渐止 (U.x<0 → 头在 +x; U.x>0 → 头在 -x)
   // 只衰减"会撞端面"的流线 (r_perp<包络); r 包络外的绕体流线放行 (物理: 绕过头部继续)
-  if(U.x<0 && px>.085 && px<.116 && Math.hypot(py,pz)<bodyR(px)) vx*=Math.max(0,(.115-px)/.03);
-  else if(U.x>0 && px<-.085 && px>-.116 && Math.hypot(py,pz)<bodyR(px)) vx*=Math.max(0,(px+.115)/.03);
+  {
+    const headD=(U.x<0?1:-1)*(.115-px);              // >0 = 头端内侧
+    if(headD>0){
+      const rr2=Math.hypot(py,pz);
+      const Rb=bodyR(px);
+      const gate=1-sstep(Math.max(0,(rr2-.4*Rb))/(.6*Rb)); // 轴心 1→表面 0 平滑 (滑行流线不衰减)
+      vx*=1-sstep(headD/.055)*gate;
+    }
+  }
   const s=px*U.x+py*U.y+pz*U.z;                    // 沿流向距离
   const rx=px-U.x*s, ry=py-U.y*s, rz=pz-U.z*s;
   const r=Math.sqrt(rx*rx+ry*ry+rz*rz);            // 垂直来流距离 (尾迹核用)
@@ -642,10 +651,49 @@ function initAeroFX(scene,dart){
     a.visible=false;a.line.material.depthTest=false;a.cone.material.depthTest=false;
     a.renderOrder=997;scene.add(a);return a;};
   AERO.arrows={L:mkArr(0x3ecf7a),D:mkArr(0xff6655),Y:mkArr(0xffd23e)};
+  fetch('streamlines_real.json?_='+Date.now()).then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(j=>{AERO.real=j;updateAero();})
+    .catch(()=>{AERO.real=null;});
   fetch('aero_blue.json?_='+Date.now()).then(r=>r.json()).then(j=>{AERO.rows=j.rows;updateAero();})
     .catch(()=>{$('aeroread').textContent='气动查表: aero_blue.json 未就绪 (等 J1 下一轮)';});
 }
 function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
+  if(AERO.real && AERO.real.lines && AERO.real.lines.length){ // ── 真实 CFD 场流线 (qianli foamToVTK→积分→json) — 严格按仿真 ──
+    // lines 空 = 积分失败旧版 json → 回退势流 (守卫 11-04)
+    if(AERO.sl)  {AERO.scene.remove(AERO.sl);  AERO.sl.geometry.dispose();}
+    if(AERO.glow){AERO.scene.remove(AERO.glow);AERO.glow.geometry.dispose();}
+    const pos=[],cg=[],glowArr=[];AERO.glowRef=[];
+    AERO.real.lines.forEach((ln,li)=>{
+      const n=ln.length;
+      for(let i=0;i<n-1;i++){
+        pos.push(ln[i][0],ln[i][1],ln[i][2],ln[i+1][0],ln[i+1][1],ln[i+1][2]);
+        cg.push(...jetColor(Math.max(0,Math.min(1,ln[i][3]/26))),
+                ...jetColor(Math.max(0,Math.min(1,ln[i+1][3]/26))));
+      }
+      if(li%3===0) for(let g=0;g<3;g++){glowArr.push(ln[0][0],ln[0][1],ln[0][2]);
+        AERO.glowRef.push({pts:ln.map(p=>[p[0],p[1],p[2]]),t:(g/3+li*.07)%1});}
+    });
+    const pg=new THREE.BufferGeometry();
+    pg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
+    pg.setAttribute('color',new THREE.Float32BufferAttribute(cg,3));
+    AERO.sl=new THREE.LineSegments(pg,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.5}));
+    AERO.scene.add(AERO.sl);
+    const gg=new THREE.BufferGeometry();
+    gg.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(glowArr),3));
+    AERO.glow=new THREE.Points(gg,new THREE.PointsMaterial({color:0xeaffff,size:.006,transparent:true,opacity:.9,depthWrite:false}));
+    AERO.scene.add(AERO.glow);
+    if(AERO.real.surf&&AERO.real.surf.length){ // 表面顶点色=真实场采样 (与前端 mesh 顶点一一对应)
+      const mesh=T3.dart&&T3.dart.children.find(c=>c.isMesh);if(mesh&&mesh.geometry){
+        const g=mesh.geometry;
+        if(!g.attributes.color)g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(g.attributes.position.count*3),3));
+        g.attributes.color.array.set(AERO.real.surf.slice(0,g.attributes.position.count*3));
+        g.attributes.color.needsUpdate=true;
+        if(!mesh.material.vertexColors){mesh.material.vertexColors=true;mesh.material.color.set(0xffffff);mesh.material.needsUpdate=true;}
+      }
+      AERO.surfReal=true;
+    }
+    return; // 真实流线固定工况 — α/β 滑块不重建流线 (力矢量/查表照旧联动)
+  }
   if(AERO.sl)  {AERO.scene.remove(AERO.sl);  AERO.sl.geometry.dispose();}
   if(AERO.glow){AERO.scene.remove(AERO.glow);AERO.glow.geometry.dispose();}
   const ins=document.querySelectorAll('#sliders input[type=range]');
@@ -731,7 +779,7 @@ function updateAero(){ // α/β 滑块与 aero_blue 就绪时统一入口
   paintPressure(U);
   { // 流线重建节流: 400ms 内只建一次 (势流积分 ~30ms)
     const now=performance.now();
-    if(now-(AERO.lastRebuild||0)>400){AERO.lastRebuild=now;
+    if(!AERO.real && now-(AERO.lastRebuild||0)>400){AERO.lastRebuild=now;
       try{rebuildStreamlines(U,tNow0());}catch(e){AERO.slErr=String(e).slice(0,60);}}
   }
   const c=aeroBilinear(a,b);
@@ -754,7 +802,7 @@ function updateAero(){ // α/β 滑块与 aero_blue 就绪时统一入口
     ar.position.copy(dir.clone().multiplyScalar(sgn*.055+len/2*sgn));
     ar.setDirection(dir.clone().multiplyScalar(sgn));};
   set(c,'CL',lift);set(c,'CD',drag);set(c,'CY',side);
-  el.innerHTML='V=20 (跨V&lt;1%) α='+a+'° β='+b+'° → <b style="color:#3ecf7a">CL='+c.CL.toFixed(3)+'</b> <b style="color:#e05555">CD='+c.CD.toFixed(3)+'</b> <b style="color:#e8b13e">CY='+c.CY.toFixed(3)+'</b> · Cm='+c.Cm.toFixed(3)+' Cl='+c.Cl.toFixed(3)+' Cn='+c.Cn.toFixed(3)+' · <b>'+c.mode+'</b> (δ 查表未含, 蓝表 δ=0)';
+  el.innerHTML='V=20 (跨V&lt;1%) α='+a+'° β='+b+'° → <b style="color:#3ecf7a">CL='+c.CL.toFixed(3)+'</b> <b style="color:#e05555">CD='+c.CD.toFixed(3)+'</b> <b style="color:#e8b13e">CY='+c.CY.toFixed(3)+'</b> · Cm='+c.Cm.toFixed(3)+' Cl='+c.Cl.toFixed(3)+' Cn='+c.Cn.toFixed(3)+' · <b>'+c.mode+'</b> · <b style="color:#5ad0e0">流线源: '+(AERO.real?('真实 CFD 场 '+AERO.real.case):'势流近似')+'</b> (δ 查表未含, 蓝表 δ=0)';
 }
 function aeroTick(){ // 流光点沿线滑动 (每帧; p5 不可见/窗口遮挡时由调用侧跳过)
   if(!AERO.glowRef||window.__aeroVisible===false)return;
