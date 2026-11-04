@@ -552,7 +552,15 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
 // α/β 滑块 → 查表/矢量/压力联动 (δ 滑块只动几何, 查表未含)
 (function(){
   const ins=document.querySelectorAll('#sliders input[type=range]');
-  if(ins.length>=6){ins[4].addEventListener('input',updateAero);ins[5].addEventListener('input',updateAero);}
+  if(ins.length>=6){
+    let lastPose=0;
+    const onA=()=>{updateAero();
+      const now=performance.now();
+      if(AERO.poseIdx && now-lastPose>2000){lastPose=now;   // 姿态切换节流 2s (15MB fetch)
+        loadPoseFor(+ins[4].value,+ins[5].value).catch(()=>{});}
+    };
+    ins[4].addEventListener('input',onA);ins[5].addEventListener('input',onA);
+  }
 })();
 
 /* ---------- 飞镖工况动态渲染 (11-04, 曼波: 风洞线不做但飞镖工况要) ----------
@@ -664,10 +672,8 @@ function initAeroFX(scene,dart){
   fetch('streamlines_index.json?_='+Date.now()).then(r=>r.ok?r.json():Promise.reject(r.status))
     .then(idx=>{
       AERO.poseIdx=idx;                       // {poses:[{file,alpha,beta,V}...]}
-      const best=AERO.pickPose(+document.querySelectorAll('#sliders input[type=range]')[4].value,
-                               +document.querySelectorAll('#sliders input[type=range]')[5].value);
-      if(best) return fetch(best.file+'?_='+Date.now()).then(r=>r.ok?r.json():Promise.reject(r.status)).then(j=>{AERO.real=j;updateAero();});
-      return Promise.reject('no-pose');
+      const ins0=document.querySelectorAll('#sliders input[type=range]');
+      return loadPoseFor(+ins0[4].value, +ins0[5].value);
     })
     .catch(()=>{ // index 未就绪 → 回退单姿态文件 (旧链路)
       fetch('streamlines_real.json?_='+Date.now()).then(r=>r.ok?r.json():Promise.reject(r.status))
@@ -675,6 +681,13 @@ function initAeroFX(scene,dart){
     });
   fetch('aero_blue.json?_='+Date.now()).then(r=>r.json()).then(j=>{AERO.rows=j.rows;updateAero();})
     .catch(()=>{$('aeroread').textContent='气动查表: aero_blue.json 未就绪 (等 J1 下一轮)';});
+}
+function loadPoseFor(a,b){ // 姿态切换: 选最近姿态 → 拉 json → AERO.real 更新 → updateAero
+  const best=AERO.pickPose(a,b);
+  if(!best)return Promise.reject('no-pose');
+  return fetch('poses/'+best.file+'?_='+Date.now())
+    .then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(j=>{AERO.real=j;AERO.realLinesGeom=null;updateAero();return best;});
 }
 function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
   if(AERO.real && AERO.real.lines && AERO.real.lines.length){ // ── 真实 CFD 场流线 (qianli foamToVTK→积分→json) — 严格按仿真 ──
@@ -839,7 +852,7 @@ function updateAero(){ // α/β 滑块与 aero_blue 就绪时统一入口
     ar.position.copy(dir.clone().multiplyScalar(sgn*.055+len/2*sgn));
     ar.setDirection(dir.clone().multiplyScalar(sgn));};
   set(c,'CL',lift);set(c,'CD',drag);set(c,'CY',side);
-  el.innerHTML='V=20 (跨V&lt;1%) α='+a+'° β='+b+'° → <b style="color:#3ecf7a">CL='+c.CL.toFixed(3)+'</b> <b style="color:#e05555">CD='+c.CD.toFixed(3)+'</b> <b style="color:#e8b13e">CY='+c.CY.toFixed(3)+'</b> · Cm='+c.Cm.toFixed(3)+' Cl='+c.Cl.toFixed(3)+' Cn='+c.Cn.toFixed(3)+' · CY 含网格偏置(β=0 时 |CY|&lt;0.03 非真实侧力) · <b>'+c.mode+'</b> · <b style="color:#5ad0e0">流线源: '+(AERO.real?('真实 CFD 场 '+AERO.real.case):'势流近似')+'</b> (δ 查表未含, 蓝表 δ=0)';
+  el.innerHTML='V=20 (跨V&lt;1%) α='+a+'° β='+b+'° → <b style="color:#3ecf7a">CL='+c.CL.toFixed(3)+'</b> <b style="color:#e05555">CD='+c.CD.toFixed(3)+'</b> <b style="color:#e8b13e">CY='+c.CY.toFixed(3)+'</b> · Cm='+c.Cm.toFixed(3)+' Cl='+c.Cl.toFixed(3)+' Cn='+c.Cn.toFixed(3)+' · CY 含网格偏置(β=0 时 |CY|&lt;0.03 非真实侧力) · <b>'+c.mode+'</b> · <b style="color:#5ad0e0">流线源: '+(AERO.real?('真实 CFD 场 '+AERO.real.case+(AERO.poseDist>2.5?' (距滑块 '+AERO.poseDist.toFixed(1)+'°)':'')):'势流近似')+'</b> (δ 查表未含, 蓝表 δ=0)';
 }
 function aeroTick(){ // 流光点沿线滑动 (每帧; p5 不可见/窗口遮挡时由调用侧跳过)
   if(!AERO.glowRef||window.__aeroVisible===false)return;
