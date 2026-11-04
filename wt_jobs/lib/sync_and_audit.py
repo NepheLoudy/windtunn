@@ -26,7 +26,7 @@ AUDIT_DIR = os.path.join(ROOT, 'openfoam', 'airframe-sweep')
 RED_TABLE = os.path.join(ROOT, 'guidance_sim', 'aero', 'aero_table_foldedfin_T0.csv')
 
 QS = 'qianli@100.90.63.31'
-VS = [15.0, 20.0, 25.0, 30.0]
+VS = [20.0, 21.0, 22.0, 23.0, 24.0, 25.0]   # 11-05 曼波: V 域收缩 [20,25] 1m/s 步进; 15/30 归档不进交付
 ALPHAS = [-15, -12.5, -10, -7.5, -5, -2.5, 0, 2.5, 5, 7.5, 10, 12.5, 15]
 BETAS = [-15, -10, -5, 0, 5, 10, 15]
 TOTAL = len(VS) * len(ALPHAS) * len(BETAS)
@@ -149,7 +149,8 @@ def _main_locked():
     try:
         aero = [{'V': r['V'], 'a': r['alpha'], 'b': r['beta'],
                  'CL': r['CL'], 'CD': r['CD'], 'Cm': r['Cm'],
-                 'CY': r['CY'], 'Cl': r['Cl'], 'Cn': r['Cn']} for r in rows]
+                 'CY': r['CY'], 'Cl': r['Cl'], 'Cn': r['Cn']}
+                for r in rows if 20.0 <= r['V'] <= 25.0]   # V 域 [20,25] (11-05)
         ap = os.path.join(WWW, 'aero_blue.json')
         ap_tmp = ap + '.tmp'
         with open(ap_tmp, 'w', encoding='utf-8') as f:
