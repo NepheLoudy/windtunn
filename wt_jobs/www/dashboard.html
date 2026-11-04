@@ -553,11 +553,18 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
 (function(){
   const ins=document.querySelectorAll('#sliders input[type=range]');
   if(ins.length>=6){
-    let lastPose=0;
+    let settleT=null, lastKey='';
     const onA=()=>{updateAero();
-      const now=performance.now();
-      if(AERO.poseIdx && now-lastPose>2000){lastPose=now;   // 姿态切换节流 2s (15MB fetch)
-        loadPoseFor(+ins[4].value,+ins[5].value).catch(()=>{});}
+      // 姿态流线加载: 最新意图模式 (连续拖动只取最终值, 停 600ms 才 fetch; 加载中徽标)
+      if(!AERO.poseIdx)return;
+      const key=ins[4].value+'_'+ins[5].value;
+      if(key===lastKey)return; lastKey=key;
+      if(settleT)clearTimeout(settleT);
+      $('aeroread').innerHTML='姿态流线加载中… (α='+ins[4].value+'° β='+ins[5].value+'°)';
+      settleT=setTimeout(()=>{
+        loadPoseFor(+ins[4].value,+ins[5].value)
+          .catch(e=>{$('aeroread').innerHTML='姿态流线加载失败: '+String(e).slice(0,50)+' (势流/上一姿态保留)';});
+      },600);
     };
     ins[4].addEventListener('input',onA);ins[5].addEventListener('input',onA);
   }
