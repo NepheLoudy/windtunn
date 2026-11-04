@@ -560,6 +560,16 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
    ④系数读出行。数据: aero_blue.json (J1 每 2min 同步蓝表), (α,β) 双线性查表,
    V 维忽略 (跨 V <1% 实测)。舵偏 δ 只转几何, 查表未含 (蓝表 δ=0)。 */
 const AERO={rows:null,parts:null,arrows:null,lastPaint:0};
+AERO.pickPose=function(a,b){ // 最近姿态流线选择 (多姿态 json 索引)
+  if(!this.poseIdx||!this.poseIdx.poses||!this.poseIdx.poses.length)return null;
+  let best=null,bd=1e9;
+  for(const p of this.poseIdx.poses){
+    const d=(p.alpha-a)*(p.alpha-a)+(p.beta-b)*(p.beta-b)*0.5;  // β 权重 0.5 (CY sin 径较缓)
+    if(d<bd){bd=d;best=p;}
+  }
+  this.poseDist=Math.sqrt(bd);                                 // 姿态距离 (deg)
+  return best;
+};
 function aeroBilinear(a,b){
   // 双线性: α 最近两剖面 + β 最近两行; 蓝表 δ=0。
   // α 超出已扫域: 回退一档线性外推 (攻角线性区外推物理合理, RL 侧 lookup_aero 另有
@@ -651,27 +661,32 @@ function initAeroFX(scene,dart){
     a.visible=false;a.line.material.depthTest=false;a.cone.material.depthTest=false;
     a.renderOrder=997;scene.add(a);return a;};
   AERO.arrows={L:mkArr(0x3ecf7a),D:mkArr(0xff6655),Y:mkArr(0xffd23e)};
-  fetch('streamlines_real.json?_='+Date.now()).then(r=>r.ok?r.json():Promise.reject(r.status))
-    .then(j=>{AERO.real=j;updateAero();})
-    .catch(()=>{AERO.real=null;});
+  fetch('streamlines_index.json?_='+Date.now()).then(r=>r.ok?r.json():Promise.reject(r.status))
+    .then(idx=>{
+      AERO.poseIdx=idx;                       // {poses:[{file,alpha,beta,V}...]}
+      const best=AERO.pickPose(+document.querySelectorAll('#sliders input[type=range]')[4].value,
+                               +document.querySelectorAll('#sliders input[type=range]')[5].value);
+      if(best) return fetch(best.file+'?_='+Date.now()).then(r=>r.ok?r.json():Promise.reject(r.status)).then(j=>{AERO.real=j;updateAero();});
+      return Promise.reject('no-pose');
+    })
+    .catch(()=>{ // index 未就绪 → 回退单姿态文件 (旧链路)
+      fetch('streamlines_real.json?_='+Date.now()).then(r=>r.ok?r.json():Promise.reject(r.status))
+        .then(j=>{AERO.real=j;updateAero();}).catch(()=>{AERO.real=null;});
+    });
   fetch('aero_blue.json?_='+Date.now()).then(r=>r.json()).then(j=>{AERO.rows=j.rows;updateAero();})
     .catch(()=>{$('aeroread').textContent='气动查表: aero_blue.json 未就绪 (等 J1 下一轮)';});
 }
 function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
   if(AERO.real && AERO.real.lines && AERO.real.lines.length){ // ── 真实 CFD 场流线 (qianli foamToVTK→积分→json) — 严格按仿真 ──
     // lines 空 = 积分失败旧版 json → 回退势流 (守卫 11-04)
-    // 11-04 修复(曼波: 入风角度渲染没了): 流线存原始姿态(A=-2.5), 目标姿态用刚体旋转矩阵
-    //   整体旋转流线组 — 真实解刚体变换不失真, α/β 滑块实时响应; 表面色同理旋转法线采样
-    const aReal=(AERO.real.alpha||0)*Math.PI/180, bReal=(AERO.real.beta||0)*Math.PI/180;
-    const insNow=document.querySelectorAll('#sliders input[type=range]');
-    const aTgt=(+insNow[4].value)*Math.PI/180, bTgt=(+insNow[5].value)*Math.PI/180;
-    // 旋转: R = R_y(Δβ)·R_z(-Δα) (绕场景轴, 11-01 语义) — 把真实姿态来流旋到目标姿态
-    const dA=aTgt-aReal, dB=bTgt-bReal;
-    const q=new THREE.Quaternion().setFromEuler(new THREE.Euler(0, dB, -dA, 'XYZ'));
-    AERO.realQuat=q;
-    if(AERO.sl && AERO.realLinesGeom===AERO.real){ // 已建: 只需更新姿态旋转
-      AERO.sl.quaternion.copy(q);  AERO.sl.updateMatrix();
-      AERO.glow.quaternion.copy(q);AERO.glow.updateMatrix();
+    // 11-04 二修(曼波指认旋转后穿模): 刚体旋转方案废弃 — 旋转载荷流线+固定 mesh=错位穿模
+    // (流线绕的是原姿态镖体, mesh 不转就怼进机身)。正确方案=多姿态数据选择制:
+    // 每姿态用【该姿态自己的 case 真实场】积分 (扫气逐姿态跑, 每 case 都有真实场),
+    // 后处理批量预计算 poses{} — 滑块切姿态选对应数据, mesh/流线/表面色永远同姿态自洽。
+    // 现有 json 单姿态 (α=-2.5): 姿态外滑块 → 透明度降+徽标注「基准姿态」;
+    // 多姿态 poses 到位后按最近姿态选择 (delta_early_plan §5 扩展)。
+    AERO.realQuat=null;
+    if(AERO.sl && AERO.realLinesGeom===AERO.real){ // 已建: 数据未变, 无需重建
       return;
     }
     AERO.realLinesGeom=AERO.real; // 标记已建 (数据源版本)
@@ -696,7 +711,6 @@ function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
     const gg=new THREE.BufferGeometry();
     gg.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(glowArr),3));
     AERO.glow=new THREE.Points(gg,new THREE.PointsMaterial({color:0xeaffff,size:.006,transparent:true,opacity:.9,depthWrite:false}));
-    AERO.glow.quaternion.copy(q);AERO.glow.updateMatrix(); // 新建对象立即应用姿态旋转 (11-04: 曾漏→首建后姿态回零)
     AERO.scene.add(AERO.glow);
     if(AERO.real.surf&&AERO.real.surf.length){ // 表面顶点色=真实场采样 (与前端 mesh 顶点一一对应)
       const mesh=T3.dart&&T3.dart.children.find(c=>c.isMesh);if(mesh&&mesh.geometry){
@@ -815,18 +829,22 @@ function updateAero(){ // α/β 滑块与 aero_blue 就绪时统一入口
   const L=.12;
   const set=(arr,key,dir)=>{const v=c[key],ar=AERO.arrows[key==='CL'?'L':key==='CD'?'D':'Y'];
     // 起点/长度: 底长 0.05 保证可见, 起点 = 方向×(0.055+len/2) 把箭头推出机身外
-    const len=.05+Math.abs(v)*.14, sgn=v>=0?1:-1;
-    ar.visible=Math.abs(v)>.004;
+    // 显示阈值 0.02 (11-04 曼波指认: β=0 时 CY 网格偏置 ~0.01-0.02 被画成明显侧力箭头 —
+    //   A3 锚同源: |CY(β=0)|<0.03 = 网格不完全对称的已知偏置, 非真实侧力, 不渲染);
+    //   长度超线性压扁: |v|^0.7 — 小值区不让箭头撑出误导比例
+    const av=Math.abs(v);
+    ar.visible=av>0.02;
+    const len=.05+Math.pow(av,0.7)*.14, sgn=v>=0?1:-1;
     ar.setLength(len,.03,.016);
     ar.position.copy(dir.clone().multiplyScalar(sgn*.055+len/2*sgn));
     ar.setDirection(dir.clone().multiplyScalar(sgn));};
   set(c,'CL',lift);set(c,'CD',drag);set(c,'CY',side);
-  el.innerHTML='V=20 (跨V&lt;1%) α='+a+'° β='+b+'° → <b style="color:#3ecf7a">CL='+c.CL.toFixed(3)+'</b> <b style="color:#e05555">CD='+c.CD.toFixed(3)+'</b> <b style="color:#e8b13e">CY='+c.CY.toFixed(3)+'</b> · Cm='+c.Cm.toFixed(3)+' Cl='+c.Cl.toFixed(3)+' Cn='+c.Cn.toFixed(3)+' · <b>'+c.mode+'</b> · <b style="color:#5ad0e0">流线源: '+(AERO.real?('真实 CFD 场 '+AERO.real.case):'势流近似')+'</b> (δ 查表未含, 蓝表 δ=0)';
+  el.innerHTML='V=20 (跨V&lt;1%) α='+a+'° β='+b+'° → <b style="color:#3ecf7a">CL='+c.CL.toFixed(3)+'</b> <b style="color:#e05555">CD='+c.CD.toFixed(3)+'</b> <b style="color:#e8b13e">CY='+c.CY.toFixed(3)+'</b> · Cm='+c.Cm.toFixed(3)+' Cl='+c.Cl.toFixed(3)+' Cn='+c.Cn.toFixed(3)+' · CY 含网格偏置(β=0 时 |CY|&lt;0.03 非真实侧力) · <b>'+c.mode+'</b> · <b style="color:#5ad0e0">流线源: '+(AERO.real?('真实 CFD 场 '+AERO.real.case):'势流近似')+'</b> (δ 查表未含, 蓝表 δ=0)';
 }
 function aeroTick(){ // 流光点沿线滑动 (每帧; p5 不可见/窗口遮挡时由调用侧跳过)
   if(!AERO.glowRef||window.__aeroVisible===false)return;
   const att=AERO.glow.geometry.attributes.position, dt=1/60;
-  const q=AERO.realQuat, V3=new THREE.Vector3();
+  const V3=new THREE.Vector3();
   for(let gi=0;gi<AERO.glowRef.length;gi++){
     const g=AERO.glowRef[gi], pts=g.pts;
     // 速度感知推进: 步长 ∝ 局部真实 |U| (尾迹慢/主流快 — 稳态场里的"流动感"来自差速)
@@ -836,7 +854,6 @@ function aeroTick(){ // 流光点沿线滑动 (每帧; p5 不可见/窗口遮挡
     const fi=g.t*(pts.length-1), i0=Math.floor(fi), fr=fi-i0;
     const a=pts[Math.min(i0,pts.length-1)], b=pts[Math.min(i0+1,pts.length-1)];
     V3.set(a[0]+(b[0]-a[0])*fr, a[1]+(b[1]-a[1])*fr, a[2]+(b[2]-a[2])*fr);
-    if(q) V3.applyQuaternion(q);                     // 跟随流线组姿态旋转 (11-04: 曾不跟→错位)
     att.array[gi*3]=V3.x; att.array[gi*3+1]=V3.y; att.array[gi*3+2]=V3.z;
   }
   att.needsUpdate=true;
