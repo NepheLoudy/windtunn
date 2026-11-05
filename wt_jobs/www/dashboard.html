@@ -958,7 +958,7 @@ function updateAero(){ // α/β 滑块与 aero_blue 就绪时统一入口
     ar.setLength(len,.03,.016);
     ar.position.copy(dir.clone().multiplyScalar(sgn*.055+len/2*sgn));
     ar.setDirection(dir.clone().multiplyScalar(sgn));};
-  set(c,'CL',lift);set(c,'CD',drag.clone().negate());set(c,'CY',side);   // CD 箭头指上游=来力方向 (11-05 曼波: 力矩箭头应表示来力方向)
+  set(c,'CL',lift.clone().negate());set(c,'CD',drag.clone().negate());set(c,'CY',side.clone().negate());   // 11-05 曼波裁定: 箭头语义【全反】= 全部指来力方向
   el.innerHTML='V∈[20,25] (跨V&lt;1%) α='+a+'° β='+b+'° → <b style="color:#3ecf7a">CL='+c.CL.toFixed(3)+'</b> <b style="color:#e05555">CD='+c.CD.toFixed(3)+'</b> <b style="color:#e8b13e">CY='+c.CY.toFixed(3)+'</b> · Cm='+c.Cm.toFixed(3)+' Cl='+c.Cl.toFixed(3)+' Cn='+c.Cn.toFixed(3)+' · CY 含网格偏置(β=0 时 |CY|&lt;0.03 非真实侧力) · <b>'+c.mode+'</b> · <b style="color:#5ad0e0">流线源: '+(AERO.real?('真实 CFD 场 '+AERO.real.case+(AERO.poseDist>2.5?' (距滑块 '+AERO.poseDist.toFixed(1)+'°)':'')):'势流近似')+'</b> (δ 查表未含, 蓝表 δ=0)';
 }
 function aeroTick(){ // 流光点沿线滑动 (每帧; p5 不可见/窗口遮挡时由调用侧跳过)
