@@ -575,14 +575,14 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
    ④系数读出行。数据: aero_blue.json (J1 每 2min 同步蓝表), (α,β) 双线性查表,
    V 维忽略 (跨 V <1% 实测)。舵偏 δ 只转几何, 查表未含 (蓝表 δ=0)。 */
 const AERO={rows:null,parts:null,arrows:null,lastPaint:0};
-AERO.pickPose=function(a,b){ // 最近姿态流线选择 (多姿态 json 索引)
+AERO.pickPose=function(a,b){ // 最近姿态流线选择 — 11-06 曼波: 无分层(均匀场)姿态【不渲染流线】
   if(!this.poseIdx||!this.poseIdx.poses||!this.poseIdx.poses.length)return null;
   let best=null,bd=1e9;
   for(const p of this.poseIdx.poses){
-    const d=(p.alpha-a)*(p.alpha-a)+(p.beta-b)*(p.beta-b)*0.5;  // β 权重 0.5 (CY sin 径较缓)
+    const d=(p.alpha-a)*(p.alpha-a)+(p.beta-b)*(p.beta-b)*0.5;
     if(d<bd){bd=d;best=p;}
   }
-  this.poseDist=Math.sqrt(bd);                                 // 姿态距离 (deg)
+  this.poseDist=Math.sqrt(bd);
   return best;
 };
 AERO.hasLayer=function(){ // 当前 real 是否收敛场版 (v 有分层) — 均匀场版近体 v 全 20
