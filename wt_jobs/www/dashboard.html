@@ -667,11 +667,12 @@ function flowVel(px,py,pz,U,tNow,out){
   out.x=vx;out.y=vy;out.z=vz;return sp;
 }
 const JET=[[0,[0,.55,1]],[.25,[0,.92,.62]],[.5,[.45,1,.25]],[.72,[1,.92,.1]],[.88,[1,.45,0]],[1,[1,.08,.05]]];
-function aeroJet(v){ // 速度→色 (非线性分段: 慢速带拉宽冷色=边界层/驻点可见, 加速区拉宽暖色 — 11-05 曼波分色要求)
+function aeroJet(v){ // 速度→色 (非线性分段 — 11-05 三修: 全程渐变, 主流 21 也有色差)
   let t;
-  if(v < 18)      t = 0.02 + (v/18)*0.23;
-  else if(v < 23) t = 0.25 + ((v-18)/5)*0.35;
-  else            t = 0.60 + Math.min(1,(v-23)/6)*0.40;
+  if(v < 10)      t = 0.02 + (v/10)*0.20;             // 驻点/深边界层 → 深青
+  else if(v < 19) t = 0.22 + ((v-10)/9)*0.25;         // 边界层 → 青-绿
+  else if(v < 22) t = 0.47 + ((v-19)/3)*0.28;         // 主流 → 绿-黄 (21 也可见色差)
+  else            t = 0.75 + Math.min(1,(v-22)/7)*0.25; // 加速 → 橙红
   return jetColor(t);
 }
 function jetColor(t){ // 速度归一 → 青绿黄红 (对齐参考图色标)
@@ -742,22 +743,28 @@ function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
     if(AERO.glow){AERO.scene.remove(AERO.glow);AERO.glow.geometry.dispose();}
     // 速度/距离分层 (11-05 曼波: 近体减速绕转要显性化): 近体层粗亮/外场层细淡
     const posN=[],cgN=[],posF=[],cgF=[],glowArr=[];AERO.glowRef=[];
-    const isNear = p => Math.hypot(p[1],p[2]) < 0.09 && p[3] < 22;   // 近体减速区
     const DENSE=6;   // 11-05 曼波"乱糊": 2868 条太密单线不可见 — 取 1/6 (478 条)
-    AERO.real.lines.forEach((ln,li)=>{
-      if(li%DENSE)return;   // 密度抽样
+    AERO.real.lines.forEach((ln0,li)=>{
+      if(li%DENSE)return;
+      let ln=ln0;
+      // ① 体内起点截断 (11-05 曼波: 莫名出发点在镖头内) — 从出体后的第一点开始画
+      let s=0;
+      while(s<ln.length && Math.abs(ln[s][0])<0.118 && Math.hypot(ln[s][1],ln[s][2])<0.062) s++;
+      if(s>=ln.length-10)return;
+      if(s>0) ln=ln.slice(s);   // 截断后的线 (局部变量, 不动原数据)
+      // ② 整线判层 (一条线劈两套顶点=破碎感来源) — min-r 决定归属
+      const minR=Math.min(...ln.map(p=>Math.hypot(p[1],p[2])));
+      const near=minR<0.09;
       const n=ln.length;
+      const P=near?posN:posF, C=near?cgN:cgF;
       for(let i=0;i<n-1;i++){
-        const near=isNear(ln[i])||isNear(ln[i+1]);
-        const P=near?posN:posF, C=near?cgN:cgF;
-        // 段内渐变: 中点色 = 两端色平均 (jet 色标在段内也连续, 参考图单线渐变效果)
         const c1=aeroJet(ln[i][3]);
         const c2=aeroJet(ln[i+1][3]);
         const cm=[(c1[0]+c2[0])/2,(c1[1]+c2[1])/2,(c1[2]+c2[2])/2];
         P.push(ln[i][0],ln[i][1],ln[i][2],ln[i+1][0],ln[i+1][1],ln[i+1][2]);
-        C.push(...c1,...cm,...cm,...c2);   // 一段拆两半, 中点插值 → 线内渐变平滑
+        C.push(...c1,...cm,...cm,...c2);
       }
-      if(li%(DENSE*2)===0) for(let g=0;g<3;g++){glowArr.push(ln[0][0],ln[0][1],ln[0][2]);
+      if(!near && li%(DENSE*2)===0) for(let g=0;g<3;g++){glowArr.push(ln[0][0],ln[0][1],ln[0][2]);
         AERO.glowRef.push({pts:ln.map(p=>[p[0],p[1],p[2]]),t:(g/3+li*.07)%1});}
     });
     const mk=(P,C,op,w)=>{const g=new THREE.BufferGeometry();
