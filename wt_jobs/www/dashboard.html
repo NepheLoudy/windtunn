@@ -554,7 +554,7 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   const ins=document.querySelectorAll('#sliders input[type=range]');
   if(ins.length>=6){
     let settleT=null, lastKey='';
-    const onA=()=>{updateAero();
+    const onA=()=>{try{updateAero();}catch(e){window.__updErr=String(e).slice(0,80);}
       // 姿态流线加载: 最新意图模式 (连续拖动只取最终值, 停 600ms 才 fetch; 加载中徽标)
       if(!AERO.poseIdx)return;
       const key=ins[4].value+'_'+ins[5].value;
@@ -661,6 +661,13 @@ function flowVel(px,py,pz,U,tNow,out){
   out.x=vx;out.y=vy;out.z=vz;return sp;
 }
 const JET=[[0,[0,.55,1]],[.25,[0,.92,.62]],[.5,[.45,1,.25]],[.72,[1,.92,.1]],[.88,[1,.45,0]],[1,[1,.08,.05]]];
+function aeroJet(v){ // 速度→色 (非线性分段: 慢速带拉宽冷色=边界层/驻点可见, 加速区拉宽暖色 — 11-05 曼波分色要求)
+  let t;
+  if(v < 18)      t = 0.02 + (v/18)*0.23;
+  else if(v < 23) t = 0.25 + ((v-18)/5)*0.35;
+  else            t = 0.60 + Math.min(1,(v-23)/6)*0.40;
+  return jetColor(t);
+}
 function jetColor(t){ // 速度归一 → 青绿黄红 (对齐参考图色标)
   t=Math.max(0,Math.min(1,t));
   for(let i=1;i<JET.length;i++) if(t<=JET[i][0]){
@@ -682,9 +689,9 @@ function initAeroFX(scene,dart){
       const ins0=document.querySelectorAll('#sliders input[type=range]');
       return loadPoseFor(+ins0[4].value, +ins0[5].value);
     })
-    .catch(()=>{ // index 未就绪 → 回退单姿态文件 (旧链路)
-      fetch('streamlines_real.json?_='+Date.now()).then(r=>r.ok?r.json():Promise.reject(r.status))
-        .then(j=>{AERO.real=j;updateAero();}).catch(()=>{AERO.real=null;});
+    .catch(e=>{ // index 失败才回退单姿态 (pose fetch 慢≠失败 — 15MB 需 >30s, 不抢跑)
+      if(String(e).includes('no-pose'))return;   // 无姿态索引时才走回退
+      console.warn('pose fetch slow/fail, keep current:', String(e).slice(0,60));
     });
   fetch('aero_blue.json?_='+Date.now()).then(r=>r.json()).then(j=>{AERO.rows=j.rows;updateAero();})
     .catch(()=>{$('aeroread').textContent='气动查表: aero_blue.json 未就绪 (等 J1 下一轮)';});
@@ -704,23 +711,9 @@ function loadPoseFor(a,b){ // 姿态切换: 选最近姿态 → 拉 json → 绕
       const q0=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1,0,0),oldDir);
       const q1=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1,0,0),newDir);
       const qRel=q1.clone().multiply(q0.clone().invert());   // 相对旋转
-      const grp=[AERO.sl,AERO.slNear,AERO.glow].filter(Boolean);
-      const t0=performance.now();
-      // 先用旧数据 + 相对旋转动画 (slerp), 400ms 后落新数据 — 视觉连续
-      const _oldReal=AERO.real, _oldMark=AERO.realLinesGeom;
-      AERO.realLinesGeom={__trans:1};                        // 守卫挡住 updateAero 的 rebuild
-      (function spin(){
-        const t=Math.min(1,(performance.now()-t0)/400);
-        const q=qRel.clone().slerp(new THREE.Quaternion(),1-t);
-        grp.forEach(g=>{if(g.parent){g.quaternion.copy(q);g.updateMatrix();}});
-        if(typeof window.__renderOnce==='function')window.__renderOnce(); // 后台 rAF 冻结下也出帧
-        if(t<1)setTimeout(spin,33);            // setTimeout 驱动 (rAF 后台冻结→永卡过渡, 11-05)
-        else{ // 过渡完: 落新数据
-          AERO.real=j;AERO.realLinesGeom=null;AERO.realQuat=null;
-          grp.forEach(g=>{g.quaternion.identity();g.updateMatrix();});
-          updateAero();
-        }
-      })();
+      // 11-05 简化: 数据立即落 (fetch 完成即换装) — spin 动画守卫链曾在后台卡死致数据不落
+      AERO.real=j; AERO.realLinesGeom=null;
+      updateAero();
       return best;
     });
 }
@@ -750,8 +743,8 @@ function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
         const near=isNear(ln[i])||isNear(ln[i+1]);
         const P=near?posN:posF, C=near?cgN:cgF;
         // 段内渐变: 中点色 = 两端色平均 (jet 色标在段内也连续, 参考图单线渐变效果)
-        const c1=jetColor(Math.max(0,Math.min(1,ln[i][3]/26)));
-        const c2=jetColor(Math.max(0,Math.min(1,ln[i+1][3]/26)));
+        const c1=aeroJet(ln[i][3]);
+        const c2=aeroJet(ln[i+1][3]);
         const cm=[(c1[0]+c2[0])/2,(c1[1]+c2[1])/2,(c1[2]+c2[2])/2];
         P.push(ln[i][0],ln[i][1],ln[i][2],ln[i+1][0],ln[i+1][1],ln[i+1][2]);
         C.push(...c1,...cm,...cm,...c2);   // 一段拆两半, 中点插值 → 线内渐变平滑
@@ -872,7 +865,7 @@ function updateAero(){ // α/β 滑块与 aero_blue 就绪时统一入口
   { // 流线重建: 真实场模式每次都走 (内含首建守卫+姿态旋转, 开销小); 势流模式 400ms 节流
     const now=performance.now();
     if(AERO.real || now-(AERO.lastRebuild||0)>400){AERO.lastRebuild=now;
-      try{rebuildStreamlines(U,tNow0());}catch(e){AERO.slErr=String(e).slice(0,60);}}
+      try{rebuildStreamlines(U,tNow0());}catch(e){AERO.slErr=String(e).slice(0,200);console.error('rebuild ERR:',e);}}
   }
   const c=aeroBilinear(a,b);
   const el=$('aeroread');
