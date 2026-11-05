@@ -22,3 +22,4 @@
 {"id":"dt-wt-evt_022","ts":"2026-11-05T21:14:58+0800","type":"fix","summary":"阻力箭头语义修正(曼波裁定: 力矩箭头应表示来力方向)：CD 箭头 drag.negate() 指上游=风吹来的方向, 原指下游=力作用方向; 箭头两种约定(力作用方向/来力方向)曼波选后者","tags":["force-arrow","semantics"],"files":["wt_jobs/www/dashboard.html"]}
 {"id":"dt-wt-evt_023","ts":"2026-11-05T21:31:27+0800","type":"fix","summary":"三箭头全部反向(曼波裁定箭头语义全反)：CL/CD/CY 统一 negate() 来力方向语义","tags":["force-arrow","semantics"],"files":["wt_jobs/www/dashboard.html"]}
 {"id":"dt-wt-evt_024","ts":"2026-11-05T21:37:23+0800","type":"fix","summary":"箭头终版指向镖体(曼波澄清)：位置=-dir×偏移(力来侧), 方向=dir(尖端指镖体中心)——力打在镖体上的视觉语义; 三版演进 v1力作用方向→v2全反→v3指向镖体","tags":["force-arrow","semantics"],"files":["wt_jobs/www/dashboard.html"]}
+{"id":"dt-wt-evt_025","ts":"2026-11-05T21:41:11+0800","type":"fix","summary":"箭头终版二修(曼波: 黄绿反了+外移)：CL/CY negate(气流掠过上方/侧方力从上/侧压向镖体)+偏移 0.11 整体外移不与镖体重叠; CD 保持; 四版演进 v1→v4","tags":["force-arrow","semantics"],"files":["wt_jobs/www/dashboard.html"]}
