@@ -747,11 +747,19 @@ function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
     AERO.real.lines.forEach((ln0,li)=>{
       if(li%DENSE)return;
       let ln=ln0;
-      // ① 体内起点截断 (11-05 曼波: 莫名出发点在镖头内) — 从出体后的第一点开始画
-      let s=0;
-      while(s<ln.length && Math.abs(ln[s][0])<0.118 && Math.hypot(ln[s][1],ln[s][2])<0.062) s++;
-      if(s>=ln.length-10)return;
-      if(s>0) ln=ln.slice(s);   // 截断后的线 (局部变量, 不动原数据)
+      // ① 体内段裁除 (11-05 曼波: 头部穿体) — 逐点判体 (含头尾锥包络), 体内点跳过不画
+      const bodyEnv=x=>{const ax=Math.abs(x);
+        if(ax>0.118)return 0;                      // 端余量 3mm
+        if(ax<0.072)return 0.062;                  // 筒身 +4mm 保守 (snappy 阶梯锥比解析锥胖)
+        return 0.062+(0.015-0.062)*((ax-0.072)/0.046);};
+      let ln2=[];
+      for(const p of ln){
+        const rE=bodyEnv(p[0]);
+        if(rE>0.004 && Math.hypot(p[1],p[2])<rE) continue;   // 体内点裁除 (保守包络)
+        ln2.push(p);
+      }
+      if(ln2.length<20)return;
+      ln=ln2;   // 裁除后的线
       // ② 整线判层 (一条线劈两套顶点=破碎感来源) — min-r 决定归属
       const minR=Math.min(...ln.map(p=>Math.hypot(p[1],p[2])));
       const near=minR<0.09;
