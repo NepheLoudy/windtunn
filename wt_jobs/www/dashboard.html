@@ -755,9 +755,8 @@ function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
     if(AERO.glow){AERO.scene.remove(AERO.glow);AERO.glow.geometry.dispose();}
     // 速度/距离分层 (11-05 曼波: 近体减速绕转要显性化): 近体层粗亮/外场层细淡
     const posN=[],cgN=[],posF=[],cgF=[],glowArr=[];AERO.glowRef=[];
-    const DENSE=20;  // 11-06 视觉验收迭代: 478 条糊团 → 144 条单线清晰
+    // 11-06: Tube 版全量渲染不抽稀 — 365 条 rake 线全部出 (管有体量感不需要稀疏化)
     AERO.real.lines.forEach((ln0,li)=>{
-      if(li%DENSE)return;
       let ln=ln0;
       // ① 体内段裁除 (11-05 曼波: 头部穿体) — 逐点判体 (含头尾锥包络), 体内点跳过不画
       const bodyEnv=x=>{const ax=Math.abs(x);
@@ -828,7 +827,7 @@ function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
       const tube=new THREE.Mesh(tgeo,tmat);
       AERO.scene.add(tube);
       (near?(AERO.tubesN=AERO.tubesN||[]):(AERO.tubesF=AERO.tubesF||[])).push(tube);
-      if(!near && li%(DENSE*3)===0) for(let g=0;g<3;g++){glowArr.push(ln[0][0],ln[0][1],ln[0][2]);
+      if(!near && li%6===0) for(let g=0;g<3;g++){glowArr.push(ln[0][0],ln[0][1],ln[0][2]);
         AERO.glowRef.push({pts:ln.map(p=>[p[0],p[1],p[2]]),t:(g/3+li*.07)%1});}
     });
     // 11-06 Tube 版: posN/posF 线段流废弃 (Tube 直接 add; AERO.sl/slNear 指到 Tube 组以便兼容旧清理钩子)
