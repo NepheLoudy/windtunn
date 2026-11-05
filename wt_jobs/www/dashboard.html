@@ -749,9 +749,9 @@ function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
       let ln=ln0;
       // ① 体内段裁除 (11-05 曼波: 头部穿体) — 逐点判体 (含头尾锥包络), 体内点跳过不画
       const bodyEnv=x=>{const ax=Math.abs(x);
-        if(ax>0.118)return 0;                      // 端余量 3mm
-        if(ax<0.072)return 0.062;                  // 筒身 +4mm 保守 (snappy 阶梯锥比解析锥胖)
-        return 0.062+(0.015-0.062)*((ax-0.072)/0.046);};
+        if(ax>0.117)return 0;                      // 端余量 2mm
+        if(ax<0.072)return 0.0585;                 // 筒身 真实体表+0.5mm (11-06 曼波: 避让太大——+4mm 曾把贴体段误裁)
+        return 0.0585+(0.0155-0.0585)*((ax-0.072)/0.045);};   // 锥区回真实包络
       let ln2=[];
       for(const p of ln){
         const rE=bodyEnv(p[0]);
