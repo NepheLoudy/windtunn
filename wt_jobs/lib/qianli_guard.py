@@ -39,6 +39,7 @@ HERE = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
 OUT = os.path.join(HERE, 'out')
 LOG = os.path.join(OUT, 'qianli_guard.log')
 QS = 'qianli@100.90.63.31'
+SSH_EXE = r'C:\Windows\System32\OpenSSH\ssh.exe'  # 2026-11-09: Windows 原生 ssh 替代 wsl 包装 — 探活零 VM 拉起（随唤随停, 曼波定）
 TOTAL = 364
 
 PROBE = r"""
@@ -58,8 +59,7 @@ ping -c1 -W2 192.168.31.153 >/dev/null 2>&1 && echo "nas=up" || echo "nas=down"
 
 
 def ssh_run(cmd, timeout=90):
-    r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
-                        "ssh -o ConnectTimeout=15 %s %s" % (QS, "'%s'" % cmd)],
+    r = subprocess.run([SSH_EXE, '-o', 'ConnectTimeout=15', QS, cmd],
                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     return r.returncode, (r.stdout or ''), (r.stderr or '')
 

@@ -11,6 +11,8 @@ forces.csv 通道保留 (长时序时序分析入口)。
 """
 import os, statistics, subprocess, sys, time, json
 
+SSH_EXE = r'C:\Windows\System32\OpenSSH\ssh.exe'  # 2026-11-09: Windows 原生 ssh 替代 wsl 包装（随唤随停, 曼波定）
+
 HERE = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
 STATE = os.path.join(HERE, 'state')
 OUT = os.path.join(HERE, 'out')
@@ -20,9 +22,9 @@ REMOTE_SUM = '~/fluidx3d_v3/FluidX3D-master/bin/out/t2_queue_summary.csv'
 LOCAL_SUM = os.path.join(STATE, 't2_queue_summary.csv')
 
 def pull(remote, local):
-    r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
-                        "ssh qianli@100.90.63.31 'cat %s 2>/dev/null'" % remote],
-                       capture_output=True, text=True, timeout=120)
+    r = subprocess.run([SSH_EXE, '-o', 'ConnectTimeout=15', 'qianli@100.90.63.31',
+                        "cat %s 2>/dev/null" % remote],
+                       capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=120)
     if r.returncode == 0 and r.stdout.strip():
         open(local, 'w', newline='').write(r.stdout)
         return True

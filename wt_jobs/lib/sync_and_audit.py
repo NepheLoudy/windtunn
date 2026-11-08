@@ -26,24 +26,31 @@ AUDIT_DIR = os.path.join(ROOT, 'openfoam', 'airframe-sweep')
 RED_TABLE = os.path.join(ROOT, 'guidance_sim', 'aero', 'aero_table_foldedfin_T0.csv')
 
 QS = 'qianli@100.90.63.31'
+SSH_EXE = r'C:\Windows\System32\OpenSSH\ssh.exe'  # 2026-11-09: Windows 原生 ssh 替代 wsl 包装 — 拉取/探针零 VM 拉起（随唤随停, 曼波定）
 VS = [20.0, 21.0, 22.0, 23.0, 24.0, 25.0]   # 11-05 曼波: V 域收缩 [20,25] 1m/s 步进; 15/30 归档不进交付
 ALPHAS = [-15, -12.5, -10, -7.5, -5, -2.5, 0, 2.5, 5, 7.5, 10, 12.5, 15]
 BETAS = [-15, -10, -5, 0, 5, 10, 15]
 TOTAL = len(VS) * len(ALPHAS) * len(BETAS)
 
 def ssh_cat(remote, local, timeout=180):
-    r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
-                        "ssh -o ConnectTimeout=15 %s 'cat %s 2>/dev/null'" % (QS, remote)],
-                       capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
+    # base64 传输 — wsl.exe 管道会把 Linux 侧 UTF-8 输出按 Windows 控制台代码页(GBK)
+    # 转码, 中文日志(text 模式直拉)必乱码(11-06 T2 面板"2026◆◆"实锤); base64 全程
+    # ASCII 无损, 对所有调用方(表/日志/CSV)二进制安全。
+    import base64 as _b64
+    r = subprocess.run([SSH_EXE, '-o', 'ConnectTimeout=15', QS,
+                        "base64 %s 2>/dev/null" % remote],
+                       capture_output=True, timeout=timeout)
     if r.returncode == 0 and r.stdout.strip():
-        open(local, 'w', newline='').write(r.stdout)
-        return True
+        try:
+            open(local, 'wb').write(_b64.b64decode(b''.join(r.stdout.split())))
+            return True
+        except Exception:
+            return False
     return False
 
 def ssh_probe_int(remote, timeout=60):
     """远端整数探测 (pgrep 等); 远程命令禁用单引号 — 外层就是单引号包裹"""
-    r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
-                        "ssh -o ConnectTimeout=15 %s '%s'" % (QS, remote)],
+    r = subprocess.run([SSH_EXE, '-o', 'ConnectTimeout=15', QS, remote],
                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     try:
         return int(r.stdout.strip().splitlines()[-1])
@@ -52,8 +59,7 @@ def ssh_probe_int(remote, timeout=60):
 
 def ssh_out(remote, timeout=90):
     """远端多行文本拉取 (实时工况段); 禁用单引号"""
-    r = subprocess.run(['wsl.exe', '-e', 'bash', '-lc',
-                        "ssh -o ConnectTimeout=15 %s '%s'" % (QS, remote)],
+    r = subprocess.run([SSH_EXE, '-o', 'ConnectTimeout=15', QS, remote],
                        capture_output=True, text=True, encoding="utf-8", errors="replace", timeout=timeout)
     return r.stdout or ''
 
