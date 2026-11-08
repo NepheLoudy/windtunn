@@ -7,7 +7,7 @@
 
 1. **两机边界**：本套件在台式机（`D:\WindTunnelSuite\`）。**禁止 clone/改动 qianli**；FanSim3D 只读调用（addpath），不修改其文件。
 2. **单求解槽**：WSL (Ubuntu-24.04) 7.9GB 内存 / 10 核。**同一时间只跑一个 foamRun**；求解期间禁止并发 foamToVTK/reconstructPar（OOM 静默杀进程）。导出/后处理在求解结束后做。
-3. **WSL VM 生命周期**：会话间隙 VM 会重启（/tmp 清空、后台进程死）。**长跑求解必须作为后台任务的前台进程**（`wsl -d Ubuntu-24.04 -e bash -c "..."` 的 run_in_background 任务内直接跑 mpirun，不要 nohup 脱离）。长产物放 `~/`，不放 `/tmp`。
+3. **WSL VM 生命周期**：会话间隙 VM 会重启（/tmp 清空、后台进程死）。**长跑求解必须作为后台任务的前台进程**（`wsl -d Ubuntu-24.04 -e bash -c "..."` 的 run_in_background 任务内直接跑 mpirun，不要 nohup 脱离）。长产物放 `~/`，不放 `/tmp`。（2026-11-09 起 VM 配 `vmIdleTimeout=60s`：无客户端 60s 自动睡；wt_jobs 拉取/探针/guard 已改 Windows ssh 零 VM 依赖——拉起 VM 的只剩真 WSL 负载）
 4. **数据对≠渲染对**：渲染输出先自查（坐标范围、色标、掩膜方向），再交付。histcounts2 掩膜方向为 nx×nz（行=X），与 imagesc 的 nz×nx 相反需转置（`slices_of.m` 已实现正确版，勿改回）。
 5. **数字必须实测提取**：devlog 与报告中的 Q/速度/力全部从日志文件提取，禁止凭记忆。
 6. **编码**：MATLAB 工具链脚本（render_of/slices_of 等）输出与注释遇中文经 shell 往返会乱码——新增渲染/批处理脚本注释用中文可以，但 **fprintf 输出与字符串拼接用 ASCII**；用 python 改 MATLAB 文件时字符串含 `\n` 字面量一律用 chr(92)+'n' 拼接。

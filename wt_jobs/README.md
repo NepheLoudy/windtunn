@@ -24,7 +24,7 @@ J2 服务端每 8min 自动跑一次 J1 (页面开着数据永远新鲜); 仪表
 ```
 wt_jobs/
   jobs/    双击入口 (bat)
-  lib/     实现 (纯标准库 python, 唯一依赖 = 本机 WSL ssh 通 qianli)
+  lib/     实现 (纯标准库 python, 唯一依赖 = Windows OpenSSH 直连 qianli; 2026-11-09 从 wsl ssh 迁移——key ~/.ssh/id_ed25519_wt + config 绑 IP, 拉取/探针/guard 零 VM 拉起)
   www/     仪表台 (dashboard.html + 数据 JSON + three.js + 3D 网格) ← J1/J2 的交接面
   state/   拉回的原始表 (gitignore)
   out/     人读报告 (审计 / T2)
