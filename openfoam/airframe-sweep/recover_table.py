@@ -52,7 +52,9 @@ def main():
             continue
         if key in have:
             continue
-        r = subprocess.run(['python3', PP, '--json', rj, '--out', tbl],
+        # post_process.py 要求 positional case 目录 (无条件读 CASEINFO, 11-08 回填实战发现:
+        # 旧调用缺该参数 → argparse 报错, 168 例全 failed — 10-31 冒烟 0 待回填没踩到这条路径)
+        r = subprocess.run(['python3', PP, os.path.dirname(rj), '--json', rj, '--out', tbl],
                            capture_output=True, text=True, timeout=120)
         tag = os.path.basename(os.path.dirname(rj))
         if r.returncode == 0:

@@ -98,8 +98,18 @@ def main():
                 k, v = line.strip().split("=", 1)
                 info[k] = v
     V = float(info["V"]); alpha = float(info["alpha"]); beta = float(info["beta"])
-    S = float(info.get("S_ref", 0.017671458676442587))
-    L = float(info.get("L_ref", 0.15))
+    # 参考口径是系数定义的一部分: 缺键必须报错拒绝出表, 禁止静默退回旧占位口径
+    # (S=pi/4*0.15^2, L=0.15 已废弃, 会让系数系统性脱钩 ~1.71x 且无人察觉)。
+    missing_ref = [k for k in ("S_ref", "L_ref") if k not in info]
+    if missing_ref:
+        raise RuntimeError(
+            "CASEINFO 缺参考口径键: %s — 系数口径不明确, 拒绝出表。"
+            "请在该 case 的 CASEINFO 补写 S_ref=<参考面积 m^2> 与 L_ref=<参考长度 m>"
+            " (交付口径: 包围盒横向最大尺寸 d 的外接圆, S_ref=pi/4*d^2, L_ref=d;"
+            " make_case.sh 生成 case 时自动写入)"
+            % ", ".join(missing_ref))
+    S = float(info["S_ref"])
+    L = float(info["L_ref"])
     rho = float(info.get("rho", 1.225))
     qS = 0.5 * rho * V * V * S
 
