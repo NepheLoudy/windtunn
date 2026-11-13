@@ -1,5 +1,13 @@
 // setup_osc.hpp.patch — F4 动导数探针 (强迫振荡单自由度) — 2026-11-03 设计稿
 //
+// ⚠ 2026-11-08 实施备注 (qianli 5070 已发车, 6 例批 osc_batch.sh): 本设计稿有两个实锤 bug,
+// 修正只存在于 qianli 现树 src/setup.cpp (v3 合并版, 原版备份 setup.cpp.v2bak) — 勿按本稿直改:
+//   ① 入口面方向反了: U.x<0 时物理入口是 x==Nx-1, 本稿写 x==0 (下游出口) → 冒烟零响应;
+//   ② 漏 device 上传: FluidX3D run() 只在 initialize() 传一次 host→device, 主循环改 host 侧
+//      u[] 对 GPU 隐形, 必须每注入周期补 lbm.u.write_to_device()。
+// 另: 锁相幅值需除 sinc(ω·SAMPLE/2) 阶梯注入衰减 (lockin.py 已自动报 amp_zoh_adj 列);
+// 死文件 dart_setup.cpp/calib_sphere.cpp 已改名 .off (原 #include "src/..." 炸通配编译)。
+//
 // 目的: 静扫表不含动导数 (Cmq/Cnr/Clp, fidelity_1101 §4 诚实清单第一项)。
 // LBM 瞬态天然适配强迫振荡: 让镖体绕某体轴做小幅正弦俯仰/偏航/滚转,
 // 测力和力矩的同频响应 → 提取 in-phase (刚度) 与 quadrature (阻尼=动导数) 分量。

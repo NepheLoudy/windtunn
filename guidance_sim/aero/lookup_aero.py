@@ -23,6 +23,7 @@ L_REF = 同一 d。MOMENT_REF = 力矩参考点 (当前 = B 系原点 = 占位 c
 依赖: 仅 numpy。纯函数, 引擎无关 (PyBullet / MuJoCo 均可直接调用)。
 """
 import csv
+import json
 import warnings
 from itertools import product
 
@@ -31,6 +32,11 @@ import numpy as np
 # 表文件默认位置: 同目录 aero_table.csv
 _TABLE_PATH = None
 _TABLE = None
+
+# damp 默认值 (F4 动导数, extract_damp.py 产出 damp_defaults.json) — 热加载
+_DAMP = None
+_DAMP_PATH = None
+_DAMP_MTIME = None
 
 
 class AeroTable:
@@ -139,9 +145,11 @@ class AeroTable:
                     wind_noise_std=0.0):
         """V_B: B 系速度 (3,) [m/s]; omega_B: B 系角速度 (3,) [rad/s] (阻尼用)。
 
-        damp: 动导数补偿 dict, 键 'Cmq','Cnr','Clp' (量纲: q̄SL_ref²/(2V)·ω̄ 折算),
-        spec §4.5.1 补偿层 — 静扫表不含动导数, 工程值由算法侧标定后传入;
-        None = 不加阻尼 (与纯表语义一致)。
+        damp: 动导数补偿 dict, 键 'Cmq','Cnr','Clp' (量纲: q̄SL_ref·ω̄L_ref/(2V) 折算,
+        spec §4.5.1 补偿层 — 静扫表不含动导数, 工程值由算法侧标定后传入);
+        None = 用模块默认 (load_damp: damp_defaults.json, F4 qianli 强迫振荡提取,
+        热加载同 load_table; 文件缺失时优雅降级为无阻尼);
+        {} = 显式无阻尼 (与纯表语义一致, parity 测试用)。
         wind_noise_std: 训练期风速大小噪声 σ [m/s] (11-04 曼波需求: RL 域随机化)。
             >0 时对 |V_B| 注入 N(0,σ) 扰动后查表 — 方向不变 (纯大小扰动)。
             跨 V 系数钝感 (<1%, fidelity_1101 §1.1) → σ≤2 m/s 时表内插值误差 <1%,
@@ -174,9 +182,14 @@ class AeroTable:
         M = qS * L * (c["Cl"] * np.array([1.0, 0, 0])
                       + c["Cm"] * np.array([0, 1.0, 0])
                       + c["Cn"] * np.array([0, 0, 1.0]))
+        if damp is None:
+            damp = load_damp()          # damp_defaults.json 默认值; 缺文件 -> None = 无阻尼
         if damp and omega_B is not None and V > 1e-6:
             om = np.asarray(omega_B, float)
-            qSL2V = 0.5 * rho * V * S * L * L / (2.0 * V)
+            # M_damp = q̄SL·C·(ω·L/2V) = 0.5ρV²SL·C·ωL/(2V) = 0.25ρVSL²·C·ω
+            # (11-10 F4 收口修正: 原式 0.5ρVSL²/(2V) 漏一个 V, 量纲差 [m/s] —— damp
+            # 分支此前无调用者, 修正零破坏; 提取侧 extract_damp.py 的 qSL2V_w 同口径)
+            qSL2V = 0.5 * rho * V * V * S * L * L / (2.0 * V)
             M = M + qSL2V * np.array([damp.get("Clp", 0.0) * om[0],
                                       damp.get("Cmq", 0.0) * om[1],
                                       damp.get("Cnr", 0.0) * om[2]])
@@ -202,6 +215,29 @@ def load_table(path=None):
 
 
 _TABLE_MTIME = None
+
+
+def load_damp(path=None):
+    """加载动导数默认值 (damp_defaults.json, extract_damp.py 产出); 幂等 + 热加载。
+
+    结构: {"derivatives": {"Clp": {"value": ...}, "Cmq": ..., "Cnr": ...}, ...} —
+    只取三键 value; 完整口径备注/SNR/置信标注在 JSON 内, 提取脚本维护。
+    文件缺失 -> None (damp=None 语义优雅降级为无阻尼, 与 F4 落位前行为一致)。
+    """
+    global _DAMP, _DAMP_PATH, _DAMP_MTIME
+    import os
+    if path is None:
+        path = os.path.join(os.path.dirname(os.path.abspath(__file__)), "damp_defaults.json")
+    if not os.path.exists(path):
+        _DAMP, _DAMP_PATH, _DAMP_MTIME = None, path, None
+        return None
+    mtime = os.path.getmtime(path)
+    if _DAMP is None or _DAMP_PATH != path or mtime != _DAMP_MTIME:
+        with open(path, encoding="utf-8") as f:
+            j = json.load(f)
+        _DAMP = {k: float(j["derivatives"][k]["value"]) for k in ("Clp", "Cmq", "Cnr")}
+        _DAMP_PATH, _DAMP_MTIME = path, mtime
+    return _DAMP
 
 
 def lookup_aero(V, alpha, beta, de, da, dr, table=None):
@@ -295,4 +331,26 @@ if __name__ == "__main__":
     assert M2[1] > 0 and F2[0] < 0
     os.remove(tmp)
     print("自测6 CSV 长表读写闭环      PASS")
+
+    # 7) damp 默认值语义 (F4 落位 11-10): {} = 显式无阻尼; None = damp_defaults.json;
+    #    omega_B=None 时 damp 不生效 (parity 测试兼容); qSL2V 量纲 = 0.25ρVSL²
+    om = np.array([0.3, -0.5, 0.2])
+    V7 = np.array([25.0, 0, 0])
+    M_plain = t.aero_forces(V7, om, damp={})[1]              # 基线 = 显式无阻尼
+    M_none = t.aero_forces(V7, om, damp=None)[1]             # None -> 默认值 (JSON 存在时)
+    dflt = load_damp()                                       # aero/ 下真实 damp_defaults.json
+    if dflt is not None:
+        assert not np.allclose(M_none, M_plain), "damp 默认值应改变力矩"
+        M_man = t.aero_forces(V7, om, damp=dict(dflt))[1]    # 手动传同值
+        assert np.allclose(M_none, M_man)
+        # 量纲断言: M_none-M_plain = 0.25ρVSL²·[Clp·ωx, Cmq·ωy, Cnr·ωz] (qSL2V V 缺失修正回归)
+        qSL2V = 0.25 * RHO * 25.0 * S_REF * L_REF ** 2
+        expect = qSL2V * np.array([dflt["Clp"] * om[0], dflt["Cmq"] * om[1], dflt["Cnr"] * om[2]])
+        assert np.allclose(M_none - M_plain, expect), (M_none - M_plain, expect)
+        # omega_B=None: damp 通路不触发 (parity 兼容)
+        assert np.allclose(t.aero_forces(V7, None)[1], t.aero_forces(V7, None, damp=None)[1])
+        print("自测7 damp 默认值/{}语义/量纲   PASS (defaults=%s)" % dflt)
+    else:
+        assert np.allclose(M_none, M_plain), "JSON 缺失应降级为无阻尼"
+        print("自测7 damp 默认值             SKIP-降级 (damp_defaults.json 不存在)")
     print("=== lookup_aero 自测全部通过 ===")
