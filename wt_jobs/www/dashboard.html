@@ -132,24 +132,24 @@ table.hm td.m{background:var(--panel2)}
 <div class="pane" id="p5">
   <div class="row">
     <div class="card" style="flex:2;min-width:420px">
-      <h3>受风工况动态渲染 (来流粒子 · 力矢量 · 表面压力)</h3>
+      <h3>受风工况动态渲染 (来流粒子 · 力矢量 · 表面速度)</h3>
       <div id="view3d" style="height:400px"></div>
       <div class="note" id="meshinfo">mesh 待加载…</div>
       <div class="note" id="aeroread" style="font-family:Consolas,monospace;font-size:12px">气动查表: 待 aero_blue.json…</div>
-      <div class="note" style="font-size:11px">图例: <span style="color:#5ad0e0">━ 流线(色=速度 青→红)</span> · <span style="color:#3ecf7a">━ 升力 L</span> · <span style="color:#e05555">━ 阻力 D</span> · <span style="color:#e8b13e">━ 侧力 Y</span> · 表面: 速度色阶(驻点青→侧面红) — 系数查 T0 蓝表 (α,β 双线性, V 钝感&lt;1%)</div>
+      <div class="note" style="font-size:11px">图例: <span style="color:#5ad0e0">━ 流线(色=速度 青→红)</span> · <span style="color:#3ecf7a">━ 升力 L</span> · <span style="color:#e05555">━ 阻力 D</span> · <span style="color:#e8b13e">━ 侧力 Y</span> · 表面: 速度色阶 青(慢)→红(快) · 真实 CFD 表面速度采样 (无场时势流近似回退) · 翼面绿斑 = 采样低速区 (翼缝区域, 待 Cp 重建) — 系数查 T0 蓝表 (α,β 双线性, V 钝感&lt;1%)</div>
     </div>
     <div class="card" style="flex:1;min-width:240px">
       <h3>舵偏 δ1..δ4 [deg]</h3>
       <div id="sliders"></div>
       <div class="note">0° = 舵面平行弹轴 (v0.95 基准)。铰链轴 = v4 真轴 (双耳孔心连线)。</div>
       <div class="note"><b>语义</b>: 机体固定 (风洞视角), α/β 滑块转来流箭头; 拖动 = 转相机视角, 滚轮缩放。</div>
-      <div class="note" id="alphaNote">来流: α=0 β=0</div>
+      <div class="note" id="alphaNote">来流: α=-15 β=0</div>
       <h3 style="margin-top:14px">质量属性 (轴线选重心 + 重量)</h3>
       <div class="slider"><label>m</label><input type="number" id="massIn" min="10" max="2000" step="0.1" style="width:90px"><output id="massOut">g</output></div>
       <div class="slider"><label>x_cg</label><input type="range" id="cgIn" min="-0.1" max="0.1" step="0.0005"><output id="cgOut">—</output></div>
       <div class="note" id="cgNote">—</div>
       <button class="meshbtn" id="massSave">保存质量属性</button> <span id="massStat" class="note"></span>
-      <div class="note">🟠 橙线 = 自动锁定中轴线 (mesh 顶点 PCA, 换任意几何自适应); 🟠 橙球 = 你定的重心 (沿轴滑动)。保存入 UI 意图层 — 在跑的 T0-v2c 不受影响, 蓝表出全后随合并步骤应用正本+qianli 并以新 com 重算全表力矩。</div>
+      <div class="note" style="margin-bottom:52px">🟠 橙线 = 自动锁定中轴线 (mesh 顶点 PCA, 换任意几何自适应); 🟠 橙球 = 你定的重心 (沿轴滑动)。保存入 UI 意图层 — 在跑的 T0-v2c 不受影响, 蓝表出全后随合并步骤应用正本+qianli 并以新 com 重算全表力矩。</div>
     </div>
   </div>
 </div>
@@ -162,6 +162,9 @@ table.hm td.m{background:var(--panel2)}
 </div>
 
 <script src="three.min.js" onerror="window.__three_fail=1"></script>
+<script src="wt3d_core.js"></script>
+<script src="wt3d_flow.js"></script>
+<script src="wt3d_readout.js"></script>
 <script>
 'use strict';
 const $=id=>document.getElementById(id);
@@ -198,51 +201,56 @@ function loadData(){
 }
 loadData();
 setInterval(loadData, 30000);
+setInterval(fetchAeroBlue, 30000); // 11-06 P1-10b: aero_blue 并入 30s 轮询 (fetchAeroBlue 带版本戳比对+退避; 首拉在 initAeroFX)
 
 function renderAll(){
+  init3d(); // 11-06 P0-3: 3D 最先初始化 — 后续数据块缺字段抛错时不再被 loadData 的 catch 吞掉整个 init3d
   const d=DATA.d;
-  $('subtext').textContent='生成于 '+d.generated_ts+' · 蓝表 '+d.sync.n_blue+'/'+d.t0.total+' (qianli 实时拉取)';
-  // --- T0 卡 ---
-  $('t0done').textContent=d.t0.done+' / '+d.t0.total;
-  $('t0bar').style.width=(100*d.t0.done/d.t0.total)+'%';
-  const eta=d.t0.eta_min?('ETA ~'+Math.floor(d.t0.eta_min/60)+'h'+String(d.t0.eta_min%60).padStart(2,'0')+'m'+(d.t0.eta_src?' ('+d.t0.eta_src+')':'')):'';
-  const lv=d.live||{};
-  const ph=PHASE[lv.phase]||['—','idle'];
-  const pp=$('phasepill');pp.textContent=lv.phase?ph[0]:'—';pp.className='pill '+ph[1];
-  $('t0info').textContent=(lv.case?('正在算 '+lv.case):('下一例 '+(d.t0.current||'—')))+'  '+eta;
-  // --- 本工况步数 ---
-  if(lv.steps!=null&&lv.endTime){
-    $('stepbar').style.width=Math.min(100,100*lv.steps/lv.endTime)+'%';
-    $('stepinfo').textContent='求解进度 '+lv.steps+' / '+lv.endTime+' 步'+(lv.last_time!=null?' (物理时 '+lv.last_time.toFixed(2)+'s)':'');
-  }else{$('stepbar').style.width='0%';$('stepinfo').textContent='本工况步数 — '+(lv.phase==='meshing'?'(网格阶段, 无求解步)':'');}
-  // --- 吞吐 ---
-  if(d.t0.eta_src&&d.t0.eta_src.startsWith('rolling')){
-    const mh=d.t0.eta_src.match(/([\d.]+) case\/min/);
-    if(mh){const cph=(+mh[1]*60).toFixed(1);$('rate').textContent=cph+' 工况/h';}
-    $('rateinfo').textContent='滚动实测 (近 6h 窗口, 自动剔除停机断点)';
-    const fin=new Date(Date.now()+d.t0.eta_min*60000);
-    $('etainfo').textContent='预计出全: '+fin.toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})+' '+fin.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
-  }else{$('rate').textContent='—';$('rateinfo').textContent='滚动速率待数据 (≥2 行后自动接管)';$('etainfo').textContent=eta;}
-  // --- 机器/守护 ---
-  if(lv.load){
-    $('machline').textContent='负载 '+lv.load[0].toFixed(1)+' / 14 核';
-    $('machinfo').textContent='磁盘余 '+($('machinfo').dataset.d=lv.disk_avail||'—')+(lv.disk_avail?'':'');
-    const lamp=(id,ok,okT,badT)=>{const e=$(id);e.textContent=ok?okT:badT;e.className='pill '+(ok?'ok':'bad');};
-    lamp('g_chain',(lv.chain||0)>0,'在岗','掉线!');
-    lamp('g_reaper',(lv.reaper||0)>0,'在岗','掉线!');
-    const nn=$('g_nas');nn.textContent=(lv.nas||'—').toUpperCase();nn.className='pill '+((lv.nas==='up')?'ok':'warn');
-  }
-  // --- 审计/T1/T2 ---
-  const av=x=>({PASS:['PASS','ok'],FAIL:['FAIL','bad'],WARN:['WARN','warn'],SKIP:['SKIP','warn'],ERR:['ERR','bad']}[x]||['—','idle']);
-  const [a15t,a15c]=av(d.audit.a1a5),[a6t,a6c]=av(d.audit.a6);
-  $('a15').textContent=a15t;$('a15').className='pill '+a15c;$('a6').textContent=a6t;$('a6').className='pill '+a6c;
-  $('t1done').textContent='T1 '+d.t1.done+' / '+d.t1.total;
-  const tq=d.t2q||{};
-  $('t2qdone').textContent='T2q '+tq.cases+' 例';
-  const tp=$('t2qpill');tp.textContent=tq.running?'队列在跑':'空闲/完成';tp.className='pill '+(tq.running?'run':'idle');
-  if(tq.last)$('t2qinfo').textContent='末例 '+tq.last.tag+' (α='+tq.last.alpha+'° β='+tq.last.beta+'° NX='+tq.last.nx+')';
-  if(tq.last)$('t2qlast').textContent='fx='+tq.last.fx+' fy='+tq.last.fy+' fz='+tq.last.fz+(tq.log_tail?(' · '+tq.log_tail[tq.log_tail.length-1].slice(0,60)):'');
-  drawLive();drawHeat();drawCurves();drawPolar();drawAudit();init3d();
+  const safe=(tag,fn)=>{try{fn();}catch(e){console.warn('render['+tag+'] skip:',e);}}; // 缺字段子块降级跳过, 不弹 UI 错误
+  safe('cards',()=>{
+    $('subtext').textContent='生成于 '+d.generated_ts+' · 蓝表 '+d.sync.n_blue+'/'+d.t0.total+' (qianli 实时拉取)';
+    // --- T0 卡 ---
+    $('t0done').textContent=d.t0.done+' / '+d.t0.total;
+    $('t0bar').style.width=(100*d.t0.done/d.t0.total)+'%';
+    const eta=d.t0.eta_min?('ETA ~'+Math.floor(d.t0.eta_min/60)+'h'+String(d.t0.eta_min%60).padStart(2,'0')+'m'+(d.t0.eta_src?' ('+d.t0.eta_src+')':'')):'';
+    const lv=d.live||{};
+    const ph=PHASE[lv.phase]||['—','idle'];
+    const pp=$('phasepill');pp.textContent=lv.phase?ph[0]:'—';pp.className='pill '+ph[1];
+    $('t0info').textContent=(lv.case?('正在算 '+lv.case):('下一例 '+(d.t0.current||'—')))+'  '+eta;
+    // --- 本工况步数 ---
+    if(lv.steps!=null&&lv.endTime){
+      $('stepbar').style.width=Math.min(100,100*lv.steps/lv.endTime)+'%';
+      $('stepinfo').textContent='求解进度 '+lv.steps+' / '+lv.endTime+' 步'+(lv.last_time!=null?' (物理时 '+lv.last_time.toFixed(2)+'s)':'');
+    }else{$('stepbar').style.width='0%';$('stepinfo').textContent='本工况步数 — '+(lv.phase==='meshing'?'(网格阶段, 无求解步)':'');}
+    // --- 吞吐 ---
+    if(d.t0.eta_src&&d.t0.eta_src.startsWith('rolling')){
+      const mh=d.t0.eta_src.match(/([\d.]+) case\/min/);
+      if(mh){const cph=(+mh[1]*60).toFixed(1);$('rate').textContent=cph+' 工况/h';}
+      $('rateinfo').textContent='滚动实测 (近 6h 窗口, 自动剔除停机断点)';
+      const fin=new Date(Date.now()+d.t0.eta_min*60000);
+      $('etainfo').textContent='预计出全: '+fin.toLocaleDateString('zh-CN',{month:'numeric',day:'numeric'})+' '+fin.toLocaleTimeString('zh-CN',{hour:'2-digit',minute:'2-digit'});
+    }else{$('rate').textContent='—';$('rateinfo').textContent='引擎停滞/低速期 — 滚动速率待推进恢复';$('etainfo').textContent=eta?'ETA 见 T0 扫气卡':'—';} // 11-06: 非 rolling 不再复述完整 ETA 长文案 (T0 扫气卡已有, 双份去重)
+    // --- 机器/守护 ---
+    if(lv.load){
+      $('machline').textContent='负载 '+lv.load[0].toFixed(1)+' / 14 核';
+      $('machinfo').textContent='磁盘余 '+($('machinfo').dataset.d=lv.disk_avail||'—')+(lv.disk_avail?'':'');
+      const lamp=(id,ok,okT,badT)=>{const e=$(id);e.textContent=ok?okT:badT;e.className='pill '+(ok?'ok':'bad');};
+      lamp('g_chain',(lv.chain||0)>0,'在岗','掉线!');
+      lamp('g_reaper',(lv.reaper||0)>0,'在岗','掉线!');
+      const nn=$('g_nas');nn.textContent=(lv.nas||'—').toUpperCase();nn.className='pill '+((lv.nas==='up')?'ok':'warn');
+    }
+    // --- 审计/T1/T2 ---
+    const av=x=>({PASS:['PASS','ok'],FAIL:['FAIL','bad'],WARN:['WARN','warn'],SKIP:['SKIP','warn'],ERR:['ERR','bad']}[x]||['—','idle']);
+    const [a15t,a15c]=av(d.audit.a1a5),[a6t,a6c]=av(d.audit.a6);
+    $('a15').textContent=a15t;$('a15').className='pill '+a15c;$('a6').textContent=a6t;$('a6').className='pill '+a6c;
+    $('t1done').textContent='T1 '+d.t1.done+' / '+d.t1.total;
+    const tq=d.t2q||{};
+    $('t2qdone').textContent='T2q '+tq.cases+' 例';
+    const tp=$('t2qpill');tp.textContent=tq.running?'队列在跑':'空闲/完成';tp.className='pill '+(tq.running?'run':'idle');
+    if(tq.last)$('t2qinfo').textContent='末例 '+tq.last.tag+' (α='+tq.last.alpha+'° β='+tq.last.beta+'° NX='+tq.last.nx+')';
+    if(tq.last)$('t2qlast').textContent='fx='+tq.last.fx+' fy='+tq.last.fy+' fz='+tq.last.fz+(tq.log_tail?(' · '+tq.log_tail[tq.log_tail.length-1].slice(0,60)):'');
+  });
+  safe('live',drawLive);safe('heat',drawHeat);safe('curves',drawCurves);safe('polar',drawPolar);safe('audit',drawAudit);
 }
 
 /* ---------- 实时收敛 ---------- */
@@ -277,7 +285,8 @@ function drawLive(){
 }
 
 /* ---------- 热力图 ---------- */
-(function(){const s=$('vsel');['15','20','25','30'].forEach(v=>{const b=document.createElement('button');b.textContent=v;b.onclick=()=>{DATA.vSel=v;[...s.children].forEach(x=>x.classList.toggle('on',x===b));drawHeat();};if(v==='25')b.classList.add('on');s.appendChild(b);});})();
+/* V 档 11-06 曼波"UI 全部适配最新 V 域": 旧四档 15/20/25/30 → 新六档 20~25 (1m/s 步进, 与 J1 VS/TOTAL=546 同源) */
+(function(){const s=$('vsel');['20','21','22','23','24','25'].forEach(v=>{const b=document.createElement('button');b.textContent=v;b.onclick=()=>{DATA.vSel=v;[...s.children].forEach(x=>x.classList.toggle('on',x===b));drawHeat();};if(v==='25')b.classList.add('on');s.appendChild(b);});})();
 function drawHeat(){
   const d=DATA.d;if(!d)return;
   const A=[-15,-12.5,-10,-7.5,-5,-2.5,0,2.5,5,7.5,10,12.5,15],B=[-15,-10,-5,0,5,10,15];
@@ -308,7 +317,7 @@ function svgLine(w,h,pad,xr,yr,xlab,ylab,series,extra){
   let lg='';series.forEach((sr,i)=>{lg+='<rect x="'+(w-130)+'" y="'+(20+i*16)+'" width="10" height="4" fill="'+sr.c+'"/><text x="'+(w-115)+'" y="'+(24+i*16)+'" fill="#aab3d0" font-size="11">'+sr.n+'</text>';});
   return s+lg+'</svg>';
 }
-const VCOL={'15':'#38bdc8','20':'#4a90e2','25':'#3ecf7a','30':'#e8b13e'};
+const VCOL={'20':'#4a90e2','21':'#38bdc8','22':'#3ecf7a','23':'#c8d43e','24':'#e8b13e','25':'#c85ad0'};  // 六档 V 各配色 (V=25 品红避让 CL 红基准)
 const CCONF={CL:{yr:[-1.4,1.4],yl:'CL'},CD:{yr:[0,1.6],yl:'CD'},Cm:{yr:[-0.5,0.5],yl:'Cm (抬头+)'},CY:{yr:[-0.9,0.9],yl:'CY (右+)'}};
 function drawCurves(){
   const d=DATA.d;if(!d)return;
@@ -336,56 +345,17 @@ function drawAudit(){
 }
 
 /* ---------- 3D 姿态 ---------- */
-let T3={ready:false,groups:[],ver:null};
 function setMeshInfo(txt,cls){$('meshinfo').innerHTML=txt;st('st_mesh',cls==='ok'?'OK':(cls==='bad'?'失败':'加载中'),cls);}
-function init3d(){
-  if(T3.started)return;T3.started=true;
-  const holder=$('view3d');
-  if(window.__three_fail||!window.THREE){
-    st('st_gl','未用(2D)','warn');
-    holder.innerHTML='<canvas id="c2d" width="520" height="380" style="width:100%"></canvas>';
-    T3.d2=true;draw2d();return;
-  }
-  try{
-    const renderer=new THREE.WebGLRenderer({antialias:true,preserveDrawingBuffer:true});
-    st('st_gl','OK','ok');
-    renderer.setSize(holder.clientWidth||520,400);renderer.setClearColor(0x0d1220);
-    holder.appendChild(renderer.domElement);
-    const scene=new THREE.Scene();
-    scene.add(new THREE.AmbientLight(0xffffff,.8));
-    const dl=new THREE.DirectionalLight(0xffffff,.6);dl.position.set(2,3,4);scene.add(dl);
-    const dl2=new THREE.DirectionalLight(0xffffff,.45);dl2.position.set(-3,-2,-4);scene.add(dl2); // 对向补光: 消灭背光黑舵
-    const cam=new THREE.PerspectiveCamera(40,(holder.clientWidth||520)/400,.01,10);
-    const camSt={theta:2.35,phi:.32,R:.42,drag:false,px:0,py:0};
-    function applyCam(){cam.position.set(
-      camSt.R*Math.cos(camSt.phi)*Math.cos(camSt.theta),
-      camSt.R*Math.sin(camSt.phi),
-      camSt.R*Math.cos(camSt.phi)*Math.sin(camSt.theta));
-      cam.lookAt(0,0,0);}
-    applyCam();
-    const grid=new THREE.GridHelper(.3,15,0x223055,0x1a2440);grid.position.y=-.07;scene.add(grid);
-    const flow=new THREE.Group();
-    const FL=.12;
-    const shaft=new THREE.Mesh(new THREE.CylinderGeometry(.0025,.0025,FL),new THREE.MeshBasicMaterial({color:0x38bdc8}));
-    shaft.rotation.z=Math.PI/2;shaft.position.x=FL/2;flow.add(shaft);
-    const head=new THREE.Mesh(new THREE.ConeGeometry(.006,.02),new THREE.MeshBasicMaterial({color:0x38bdc8}));
-    head.rotation.z=-Math.PI/2;head.position.x=FL-.008;flow.add(head);
-    scene.add(flow);
-    function setFlow(alphaDeg,betaDeg){
-      const A=alphaDeg*Math.PI/180,B2=betaDeg*Math.PI/180;
-      const U=new THREE.Vector3(-Math.cos(A)*Math.cos(B2),-Math.sin(B2),-Math.sin(A)*Math.cos(B2));
-      flow.position.copy(U.clone().multiplyScalar(-.17));
-      flow.quaternion.setFromUnitVectors(new THREE.Vector3(1,0,0),U.normalize());
-    }
-    setFlow(0,0);window.__applyFlow=setFlow;
-    const dart=new THREE.Group();scene.add(dart);
-    T3.dart=dart;T3.scene=scene;
-    // mesh 一次性加载 (版本变了由 loadData 触发整页刷新), 失败可重试 — 10-31 UI 迭代:
-    // 旧版把 13.9MB mesh fetch 放在 90s 轮询里且无 catch, 静默失败=场景空转 (曼波: "3D 没有显示")
+/* ---------- 3D 装配层 (P2 拆分) ----------
+   已迁出: init3d 基建 (renderer/相机/自写 orbit/灯光/GridHelper/rAF/触摸/ResizeObserver) → wt3d_core.js;
+   AERO 数据源/势流/jet 色表/Tube 流线合并几何/粒子层/aeroTick → wt3d_flow.js;
+   aeroBilinear 查表/力矢量三箭头/表面速度色/paintSurfaceSpeed/readout → wt3d_readout.js。
+   本块只留 mesh 拉取+PCA 轴线+fins 装配 (依赖 readout.initAeroFX 与下方 applyDeltas/initMassUI)。 */
     window.__loadMesh=function(){
       setMeshInfo('mesh 加载中… (约 14MB, 本地秒到)','warn');
       fetch('dart_parallel_mesh.json?_='+Date.now()).then(r=>{if(!r.ok)throw new Error('HTTP '+r.status);return r.json();})
       .then(mesh=>{
+      const dart=T3.dart,scene=T3.scene;if(!dart||!scene)return; // P2: 原闭包句柄 → core 的 T3
         while(dart.children.length)dart.remove(dart.children[0]);
         T3.groups=[];
         const mat=new THREE.MeshStandardMaterial({color:0x7a86b8,metalness:.15,roughness:.6,side:THREE.DoubleSide});
@@ -455,26 +425,6 @@ function init3d(){
       .catch(e=>{setMeshInfo('mesh 加载失败: '+String(e).slice(0,60)+' <button class="meshbtn" onclick="__loadMesh()">重试</button>','bad');
         st('st_mesh','失败','bad');});
     };
-    window.__loadMesh();
-    renderer.domElement.addEventListener('pointerdown',e=>{camSt.drag=true;camSt.px=e.clientX;camSt.py=e.clientY;});
-    window.addEventListener('pointerup',()=>camSt.drag=false);
-    window.addEventListener('pointermove',e=>{if(!camSt.drag)return;
-      // 拖向=视觉跟随 (曼波 11-01: 原方向反了, 两轴符号翻转; 11-04: 垂直轴(phi)再翻回 —
-      // phi-=dy 时拖下变仰视, 与"拖下→看俯视"相反; theta 轴正确保持不变)
-      camSt.theta+=(e.clientX-camSt.px)*.01;camSt.phi=Math.max(-1.4,Math.min(1.4,camSt.phi+(e.clientY-camSt.py)*.008));
-      camSt.px=e.clientX;camSt.py=e.clientY;applyCam();});
-    window.__cam=camSt;
-    renderer.domElement.addEventListener('wheel',e=>{e.preventDefault();
-      camSt.R=Math.max(.2,Math.min(.9,camSt.R+e.deltaY*.0004));applyCam();},{passive:false});
-    (function loop(){requestAnimationFrame(loop);
-      if(window.__pause_raf)return;
-      if(!camSt.drag&&!T3.d2){camSt.theta+=.0016;applyCam();} // 空闲自动缓旋 (10-31: 3D 要自己活)
-      aeroTick(); // 受风渲染: 粒子推进 (p5 不可见时内部自跳过)
-      renderer.render(scene,cam);})();
-    document.addEventListener('visibilitychange',()=>{window.__pause_raf=document.hidden;});
-    window.__renderOnce=()=>{renderer.render(scene,cam);}; // 调试口: 窗口遮挡 rAF 冻结时手动单帧 (11-04)
-  }catch(e){st('st_gl','err: '+String(e).slice(0,40),'bad');T3.d2=true;holder.innerHTML='<canvas id="c2d" width="520" height="380" style="width:100%"></canvas>';draw2d();}
-}
 /* 2D 降级: 俯视示意 */
 function draw2d(){
   const c=$('c2d');if(!c)return;const x=c.getContext('2d');
@@ -496,7 +446,8 @@ function draw2d(){
     inp.oninput=()=>{out.textContent=inp.value+'°';T3.d2d=+inp.value;applyDeltas();};
     box.appendChild(w);});
   const ap=document.createElement('div');ap.className='slider';
-  ap.innerHTML='<label>α</label><input type="range" min="-15" max="15" value="0" step="1"><output>0°</output>';
+  // 默认 α=-15 (11-06 曼波"默认工况歪"根治: α=0 收敛场在引擎 β=0 档未到, a-15_b0 是 v3 品质精确匹配)
+  ap.innerHTML='<label>α</label><input type="range" min="-15" max="15" value="-15" step="1"><output>-15°</output>';
   const ai=ap.querySelector('input'),ao=ap.querySelector('output');
   ai.oninput=()=>{ao.textContent=ai.value+'°';$('alphaNote').textContent='来流: α='+ai.value+'° β='+($('betaIn')?$('betaIn').value:0)+'°';if(window.__applyFlow)window.__applyFlow(+ai.value,+($('betaIn')?$('betaIn').value:0));};
   box.appendChild(ap);
@@ -521,25 +472,37 @@ function setCG(t){
   $('cgOut').textContent=xmm.toFixed(1)+'mm';
   $('cgNote').innerHTML='距镖头 <b>'+headDist.toFixed(1)+'</b> mm · 弹轴坐标 x='+xmm.toFixed(1)+' mm (y=z=0, 轴上) · 落盘后随蓝表出全统一应用 (recompute_cm 零重跑重算全表力矩)';
 }
+function massStatMsg(txt,bad){const el=$('massStat');el.textContent=txt;el.style.color=bad?'var(--bad)':'';} // 11-08 E: 失败红字 (--bad), 成功回默认色
 function initMassUI(){
   const a=T3.axis,ci=$('cgIn');
   ci.min=a.tmin;ci.max=a.tmax;ci.step=0.0005;
   ci.oninput=()=>setCG(+ci.value);
   $('massSave').onclick=()=>{
     const t=+ci.value, xmm=(a.c[0]+a.u[0]*t)*1000;
-    $('massStat').textContent='保存中…';
+    const m=+$('massIn').value;
+    if(!(isFinite(m)&&m>=10&&m<=2000)){massStatMsg('拒绝: m 需为 10-2000 g (当前输入 "'+$('massIn').value+'")',true);return;} // 11-08 B+C: GET 回填前空值 +''=0 曾直发入库, 前端拦下 (服务端 400 为兜底)
+    if(!(isFinite(xmm)&&Math.abs(xmm)<=200)){massStatMsg('拒绝: com_x 越界 (|x|≤200mm, 当前 '+xmm.toFixed(1)+')',true);return;} // 11-08 C: 与服务端 ±200 同域
+    massStatMsg('保存中…');
     fetch('/api/mass_props',{method:'POST',headers:{'Content-Type':'application/json'},
-      body:JSON.stringify({mass_g:+$('massIn').value,com_x_mm:xmm})})
+      body:JSON.stringify({mass_g:m,com_x_mm:xmm})})
     .then(r=>r.json()).then(r=>{
-      $('massStat').innerHTML=r.ok?('已存 ✓ '+r.saved.updated):('失败: '+r.err);
-    }).catch(e=>{$('massStat').textContent='失败: '+String(e).slice(0,60);});
+      massStatMsg(r.ok?('已存 ✓ '+r.saved.updated):('失败: '+r.err),!r.ok);
+    }).catch(e=>{massStatMsg('失败: '+String(e).slice(0,60),true);});
   };
   fetch('/api/mass_props').then(r=>r.json()).then(mp=>{
-    $('massIn').value=mp.mass_g;
-    let t=(mp.com_x_mm/1000-a.c[0])/a.u[0];
-    ci.value=Math.max(a.tmin,Math.min(a.tmax,t));
-    setCG(+ci.value);
-    if(mp.updated)$('massStat').innerHTML='已存定值 · '+mp.updated;
+    if(isFinite(+mp.mass_g))$('massIn').value=mp.mass_g; // 11-08: 字段异常时不清空已填输入 (后续保存校验兜底)
+    if(isFinite(+mp.com_x_mm)){
+      let t=(mp.com_x_mm/1000-a.c[0])/a.u[0];
+      ci.value=Math.max(a.tmin,Math.min(a.tmax,t));
+      setCG(+ci.value);
+    }
+    if(window.__uiCGPending!=null){ // 11-06 UI 状态恢复: 会话内拖过的 cg 优先于服务器定值 (未保存的浏览态也要回放)
+      ci.value=Math.max(a.tmin,Math.min(a.tmax,window.__uiCGPending));setCG(+ci.value);window.__uiCGPending=null;}
+    if(mp.updated)massStatMsg('已存定值 · '+mp.updated);
+  }).catch(()=>{ // 11-08 A: 服务重启/文件缺失不再未捕获 rejection
+    massStatMsg('拉取失败 — 未回填已存定值 (httpd 服务在吗?)',true);
+    if(window.__uiCGPending!=null){ // don't-break: 回填失败也会话内浏览态优先回放, 消费即清 (与成功路径同语义)
+      ci.value=Math.max(a.tmin,Math.min(a.tmax,window.__uiCGPending));setCG(+ci.value);window.__uiCGPending=null;}
   });
 }
 /* tabs */
@@ -548,13 +511,17 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   document.querySelectorAll('.tabs button').forEach(x=>x.classList.toggle('on',x===b));
   document.querySelectorAll('.pane').forEach(p=>p.classList.toggle('on',p.id===b.dataset.p));
   window.__aeroVisible=(b.dataset.p==='p5'); // 受风渲染: 非 p5 页暂停粒子推进 (省 CPU)
+  if(b.dataset.p==='p5'&&T3.resize){ // 11-06 P0-4b: 3D tab 激活时 canvas 尺寸才可用 (display:none 期 clientWidth=0)
+    T3.resize();
+    setTimeout(()=>{try{T3.resize();}catch(e){}},300); // 11-08 三重防御: 布局稳定后再复查 (flex wrap 回绕/字体加载晚于激活; IAB 实测 RO 变化回调可停摆)
+  }
 });
 // α/β 滑块 → 查表/矢量/压力联动 (δ 滑块只动几何, 查表未含)
 (function(){
   const ins=document.querySelectorAll('#sliders input[type=range]');
   if(ins.length>=6){
     let settleT=null, lastKey='';
-    const onA=()=>{try{updateAero();}catch(e){window.__updErr=String(e).slice(0,80);}
+    const onA=()=>{try{updateAero();}catch(e){console.warn('updateAero:',e);} // 11-06: mesh 未就绪等瞬态静默 (不塞 __updErr)
       // 姿态流线加载: 最新意图模式 (连续拖动只取最终值, 停 600ms 才 fetch; 加载中徽标)
       if(!AERO.poseIdx)return;
       const key=ins[4].value+'_'+ins[5].value;
@@ -565,6 +532,7 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
         loadPoseFor(+ins[4].value,+ins[5].value)
           .catch(e=>{
             // 该姿态无收敛场 → 隐藏流线组 (不冒充), 显式标注
+            AERO.streamsOn=false;  // 11-06 分层: 流线隐藏 → 粒子恢复全量 (与流线显隐同源)
             (AERO.tubesN||[]).forEach(t=>t.visible=false);
             (AERO.tubesF||[]).forEach(t=>t.visible=false);
             if(AERO.sl)AERO.sl.visible=false;
@@ -577,417 +545,65 @@ document.querySelectorAll('.tabs button').forEach(b=>b.onclick=()=>{
   }
 })();
 
-/* ---------- 飞镖工况动态渲染 (11-04, 曼波: 风洞线不做但飞镖工况要) ----------
-   组件: ①来流粒子场(绕流偏转示意) ②气动力三箭头(查 T0 蓝表) ③表面迎/背风着色
-   ④系数读出行。数据: aero_blue.json (J1 每 2min 同步蓝表), (α,β) 双线性查表,
-   V 维忽略 (跨 V <1% 实测)。舵偏 δ 只转几何, 查表未含 (蓝表 δ=0)。 */
-const AERO={rows:null,parts:null,arrows:null,lastPaint:0};
-AERO.pickPose=function(a,b){ // 姿态流线选择 — 11-06 曼波裁定终版: 【精确匹配才显示】
-  // 姿态距离 >1.26°(半档) = 该姿态收敛场未产出 → null (不冒充, 诚实边界)
-  // 收割 daemon 随引擎自动补齐姿态覆盖 (V21 全姿态先到)
-  if(!this.poseIdx||!this.poseIdx.poses||!this.poseIdx.poses.length)return null;
-  let best=null,bd=1e9;
-  for(const p of this.poseIdx.poses){
-    const d=(p.alpha-a)*(p.alpha-a)+(p.beta-b)*(p.beta-b)*0.5;
-    if(d<bd){bd=d;best=p;}
+/* ---------- UI 状态持久化 (11-06: mesh 版本时差触发的整页 reload 不再丢 tab/相机/滑块) ----------
+   存: pagehide/beforeunload → sessionStorage 'wt_ui_state' (JSON: activeTab/cam/sliders/cg)。
+   恢: 本块 (脚本尾 = DOM 已就绪) — tab 调既有按钮 onclick (pane 切换+__aeroVisible+p5 resize 语义全走);
+   滑块赋值 + dispatch input 让联动跑 (δ→applyDeltas, α/β→updateAero/setFlow/姿态流线 debounce);
+   相机轮询等 __cam (init3d 在首轮数据 fetch 后才建) 就绪再回放, 只动相机不碰默认 setFlow;
+   cg 挂 __uiCGPending 由 initMassUI 落值后应用 (/api fetch 会异步覆写, 时序见彼处)。
+   全程 try/catch + 字段校验: 值损坏/缺字段静默跳过用默认。 */
+(function(){
+  const KEY='wt_ui_state';
+  function saveUIState(){
+    try{
+      const tb=document.querySelector('.tabs button.on');
+      const cam=window.__cam?{theta:window.__cam.theta,phi:window.__cam.phi,R:window.__cam.R}:null;
+      const sliders=[...document.querySelectorAll('#sliders input[type=range]')].map(i=>i.value);
+      const cgEl=document.getElementById('cgIn');
+      sessionStorage.setItem(KEY,JSON.stringify({activeTab:tb?tb.dataset.p:null,cam:cam,sliders:sliders,cg:cgEl?cgEl.value:null}));
+    }catch(e){}
   }
-  this.poseDist=Math.sqrt(bd);
-  if(this.poseDist>1.26)return null;               // 姿态未覆盖 → 不渲染流线 (诚实)
-  return best;
-};
-AERO.hasLayer=function(){ // 当前 real 是否收敛场版 (v 有分层) — 均匀场版近体 v 全 20
-  if(!this.real||!this.real.lines)return false;
-  const ln=this.real.lines[Math.floor(this.real.lines.length/2)]||[];
-  for(const p of ln){ if(p[3]<18||p[3]>23)return true; }        // 越界=有真实梯度
-  return false;
-};
-function aeroBilinear(a,b){
-  // 双线性: α 最近两剖面 + β 最近两行; 蓝表 δ=0。
-  // α 超出已扫域: 回退一档线性外推 (攻角线性区外推物理合理, RL 侧 lookup_aero 另有
-  //   严格 clamp+warning 兜底) — 11-04 修: 原版 i 推到末档 a1===a0 → wa=0 钉死边缘值,
-  //   α=+8° 显示 α=-2.5° 的 CL (正攻角全部错值)。
-  // β 侧向: 大侧滑外推危险 (CY sin 径), 保持 clamp。
-  const rs=AERO.rows;if(!rs||!rs.length)return null;
-  const alphas=[...new Set(rs.map(r=>r.a))].sort((x,y)=>x-y);
-  const n=alphas.length;
-  let i=0;while(i<n-1&&a>alphas[i+1])i++;
-  if(i>=n-1)i=n-2; if(i<0)i=0;                 // 域外→用边缘两档线性外推
-  const a0=alphas[i],a1=alphas[i+1];
-  const wa=a1===a0?0:(a-a0)/(a1-a0);
-  const pick=av=>{const sub=rs.filter(r=>r.a===av).sort((x,y)=>x.b-y.b);
-    if(!sub.length)return null;
-    let j=0;while(j<sub.length-1&&b>sub[j+1].b)j++;
-    const r0=sub[j],r1=sub[Math.min(j+1,sub.length-1)];
-    const wb=r1.b===r0.b?0:(b-r0.b)/(r1.b-r0.b);
-    const out={};for(const k of ['CL','CD','Cm','CY','Cl','Cn'])out[k]=r0[k]+(r1[k]-r0[k])*wb;
-    return out;};
-  const p0=pick(a0),p1=a1===a0?p0:pick(a1);
-  if(!p0||!p1)return null;
-  const out={};for(const k of ['CL','CD','Cm','CY','Cl','Cn'])out[k]=p0[k]+(p1[k]-p0[k])*wa;
-  const outside=a<alphas[0]||a>alphas[n-1];
-  out.mode=outside?'域外外推':(a===a0&&rs.some(r=>r.a===a&&r.b===b)?'表内点':'插值点');
-  return out;
-}
-/* ---------- 势流解析场 (11-04 升级: 曼波要贴体流线效果 — 参考成熟 CFD 后处理) ----------
-   均匀来流 + 沿弹轴源分布(细长体排挤, 椭球 R(x)) + 下游尾迹亏损 + 尾涡摆动。
-   纯解析可积分 — 流线=RK2 追迹, 色标=局部速度 jet 色表, 无需 CFD 场数据。 */
-const AEROBODY={x0:-.115,x1:.115,R:.057,NSEG:24};
-const sstep=t=>{t=Math.max(0,Math.min(1,t));return t*t*(3-2*t);};
-function bodyR(x){ // 镖体真实包络: ⌀46 筒身+X 翼展 0.113 包络+头尾锥 (11-04 真实性修正)
-  // 平段→锥段 smoothstep 混合: 原线性过渡 R(x) 导数跳变 → 速度场沿轴向跳色 (头部环状色带, 曼波截图指认)
-  const ax=Math.abs(x);
-  if(ax>.115) return 0;
-  const taper=sstep((ax-.06)/.055);
-  return .058*(1-taper)+.012*taper;
-}
-function flowVel(px,py,pz,U,tNow,out){
-  // 细长体横向绕流 (2D 偶极子/轴段): v = U_x·x̂ + U_perp·(1-R²/r²) + 尾迹
-  // 真实性 (11-04 曼波: 渲染严格按仿真): r=R 处横向速度→0 = 贴体滑移, 流线不穿体;
-  //   旧版源分布对等直圆柱段排挤失效 (dA/dx=0 无源) → 流线被"吸入"体表假象。
-  let vx=U.x, vy=U.y, vz=U.z;
-  const xc=Math.max(-.1, Math.min(.1, px));
-  const R=bodyR(xc);
-  if(R>.004){
-    const denom=Math.max(py*py+pz*pz, R*R*.96);   // r² 下限≈R²: 表面滑移
-    const f=1-(R*R)/denom;
-    vy=U.y*f; vz=U.z*f;                            // 横向分量绕流修正, 轴向不变 (2D)
-  }
-  // 头端驻点: 迎风头锥区轴向渐止 (U.x<0 → 头在 +x; U.x>0 → 头在 -x)
-  // 只衰减"会撞端面"的流线 (r_perp<包络); r 包络外的绕体流线放行 (物理: 绕过头部继续)
-  {
-    const headD=(U.x<0?1:-1)*(.115-px);              // >0 = 头端内侧
-    if(headD>0){
-      const rr2=Math.hypot(py,pz);
-      const Rb=bodyR(px);
-      const gate=1-sstep(Math.max(0,(rr2-.4*Rb))/(.6*Rb)); // 轴心 1→表面 0 平滑 (滑行流线不衰减)
-      vx*=1-sstep(headD/.055)*gate;
+  window.addEventListener('pagehide',saveUIState);
+  window.addEventListener('beforeunload',saveUIState);
+  let st=null;
+  try{st=JSON.parse(sessionStorage.getItem(KEY)||'null');}catch(e){st=null;}
+  if(!st||typeof st!=='object')return;
+  try{ // ① tab 恢复 (默认 p0 = HTML 初始态, 无需动作)
+    if(st.activeTab&&st.activeTab!=='p0'){
+      const b=document.querySelector('.tabs button[data-p="'+(''+st.activeTab).replace(/[^a-z0-9]/gi,'')+'"]');
+      if(b&&typeof b.onclick==='function')b.onclick();
     }
-  }
-  const s=px*U.x+py*U.y+pz*U.z;                    // 沿流向距离
-  const rx=px-U.x*s, ry=py-U.y*s, rz=pz-U.z*s;
-  const r=Math.sqrt(rx*rx+ry*ry+rz*rz);            // 垂直来流距离 (尾迹核用)
-  if(s>AEROBODY.x1&&out){
-    const decay=Math.exp(-(s-AEROBODY.x1)/.4);
-    const core=Math.exp(-(r*r)/(0.035*0.035));
-    vx-=U.x*.45*core*decay; vy-=U.y*.45*core*decay; vz-=U.z*.45*core*decay;
-    const sw=.14*out.wakeAmp*Math.sin(20*s-6*tNow)*core*decay;
-    vz+=sw*out.wakeDir.y; vy+=sw*out.wakeDir.x*.3;
-  }
-  const sp=Math.sqrt(vx*vx+vy*vy+vz*vz);
-  out.x=vx;out.y=vy;out.z=vz;return sp;
-}
-const JET=[[0,[0,.55,1]],[.25,[0,.92,.62]],[.5,[.45,1,.25]],[.72,[1,.92,.1]],[.88,[1,.45,0]],[1,[1,.08,.05]]];
-function aeroJet(v){ // 速度→色 (非线性分段 — 11-05 三修: 全程渐变, 主流 21 也有色差)
-  let t;
-  if(v < 10)      t = 0.02 + (v/10)*0.20;             // 驻点/深边界层 → 深青
-  else if(v < 19) t = 0.22 + ((v-10)/9)*0.25;         // 边界层 → 青-绿
-  else if(v < 22) t = 0.47 + ((v-19)/3)*0.28;         // 主流 → 绿-黄 (21 也可见色差)
-  else            t = 0.75 + Math.min(1,(v-22)/7)*0.25; // 加速 → 橙红
-  return jetColor(t);
-}
-function jetColor(t){ // 速度归一 → 青绿黄红 (对齐参考图色标)
-  t=Math.max(0,Math.min(1,t));
-  for(let i=1;i<JET.length;i++) if(t<=JET[i][0]){
-    const w=(t-JET[i-1][0])/(JET[i][0]-JET[i-1][0]),a=JET[i-1][1],b=JET[i][1];
-    return [a[0]+(b[0]-a[0])*w,a[1]+(b[1]-a[1])*w,a[2]+(b[2]-a[2])*w];}
-  return JET[JET.length-1][1];
-}
-function initAeroFX(scene,dart){
-  // ① 流线系统: 起点上游客盘 → RK2 追迹 → LineSegments (顶点色=局部速度 jet)
-  AERO.scene=scene; AERO.orbit={pts:null,t:0};
-  // ② 力矢量三箭头 (起点沿方向外移出机身防遮挡; depthTest 关 — X 光穿透, 机身永不见)
-  const mkArr=c=>{const a=new THREE.ArrowHelper(new THREE.Vector3(0,1,0),new THREE.Vector3(0,0,0),.1,c,.035,.02);
-    a.visible=false;a.line.material.depthTest=false;a.cone.material.depthTest=false;
-    a.renderOrder=997;scene.add(a);return a;};
-  AERO.arrows={L:mkArr(0x3ecf7a),D:mkArr(0xff6655),Y:mkArr(0xffd23e)};
-  fetch('streamlines_index.json?_='+Date.now()).then(r=>r.ok?r.json():Promise.reject(r.status))
-    .then(idx=>{
-      AERO.poseIdx=idx;                       // {poses:[{file,alpha,beta,V}...]}
-      const ins0=document.querySelectorAll('#sliders input[type=range]');
-      return loadPoseFor(+ins0[4].value, +ins0[5].value);
-    })
-    .catch(e=>{ // index 失败才回退单姿态 (pose fetch 慢≠失败 — 15MB 需 >30s, 不抢跑)
-      if(String(e).includes('no-pose'))return;   // 无姿态索引时才走回退
-      console.warn('pose fetch slow/fail, keep current:', String(e).slice(0,60));
-    });
-  fetch('aero_blue.json?_='+Date.now()).then(r=>r.json()).then(j=>{AERO.rows=j.rows;updateAero();})
-    .catch(()=>{$('aeroread').textContent='气动查表: aero_blue.json 未就绪 (等 J1 下一轮)';});
-}
-function loadPoseFor(a,b){ // 姿态切换: 选最近姿态 → 拉 json → 绕转过渡 → AERO.real 更新
-  const best=AERO.pickPose(a,b);
-  if(!best)return Promise.reject('no-pose');
-  return fetch('poses/'+best.file+'?_='+Date.now())
-    .then(r=>r.ok?r.json():Promise.reject(r.status))
-    .then(j=>{
-      // 绕转过渡 (11-05 曼波: 转 α/β 时风场整体绕转): 旧来流方向 → 新来流方向 slerp 400ms
-      const oldDir=new THREE.Vector3(-1,0,0);
-      if(AERO.real){const A0=(AERO.real.alpha||0)*Math.PI/180,B0=(AERO.real.beta||0)*Math.PI/180;
-        oldDir.set(-Math.cos(A0)*Math.cos(B0),-Math.sin(B0),-Math.sin(A0)*Math.cos(B0)).normalize();}
-      const A1=(j.alpha||0)*Math.PI/180,B1=(j.beta||0)*Math.PI/180;
-      const newDir=new THREE.Vector3(-Math.cos(A1)*Math.cos(B1),-Math.sin(B1),-Math.sin(A1)*Math.cos(B1)).normalize();
-      const q0=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1,0,0),oldDir);
-      const q1=new THREE.Quaternion().setFromUnitVectors(new THREE.Vector3(1,0,0),newDir);
-      const qRel=q1.clone().multiply(q0.clone().invert());   // 相对旋转
-      // 11-05 简化: 数据立即落 (fetch 完成即换装) — spin 动画守卫链曾在后台卡死致数据不落
-      AERO.real=j; AERO.realLinesGeom=null;
-      updateAero();
-      return best;
-    });
-}
-function rebuildStreamlines(U,tNow){ // α/β 变化时重建 (调用方节流)
-  if(AERO.real && AERO.real.lines && AERO.real.lines.length){ // ── 真实 CFD 场流线 (qianli foamToVTK→积分→json) — 严格按仿真 ──
-    // lines 空 = 积分失败旧版 json → 回退势流 (守卫 11-04)
-    // 11-04 二修(曼波指认旋转后穿模): 刚体旋转方案废弃 — 旋转载荷流线+固定 mesh=错位穿模
-    // (流线绕的是原姿态镖体, mesh 不转就怼进机身)。正确方案=多姿态数据选择制:
-    // 每姿态用【该姿态自己的 case 真实场】积分 (扫气逐姿态跑, 每 case 都有真实场),
-    // 后处理批量预计算 poses{} — 滑块切姿态选对应数据, mesh/流线/表面色永远同姿态自洽。
-    // 现有 json 单姿态 (α=-2.5): 姿态外滑块 → 透明度降+徽标注「基准姿态」;
-    // 多姿态 poses 到位后按最近姿态选择 (delta_early_plan §5 扩展)。
-    AERO.realQuat=null;
-    if(AERO.sl && AERO.realLinesGeom===AERO.real){ // 已建: 数据未变, 无需重建
-      return;
+  }catch(e){}
+  try{ // ② 滑块恢复 (6 个: δ1..δ4, α, β — 赋值+dispatch input 触发全部联动)
+    const ins=document.querySelectorAll('#sliders input[type=range]');
+    if(Array.isArray(st.sliders)&&st.sliders.length===6&&ins.length===6){
+      ins.forEach((inp,i)=>{
+        const v=+st.sliders[i];
+        if(!isFinite(v))return;
+        inp.value=Math.max(+inp.min,Math.min(+inp.max,v));
+        inp.dispatchEvent(new Event('input'));
+      });
     }
-    AERO.realLinesGeom=AERO.real; // 标记已建 (数据源版本)
-    (AERO.tubesN||[]).forEach(t=>{AERO.scene.remove(t);t.geometry.dispose();});AERO.tubesN=[];
-    (AERO.tubesF||[]).forEach(t=>{AERO.scene.remove(t);t.geometry.dispose();});AERO.tubesF=[];
-    if(AERO.sl)  {AERO.scene.remove(AERO.sl);  AERO.sl.geometry&&AERO.sl.geometry.dispose();}
-    if(AERO.slNear){AERO.scene.remove(AERO.slNear);AERO.slNear.geometry&&AERO.slNear.geometry.dispose();}
-    if(AERO.glow){AERO.scene.remove(AERO.glow);AERO.glow.geometry.dispose();}
-    // 速度/距离分层 (11-05 曼波: 近体减速绕转要显性化): 近体层粗亮/外场层细淡
-    const posN=[],cgN=[],posF=[],cgF=[],glowArr=[];AERO.glowRef=[];
-    // 11-06: Tube 版全量渲染不抽稀 — 365 条 rake 线全部出 (管有体量感不需要稀疏化)
-    AERO.real.lines.forEach((ln0,li)=>{
-      let ln=ln0;
-      // ① 体内段裁除 (11-05 曼波: 头部穿体) — 逐点判体 (含头尾锥包络), 体内点跳过不画
-      const bodyEnv=x=>{const ax=Math.abs(x);
-        if(ax>0.116)return 0;
-        if(ax<0.072)return 0.0580;                 // 筒身 体表-0.5mm: 贴体流线 r≈0.058 保留 (11-06 全量审查: +0.5mm 曾裁掉贴体线)
-        return 0.0580+(0.014-0.0580)*((ax-0.072)/0.044);};
-      let ln2=[];
-      for(const p of ln){
-        const rE=bodyEnv(p[0]);
-        if(rE>0.004 && Math.hypot(p[1],p[2])<rE) continue;   // 体内点裁除 (保守包络)
-        if(p[3]<3.0) continue;   // 驻点死区 (近体种子起点滞止 v<3 — 硬投影后跳锥外高速=假弹开)
-        ln2.push(p);
-      }
-      if(ln2.length<20)return;
-      // ② 断口桥接 + Chaikin 平滑 (11-05 曼波: 气体受阻后直线弹开不物理 —
-      //    裁除断口处沿包络面补 3 点桥接弧; 全线 Chaikin 细分把折点变圆滑)
-      const bridged=[];
-      for(let i=0;i<ln2.length;i++){
-        if(i>0){
-          const a=ln2[i-1], b=ln2[i];
-          const gap=Math.hypot(b[0]-a[0],b[1]-a[1],b[2]-a[2]);
-          if(gap>0.02){   // 断口: 沿包络补桥接弧
-            const mid=(a[0]+b[0])/2;
-            const rE=bodyEnv(mid);
-            if(rE>0.004){
-              const my=(a[1]+b[1])/2, mz=(a[2]+b[2])/2;
-              const th=Math.atan2(mz,my);
-              const rr=rE*1.02;
-              bridged.push([mid,Math.cos(th)*rr,Math.sin(th)*rr,(a[3]+b[3])/2]);
-            }
-          }
-        }
-        bridged.push(ln2[i]);
-      }
-      // Chaikin 细分 (折点→圆弧): 每段 1/4-3/4 切角
-      const sm=[];
-      for(let i=0;i<bridged.length-1;i++){
-        const a=bridged[i], b=bridged[i+1];
-        if(i===0)sm.push(a);
-        sm.push([a[0]*0.75+b[0]*0.25, a[1]*0.75+b[1]*0.25, a[2]*0.75+b[2]*0.25, (a[3]*0.75+b[3]*0.25)]);
-        sm.push([a[0]*0.25+b[0]*0.75, a[1]*0.25+b[1]*0.75, a[2]*0.25+b[2]*0.75, (a[3]*0.25+b[3]*0.75)]);
-        if(i===bridged.length-2)sm.push(b);
-      }
-      ln=sm.length>20?sm:bridged;   // 平滑后的线
-      // ② Tube 渲染 (11-06 牛图落地: CatmullRomCurve3→TubeGeometry 真柔和曲线+真线宽+受光体量感
-      //    — LineBasicMaterial.linewidth 被 WebGL 忽略恒 1px 的根治)
-      const minR=Math.min(...ln.map(p=>Math.hypot(p[1],p[2])));
-      const near=minR<0.09;
-      const pts3=ln.map(p=>new THREE.Vector3(p[0],p[1],p[2]));
-      if(pts3.length<8)return;
-      const curve=new THREE.CatmullRomCurve3(pts3, false, 'catmullrom', 0.5);
-      // 管半径: 近体粗(0.0011) 远场细(0.0006) — 牛图粗细感
-      const rad=near?0.00045:0.00028;   // 11-06 视觉验收: 0.0011 太粗糊团 → 细管
-      const SEG=Math.min(120, Math.max(24, pts3.length));   // 曲线细分自适应
-      const tgeo=new THREE.TubeGeometry(curve, SEG, rad, 5, false);
-      // 顶点色: Tube 顶点按 (index / 每环顶点数) 推曲线参数 t → 采样数据速度
-      const vcols=new Float32Array(tgeo.attributes.position.count*3);
-      const perRing=(SEG+1)*5;   // tubularSegments+1 rings × radialSegments 5+骨架顶点近似
-      for(let vi=0;vi<tgeo.attributes.position.count;vi++){
-        const t=Math.min(1,Math.max(0,(vi/perRing)|0)/SEG);
-        const v=ln[Math.min(ln.length-1,Math.round(t*(ln.length-1)))][3];
-        const c=aeroJet(v);
-        vcols[vi*3]=c[0];vcols[vi*3+1]=c[1];vcols[vi*3+2]=c[2];
-      }
-      tgeo.setAttribute('color', new THREE.BufferAttribute(vcols,3));
-      const tmat=new THREE.MeshStandardMaterial({vertexColors:true,metalness:.1,roughness:.55,
-        transparent:true,opacity:near?0.85:0.45, emissive:0x0a0a12});
-      const tube=new THREE.Mesh(tgeo,tmat);
-      AERO.scene.add(tube);
-      (near?(AERO.tubesN=AERO.tubesN||[]):(AERO.tubesF=AERO.tubesF||[])).push(tube);
-      if(!near && li%6===0) for(let g=0;g<3;g++){glowArr.push(ln[0][0],ln[0][1],ln[0][2]);
-        AERO.glowRef.push({pts:ln.map(p=>[p[0],p[1],p[2]]),t:(g/3+li*.07)%1});}
-    });
-    // 11-06 Tube 版: posN/posF 线段流废弃 (Tube 直接 add; AERO.sl/slNear 指到 Tube 组以便兼容旧清理钩子)
-    AERO.slNear=AERO.tubesN?{geometry:{dispose:()=>AERO.tubesN.forEach(t=>t.geometry.dispose())},visible:true}:null;
-    AERO.sl=AERO.tubesF?{geometry:{dispose:()=>AERO.tubesF.forEach(t=>t.geometry.dispose())},visible:true}:null;
-    const gg=new THREE.BufferGeometry();
-    gg.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(glowArr),3));
-    AERO.glow=new THREE.Points(gg,new THREE.PointsMaterial({color:0xeaffff,size:.006,transparent:true,opacity:.9,depthWrite:false}));
-    AERO.scene.add(AERO.glow);
-    if(AERO.real.surf&&AERO.real.surf.length){ // 表面顶点色=真实场采样 (与前端 mesh 顶点一一对应)
-      const mesh=T3.dart&&T3.dart.children.find(c=>c.isMesh);if(mesh&&mesh.geometry){
-        const g=mesh.geometry;
-        if(!g.attributes.color)g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(g.attributes.position.count*3),3));
-        g.attributes.color.array.set(AERO.real.surf.slice(0,g.attributes.position.count*3));
-        g.attributes.color.needsUpdate=true;
-        if(!mesh.material.vertexColors){mesh.material.vertexColors=true;mesh.material.color.set(0xffffff);mesh.material.needsUpdate=true;}
-      }
-      AERO.surfReal=true;
+  }catch(e){}
+  try{ // ③ 相机恢复: 200ms 轮询等 __cam/__applyCam (2D 降级无 __cam → 40s 超时放弃)
+    if(st.cam&&[st.cam.theta,st.cam.phi,st.cam.R].every(isFinite)){
+      const c=st.cam;let n=0;
+      const iv=setInterval(()=>{
+        if(window.__cam&&window.__applyCam){
+          clearInterval(iv);
+          window.__cam.theta=+c.theta;
+          window.__cam.phi=Math.max(-1.4,Math.min(1.4,+c.phi));
+          window.__cam.R=Math.max(.2,Math.min(.9,+c.R));
+          window.__applyCam();
+          try{if(T3.resize)T3.resize();}catch(e2){} // 恢复到 p5 时 canvas 尺寸此刻才可测 (init3d 晚于 tab 恢复)
+        }else if(++n>200)clearInterval(iv);
+      },200);
     }
-    // 表面色姿态边界: 当前 json 只有 α=-2.5 单姿态采样 — 滑块旋转时表面色保持基准姿态
-    // (严格按仿真: 不做假重采样; 多姿态预计算 json 就绪后自动切换 — delta_early_plan §5)
-    AERO.surfAlphaFixed=true;
-    return; // 真实流线: 姿态旋转已应用 (首建在此分支, 力矢量/查表照旧联动)
-  }
-  (AERO.tubesN||[]).forEach(t=>{AERO.scene.remove(t);t.geometry.dispose();});AERO.tubesN=[];
-  (AERO.tubesF||[]).forEach(t=>{AERO.scene.remove(t);t.geometry.dispose();});AERO.tubesF=[];
-  if(AERO.sl)  {AERO.scene.remove(AERO.sl);  AERO.sl.geometry&&AERO.sl.geometry.dispose();}
-  if(AERO.slNear){AERO.scene.remove(AERO.slNear);AERO.slNear.geometry&&AERO.slNear.geometry.dispose();}
-  if(AERO.glow){AERO.scene.remove(AERO.glow);AERO.glow.geometry.dispose();}
-  const ins=document.querySelectorAll('#sliders input[type=range]');
-  const wakeAmp=.35+Math.abs(+ins[4].value)/15*.9;               // 尾涡摆幅随攻角
-  const wd=new THREE.Vector3(0,0,1); if(Math.abs(U.z)>.9) wd.set(0,1,0);
-  const e1=new THREE.Vector3(0,1,0).cross(U).normalize(); if(e1.lengthSq()<.5)e1.set(1,0,0);
-  const e2=new THREE.Vector3().crossVectors(U,e1);
-  const NSEG=110,h=.005,out={wakeAmp,wakeDir:wd,x:0,y:0,z:0};
-  // 起点盘: 上游 0.24, 极坐标 9 环 + 轴心 5 点 ≈ 239 条
-  const starts=[];
-  for(let ring=0;ring<9;ring++){const rr=.008+ring*.0115, nk=Math.max(6,ring*5)+6;
-    if(rr<.064) continue;                                  // 剔除体包络内起点 (本应驻点分流, 2D 势流无该解→不画)
-    for(let k=0;k<nk;k++){const th=k/nk*6.2832;starts.push([rr*Math.cos(th),rr*Math.sin(th)]);}}
-  const pos=[],cg=[],lines=[];
-  const c0=new THREE.Vector3(),c1=new THREE.Vector3();
-  for(const st of starts){
-    let px=-U.x*.24+e1.x*st[0]+e2.x*st[1], py=-U.y*.24+e1.y*st[0]+e2.y*st[1], pz=-U.z*.24+e1.z*st[0]+e2.z*st[1];
-    const pts=[[px,py,pz,1]];
-    let hitBody=false;
-    for(let step=0;step<NSEG;step++){
-      flowVel(px,py,pz,U,tNow,out);
-      const mx=px+out.x*h*.5,my=py+out.y*h*.5,mz=pz+out.z*h*.5;
-      const sp2=flowVel(mx,my,mz,U,tNow,out), inv=sp2>1e-5?h/sp2:h;
-      px+=out.x*inv; py+=out.y*inv; pz+=out.z*inv;
-      // 体表碰撞投影 (11-04 真实性修正: 势流点源离散不足致流线切入体 —
-      //   CFD 后处理标准做法: 体内点沿径向投影到体表面外, 流线只能贴体不能穿体)
-      const sx=px*U.x+py*U.y+pz*U.z;
-      if(sx>AEROBODY.x0&&sx<AEROBODY.x1){
-        const Rb=bodyR(sx)+.002;
-        const ry2=py-U.y*sx, rz2=pz-U.z*sx, rb=Math.hypot(ry2,rz2);
-        if(rb<Rb){const f=Rb/rb;py=U.y*sx+ry2*f;pz=U.z*sx+rz2*f;}
-      }
-      if(px*U.x+py*U.y+pz*U.z>.34)break;
-      if(sp2<.03){hitBody=true;break;}                    // 驻点截断: 流线终止于驻点 (物理)
-      pts.push([px,py,pz,sp2]);
-    }
-    lines.push(pts);
-    for(let i=0;i<pts.length-1;i++){
-      pos.push(...pts[i].slice(0,3),...pts[i+1].slice(0,3));
-      cg.push(...jetColor(Math.max(0,Math.min(1,(pts[i][3]-.55)/.75))),
-              ...jetColor(Math.max(0,Math.min(1,(pts[i+1][3]-.55)/.75))));
-    }
-  }
-  const pg=new THREE.BufferGeometry();
-  pg.setAttribute('position',new THREE.Float32BufferAttribute(pos,3));
-  pg.setAttribute('color',new THREE.Float32BufferAttribute(cg,3));
-  AERO.sl=new THREE.LineSegments(pg,new THREE.LineBasicMaterial({vertexColors:true,transparent:true,opacity:.5}));
-  AERO.scene.add(AERO.sl);
-  // 流光点: 每 4 条流线 3 个亮点沿弧长参数循环滑动 (aeroTick 推进 t)
-  const glow=[];AERO.glowRef=[];
-  lines.forEach((pts,li)=>{if(li%4)return;
-    for(let g=0;g<3;g++){glow.push(...pts[0].slice(0,3));AERO.glowRef.push({pts,t:(g/3+li*.11)%1});}});
-  const gg=new THREE.BufferGeometry();
-  gg.setAttribute('position',new THREE.Float32BufferAttribute(new Float32Array(glow),3));
-  AERO.glow=new THREE.Points(gg,new THREE.PointsMaterial({color:0xeaffff,size:.007,transparent:true,opacity:.95,depthWrite:false}));
-  AERO.scene.add(AERO.glow);
-}
-let _t0=performance.now();
-function tNow0(){return (performance.now()-_t0)/1000;}
-function paintPressure(U){ // ③ 表面速度色阶 (jet: 驻点青→侧面红, 对齐参考图; 节流 250ms)
-  const now=performance.now();if(now-AERO.lastPaint<250)return;AERO.lastPaint=now;
-  const mesh=T3.dart&&T3.dart.children.find(c=>c.isMesh);if(!mesh||!mesh.geometry)return;
-  const g=mesh.geometry,ps=g.attributes.position,cnt=ps.count;
-  if(!g.attributes.color)g.setAttribute('color',new THREE.BufferAttribute(new Float32Array(cnt*3),3));
-  const col=g.attributes.color.array;
-  const out={wakeAmp:0,wakeDir:{x:0,y:0,z:0},x:0,y:0,z:0},tN=tNow0();
-  for(let i=0;i<cnt;i++){
-    const sp=flowVel(ps.getX(i),ps.getY(i),ps.getZ(i),U,tN,out);
-    const c=jetColor(Math.max(0,Math.min(1,(sp-.45)/.85)));
-    col[i*3]=c[0];col[i*3+1]=c[1];col[i*3+2]=c[2];
-  }
-  g.attributes.color.needsUpdate=true;
-  if(!mesh.material.vertexColors){mesh.material.vertexColors=true;mesh.material.color.set(0xffffff);mesh.material.needsUpdate=true;}
-}
-function updateAero(){ // α/β 滑块与 aero_blue 就绪时统一入口
-  const ai=document.querySelector('#sliders input[step="1"][min="-15"]');
-  if(!ai)return;
-  const ins=document.querySelectorAll('#sliders input[type=range]');
-  const a=+ins[4].value,b=+ins[5].value; // 第 5/6 个滑块=α/β (前 4 是 δ)
-  const A=a*Math.PI/180,B2=b*Math.PI/180;
-  const U=new THREE.Vector3(-Math.cos(A)*Math.cos(B2),-Math.sin(B2),-Math.sin(A)*Math.cos(B2));
-  if(window.__applyFlow)window.__applyFlow(a,b);
-  paintPressure(U);
-  { // 流线重建: 真实场模式每次都走 (内含首建守卫+姿态旋转, 开销小); 势流模式 400ms 节流
-    const now=performance.now();
-    if(AERO.real || now-(AERO.lastRebuild||0)>400){AERO.lastRebuild=now;
-      try{rebuildStreamlines(U,tNow0());}catch(e){AERO.slErr=String(e).slice(0,200);console.error('rebuild ERR:',e);}}
-  }
-  const c=aeroBilinear(a,b);
-  const el=$('aeroread');
-  if(!AERO.rows){return;}
-  if(!c){el.textContent='气动查表: 表空';return;}
-  // ④ 力矢量: 稳定轴基 (drag=+U 方向, lift=场景上向在垂直来流面投影, side=lift×drag)
-  //   坑(11-04): 标量×向量必须 addScaledVector — `n*vec` 在 JS 是 number×object=NaN,
-  //   曾致 L/Y 箭头 position=NaN 消失 (D 幸存因不经过此式)
-  const drag=U.clone().normalize();
-  const up0=new THREE.Vector3(0,1,0);
-  const lift=up0.clone().addScaledVector(drag,-up0.dot(drag)).normalize();
-  const side=new THREE.Vector3().crossVectors(lift,drag);
-  const L=.12;
-  const set=(arr,key,dir)=>{const v=c[key],ar=AERO.arrows[key==='CL'?'L':key==='CD'?'D':'Y'];
-    // 起点/长度: 底长 0.05 保证可见, 起点 = 方向×(0.055+len/2) 把箭头推出机身外
-    // 显示阈值 0.02 (11-04 曼波指认: β=0 时 CY 网格偏置 ~0.01-0.02 被画成明显侧力箭头 —
-    //   A3 锚同源: |CY(β=0)|<0.03 = 网格不完全对称的已知偏置, 非真实侧力, 不渲染);
-    //   长度超线性压扁: |v|^0.7 — 小值区不让箭头撑出误导比例
-    const av=Math.abs(v);
-    ar.visible=av>0.02;
-    const len=.05+Math.pow(av,0.7)*.14, sgn=v>=0?1:-1;
-    ar.setLength(len,.03,.016);
-    // 11-05 终版二修: 黄绿箭头 negate (气流掠过上方/侧方 → 力从上/侧压向镖体), CD 保持上游来力;
-    //   整体外移 0.11 — 尖端落在镖体表面外, 不与机身重叠
-    ar.position.copy(dir.clone().multiplyScalar(-sgn*(.11+len/2)));
-    ar.setDirection(dir.clone().multiplyScalar(sgn));};
-  set(c,'CL',lift.clone().negate());set(c,'CD',drag);set(c,'CY',side.clone().negate());   // 黄绿 negate: 气流掠过来力
-  el.innerHTML='V∈[20,25] (跨V&lt;1%) α='+a+'° β='+b+'° → <b style="color:#3ecf7a">CL='+c.CL.toFixed(3)+'</b> <b style="color:#e05555">CD='+c.CD.toFixed(3)+'</b> <b style="color:#e8b13e">CY='+c.CY.toFixed(3)+'</b> · Cm='+c.Cm.toFixed(3)+' Cl='+c.Cl.toFixed(3)+' Cn='+c.Cn.toFixed(3)+' · CY 含网格偏置(β=0 时 |CY|&lt;0.03 非真实侧力) · <b>'+c.mode+'</b> · <b style="color:#5ad0e0">流线源: '+(AERO.real?(AERO.hasLayer()?(AERO.poseDist>1.26?'真实场(姿态差 '+AERO.poseDist.toFixed(1)+'°—待收割)':'真实 CFD 场 '+AERO.real.case):'⚠ 均匀场(待收敛) '+AERO.real.case):'势流近似')+'</b> (δ 查表未含, 蓝表 δ=0)';
-}
-function aeroTick(){ // 流光点沿线滑动 (每帧; p5 不可见/窗口遮挡时由调用侧跳过)
-  if(!AERO.glowRef||window.__aeroVisible===false)return;
-  const att=AERO.glow.geometry.attributes.position, dt=1/60;
-  const V3=new THREE.Vector3();
-  for(let gi=0;gi<AERO.glowRef.length;gi++){
-    const g=AERO.glowRef[gi], pts=g.pts;
-    // 速度感知推进: 步长 ∝ 局部真实 |U| (尾迹慢/主流快 — 稳态场里的"流动感"来自差速)
-    const fi0=g.t*(pts.length-1), i00=Math.floor(fi0);
-    const vHere=pts[Math.min(i00,pts.length-1)][3]||20;
-    g.t=(g.t+dt*.55*(vHere/22))%1;
-    const fi=g.t*(pts.length-1), i0=Math.floor(fi), fr=fi-i0;
-    const a=pts[Math.min(i0,pts.length-1)], b=pts[Math.min(i0+1,pts.length-1)];
-    V3.set(a[0]+(b[0]-a[0])*fr, a[1]+(b[1]-a[1])*fr, a[2]+(b[2]-a[2])*fr);
-    att.array[gi*3]=V3.x; att.array[gi*3+1]=V3.y; att.array[gi*3+2]=V3.z;
-  }
-  att.needsUpdate=true;
-}
+  }catch(e){}
+  try{ // ④ cg 待恢复标记 (initMassUI 的服务器 fetch 落值后应用)
+    if(st.cg!=null&&isFinite(+st.cg))window.__uiCGPending=+st.cg;
+  }catch(e){}
+})();
 
 </script>
 </body>

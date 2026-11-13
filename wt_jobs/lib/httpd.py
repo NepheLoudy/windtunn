@@ -2,21 +2,28 @@
 # -*- coding: utf-8 -*-
 """零依赖本地仪表台服务 — 禁缓存的静态文件服务器 (Ctrl+C 即停)
 
-usage: py -3 lib/httpd.py [docroot] [port]
+usage: py -3 lib/httpd.py [docroot] [port] [--idle-exit MIN]
 默认 docroot = ../www, 端口 8123。禁缓存头是修"浏览器看到空白"的根: 任何资源
 永不 304, 数据 JSON 每次拉新。
+
+11-07: --idle-exit MIN — 随用随开模式(曼波定), 连续 MIN 分钟无任何请求则自动退出,
+不传参数行为不变(前台常驻到 Ctrl+C)。
 """
-import http.server, json, os, socketserver, subprocess, sys, time
+import http.server, json, os, socketserver, subprocess, sys, threading, time
 
 # 11-02: auto-sync 线程已移除 — 同步外置为 schtasks WT_sync (每 2min 跑 j1, 幂等自动退出)。
 # httpd 内部线程曾静默死亡致数据 30h 不更新; 外置任务+guard 模式才是可靠架构。
 
 ROOT = os.path.normpath(os.path.join(os.path.dirname(__file__), '..'))
 
-docroot = sys.argv[1] if len(sys.argv) > 1 else os.path.join(ROOT, 'www')
-port = int(sys.argv[2]) if len(sys.argv) > 2 else 8123
+args = [a for a in sys.argv[1:] if not a.startswith('--')]
+idle_exit_min = float(sys.argv[sys.argv.index('--idle-exit') + 1]) if '--idle-exit' in sys.argv else 0
+docroot = args[0] if args else os.path.join(ROOT, 'www')
+port = int(args[1]) if len(args) > 1 else 8123
 docroot = os.path.normpath(os.path.join(os.getcwd(), docroot)) if not os.path.isabs(docroot) else docroot
 os.chdir(docroot)
+
+LAST_REQ = [time.time()]  # 随用随开: 最后请求时刻, idle watcher 轮询
 
 class H(http.server.SimpleHTTPRequestHandler):
     def end_headers(self):
@@ -58,6 +65,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         return cur
 
     def do_GET(self):
+        LAST_REQ[0] = time.time()
         if self.path.startswith('/api/mass_props'):
             body = json.dumps(self._mass_state()).encode()
             self.send_response(200)
@@ -69,6 +77,7 @@ class H(http.server.SimpleHTTPRequestHandler):
         super().do_GET()
 
     def do_POST(self):
+        LAST_REQ[0] = time.time()
         if not self.path.startswith('/api/mass_props'):
             self.send_error(404)
             return
@@ -107,8 +116,19 @@ class H(http.server.SimpleHTTPRequestHandler):
         sys.stdout.flush()
 
 socketserver.ThreadingTCPServer.allow_reuse_address = True
+if idle_exit_min > 0:
+    def _idle_watch():
+        while True:
+            time.sleep(30)
+            idle_s = time.time() - LAST_REQ[0]
+            if idle_s > idle_exit_min * 60:
+                print('[idle-exit] %.0f min 无请求, 自动退出 (随用随开模式)' % (idle_s / 60))
+                sys.stdout.flush()
+                os._exit(0)
+    threading.Thread(target=_idle_watch, daemon=True).start()
+
 with socketserver.ThreadingTCPServer(('0.0.0.0', port), H) as srv:
-    print('dashboard serving %s  ->  http://127.0.0.1:%d   (Ctrl+C 停止)' % (docroot, port))
+    print('dashboard serving %s  ->  http://127.0.0.1:%d   (Ctrl+C 停止%s)' % (docroot, port, ', 空闲 %g min 自动退' % idle_exit_min if idle_exit_min else ''))
     sys.stdout.flush()
     try:
         srv.serve_forever()
