@@ -56,3 +56,48 @@ bash openfoam/airframe-sweep/run_sweep_v2.sh <root> <nproc>   # 表判重自动�
 
 同工况 (V=25, α=5°, β=0, δ=0) 两机各跑一遍: CL/CD 差 **<2%** (网格八叉树对齐差异量级)
 → 通过; 超差 → 查 OpenFOAM 版本/编译差异, 不可信不上岗。
+
+## 6. 新设备接入指南 (2026-11-15 实况版 — 第三台及以上照此办理)
+
+> ⚠ 本文 §2/§3 写于 10-26 入网前 (IP/端口为当时的猜测口径, 已过时)。
+> **实况**: qianli 经 Tailscale 入网 (节点名 `qianli-b460maoruselite`, IP **100.90.63.31**:22,
+> 登录账号 NepheLoudy@), SSH 走 **qianli 用户**的公钥授权 (桌面 WSL root 的 ed25519 已在
+> `/home/qianli/.ssh/authorized_keys`)。新设备照本节办理。
+
+### 6.1 入网 (Tailscale)
+
+1. 新设备装 Tailscale: Windows `winget install tailscale.tailscale` / Linux
+   `curl -fsSL https://tailscale.com/install.sh | sh` / macOS App Store。
+2. 登录 **NepheLoudy@ 同一 tailnet** (用账号的 SSO 登录; 三方设备走管理台 share 邀请亦可)。
+3. 验收入网: `tailscale status` 应看到 `qianli-b460maoruselite  100.90.63.31`;
+   `ping 100.90.63.31` 通即入网成功。
+4. 安全边界须知: **入网=可直达 tailnet 全部节点** (含桌面机), 设备本身要设锁; 若需限制
+   只准达 qianli, 在 Tailscale 管理台 ACL 里按设备收紧 (默认 ACL 全通)。
+
+### 6.2 SSH 授权 (远控 qianli)
+
+1. 新设备生成密钥: `ssh-keygen -t ed25519 -C "操作者@新设备名"`。
+2. **公钥交给曼波或现有操作者** → 追加进 qianli 的 `/home/qianli/.ssh/authorized_keys`
+   (一行一个, 与现有桌面钥并列; **root 账号无授权钥是刻意设计** — 操作者身份都走 qianli 用户)。
+3. 验收画像: `ssh qianli@100.90.63.31 "nproc; free -g; uptime"` → 预期 14 核/16GB/负载视批次。
+4. 密码登录兜底: sshd 默认允许 (Ubuntu 默认未显式关闭), 首次没带钥时曼波可给一次性密码。
+
+### 6.3 远控纪律 (本周事故沉淀, 必读)
+
+- **发射前先查在跑树**: `pgrep -af 'run_sweep|run_solve|foamRun|FluidX3D'` — 11-14 V25 双开
+  (两工位同 case 双 mpirun, 16GB 机器 OOM 互杀) 的直接教训; 同 case 发射加 **flock 互斥**
+  (v25_finish_1115.sh 有实装范例)。
+- **绝不 pkill 在跑引擎/收割机/guard** (pkill 自杀陷阱: 字符类断自匹配, 见 §4);
+  kill 别人的树前先发消息知会。
+- **MSYS/Git Bash 调 wsl/ssh 传参必须 `MSYS2_ARG_CONV_EXCL='*'`** (路径会被改写)。
+- **多工位并行时任务卡写明文件范围** (会话注册局纪律); 崩溃工位的遗留脚本仍是武装
+  (11-14 双开源头=被误判死亡的子代理会话), 接手前先清点其遗留。
+- **CPU/GPU 分域**: OpenFOAM 扫气占 CPU 14 核, LBM 占 GPU — 互不抢核; GPU 空转超 1h
+  该接队就接队 (E1 精神)。
+- 数据纪律: 表 append-only; V15/30 冷备; lookup 的 aero_table.csv 为 V20-25 完整笛卡尔格。
+
+### 6.4 新设备算力接入路径 (如果要跑扫气)
+
+照 §3 初始化 (git clone → OpenFOAM v12 → run_sweep_v2 表判重自动跳过已完成) + §5 验收对拍
+(同工况 CL 差 <2% 才上岗)。GPU 类任务 (FluidX3D) 需自备 5070 级显卡 + 逐零件体素化管线
+(见仓库 `openfoam/airframe-sweep/setup.cpp` v4asm 注释)。
