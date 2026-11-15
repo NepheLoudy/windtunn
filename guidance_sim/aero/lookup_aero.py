@@ -222,6 +222,8 @@ def load_damp(path=None):
 
     结构: {"derivatives": {"Clp": {"value": ...}, "Cmq": ..., "Cnr": ...}, ...} —
     只取三键 value; 完整口径备注/SNR/置信标注在 JSON 内, 提取脚本维护。
+    value=null 的键**跳过不进 dict** (11-14 tfixed: Clp 信号低于噪声底不可提取) —
+    aero_forces 用 damp.get(k, 0.0) 兜 0 = 该轴无阻尼补偿。
     文件缺失 -> None (damp=None 语义优雅降级为无阻尼, 与 F4 落位前行为一致)。
     """
     global _DAMP, _DAMP_PATH, _DAMP_MTIME
@@ -235,7 +237,8 @@ def load_damp(path=None):
     if _DAMP is None or _DAMP_PATH != path or mtime != _DAMP_MTIME:
         with open(path, encoding="utf-8") as f:
             j = json.load(f)
-        _DAMP = {k: float(j["derivatives"][k]["value"]) for k in ("Clp", "Cmq", "Cnr")}
+        _DAMP = {k: float(j["derivatives"][k]["value"]) for k in ("Clp", "Cmq", "Cnr")
+                 if j["derivatives"][k]["value"] is not None}
         _DAMP_PATH, _DAMP_MTIME = path, mtime
     return _DAMP
 
@@ -343,9 +346,12 @@ if __name__ == "__main__":
         assert not np.allclose(M_none, M_plain), "damp 默认值应改变力矩"
         M_man = t.aero_forces(V7, om, damp=dict(dflt))[1]    # 手动传同值
         assert np.allclose(M_none, M_man)
-        # 量纲断言: M_none-M_plain = 0.25ρVSL²·[Clp·ωx, Cmq·ωy, Cnr·ωz] (qSL2V V 缺失修正回归)
+        # 量纲断言: M_none-M_plain = 0.25ρVSL²·[Clp·ωx, Cmq·ωy, Cnr·ωz] (qSL2V V 缺失修正回归);
+        # Clp 可能缺键 (11-14 tfixed: 不可提取 -> null -> load_damp 跳过 -> .get 兜 0)
         qSL2V = 0.25 * RHO * 25.0 * S_REF * L_REF ** 2
-        expect = qSL2V * np.array([dflt["Clp"] * om[0], dflt["Cmq"] * om[1], dflt["Cnr"] * om[2]])
+        expect = qSL2V * np.array([dflt.get("Clp", 0.0) * om[0],
+                                   dflt.get("Cmq", 0.0) * om[1],
+                                   dflt.get("Cnr", 0.0) * om[2]])
         assert np.allclose(M_none - M_plain, expect), (M_none - M_plain, expect)
         # omega_B=None: damp 通路不触发 (parity 兼容)
         assert np.allclose(t.aero_forces(V7, None)[1], t.aero_forces(V7, None, damp=None)[1])

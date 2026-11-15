@@ -1,10 +1,18 @@
 # -*- coding: utf-8 -*-
 """F4 强迫振荡动导数提取器 (qianli 5070 六例) — 归一到 spec §4.5.1 damp dict 口径。
+2026-11-14 tfixed: 输入时序经 N1 力矩 bug 修正 (T_true=T_rep+c×F) 重提取 — 旧 raw 力矩
+口径的 damp 值被 bug 污染 (俯仰/偏航主通道信号低估 5~20 倍, 滚转信号几乎纯伪影),
+归档对照 damp_defaults.json.raw_v4asm_1110。
 
 输入: forces_osc_{p,y,r}_{f1,f2}_v4asm.csv ( FluidX3D src/setup.cpp v4asm forced-oscillation
 probe, 11-10 真实装配几何重扫: GEOM=cfd_v4parts, read_stl_assembly 按装配空间逐件体素化,
 不再 recenter/rescale — 团块 bug 修复后的数据; 每 100 步采样一行: t,fx,fy,fz,tx,ty,tz;
 t 单位 LBM step, 力矩单位 LBM lu^5/step^2, rho_lu=1 )。
+CSV 力矩列为 bug 口径 T_rep (kernel.cpp object_torque 混用 centered-frame position()
+与 absolute-frame center 参数), 本脚本读入后逐样本修正 T_true=T_rep+c×F (correct_torque),
+c=(Nx/2,Ny/2,Nz/2)=(220,120,120) lu — 源码锚点 kernel.cpp:826-828/1985 + setup.cpp:77/93/141
+(N1 工位 torque_fix_1114 核验; 力通道不受影响 forces_untouched=true)。raw v4asm 缓存
+保留原样 = 修正前口径对照档案, 不覆盖。
 输出: damp_defaults.json ( Clp/Cmq/Cnr 主值 + 两频率原始值/SNR/置信标注 + 口径备注 ),
 供 lookup_aero.aero_forces(damp=None) 热加载。
 交叉验证: wt_jobs/tmp/f4_v4asm_lockin.json 主线锁相读数 (osc_batch.sh 内联 lockin.py,
@@ -51,17 +59,20 @@ As(静刚度)/Ac(阻尼)分解是致命的: f1 时 φ=36°, 静刚度分量会�
   Ac = ( As_m*sinφ + Ac_m*cosφ ) / K
 As = 与姿态角同相分量 (准定常静刚度, Cmα·Δα), Ac = 与角速度同相分量 (阻尼, Cmq·θ̇)。
 
-=========================== 物理判读 (11-09 审查定口径; 11-11 v4asm 重扫判读更新) ===========================
+=========================== 物理判读 (11-09 审查定口径; 11-14 tfixed 判读更新) ===========================
 
-1. 俯仰激励 (p 批): ty 主响应 (v4asm amp 137.8/96.4 = 团块版 57.9/27.5 的 2.4~3.5 倍,
-   真实弹体信号质量飞跃); Ac/θ̇ -> Cmq, As/Δα -> Cmα_dyn (对照静表 +0.60/rad 交叉校验)。
-2. 偏航激励 (y 批): tx 巨响应 (306~411, SNR 120~155) = X 构型滚转-偏航手性耦合动态面
-   (与 11-03 T2 fy sign(α)sign(β) 同源, α=5° 固定下 β 摆动激发; 团块版亦见, 物理稳健)
-   -- 提取 Cnr 只用 tz 主通道 (y_f1 的 ty SNR 1.15 太弱不可用, 与上轮判读一致)。
+0. **tfixed 总修正 (11-14)**: raw 口径判读 1-4 中的响应幅度大部被 N1 力矩 bug 污染 —
+   修正后 ty/tz 主通道 amp ×5.2~×20.2 (bug 低估), tx 耦合巨响应塌缩至噪声底 (伪影)。
+1. 俯仰激励 (p 批): ty 主响应 (tfixed amp 664.9/551.9, SNR 236/205 = 修正后高质量信号);
+   Ac/θ̇ -> Cmq, As/Δα -> Cmα_dyn (对照静表 +0.60/rad 交叉校验)。
+2. 偏航激励 (y 批): tfixed 后 tz 主通道 amp 675.9/571.9 (SNR 212/181) -> Cnr;
+   raw 口径的 tx「手性耦合巨响应」(306~411) 修正后塌缩至 2.6/5.7 (噪声底级, amp/res<3)
+   = 大部是 c×F 伪影, 弃用; Cnr 只取 tz 主通道。
 3. 滚转激励 (r 批): 注入 = 来流矢量绕 x 旋转 (准定常等效口径, 非镖体真实滚转)。
-   tx 响应可用 (amp 35.9/27.0, SNR 22/14), 但该值 ≠ 标准风洞滚转速降 Clp, 仅作同频
-   等效阻尼估计 (交付声明必带)。
-4. 俯仰激励 tx/tz 也动了 = X 构型强耦合, 提取一律主通道优先。
+   tfixed 后 tx 信号低于噪声底 (amp/res 1.43/1.02 vs 纯噪声瑞利期望 1.253) ->
+   **Clp 不可提取置 null**, damp 的 Clp 项默认 0; raw 口径的 r 批 tx (amp 35.9/27.0)
+   是力矩 bug 伪影, 勿用。
+4. 俯仰激励 tx/tz 也动了 = X 构型耦合 + bug 混杂, 提取一律主通道优先。
 5. 符号: 旋转阻尼物理先验为负 (弹体能量流向流体); 入口->镖体对流延迟 (~4400 step)
    使 As/Ac 正交分解的相位不可标定 (psi_f1 mod 2pi ~288°, psi_f2 ~72°, 见
    extract_derivatives docstring), 故符号不取自 Ac 分解而取物理先验, 幅度口径交付。
@@ -87,6 +98,19 @@ AMP_DEG = 2.0                 # osc_batch.sh OSC_AMP=2.0
 T_SKIP = 200000.0             # osc_batch.sh lock-in 窗口 (跳初始瞬态)
 STEPS = 1200000               # osc_batch.sh STEPS
 SSH_TARGET = "qianli@100.90.63.31"
+
+# N1 力矩 bug 修正锚点 (torque_fix_1114, 2026-11-14): kernel.cpp object_torque 混用
+# centered-frame position() (kernel.cpp:826-828, 相对 mesh 原点) 与 absolute-frame center
+# 参数 (kernel.cpp:1985 cross(pos-c,F)) -> CSV 力矩列 T_rep = T_true - c×F, 逐样本修正
+# T_true = T_rep + c×F。c = (Nx/2, Ny/2, Nz/2); setup.cpp L77 Ny=Nz=uint(Nx*120/220+0.5)=240
+# (Nx=440), setup.cpp L93/L141 center=com=(Nx/2,Ny/2,Nz/2)。
+NY_NZ = 240                                                # setup.cpp L77
+CENTER_LU = (NX / 2.0, NY_NZ / 2.0, NY_NZ / 2.0)           # (220, 120, 120) lu
+# 锁相噪声底判据: 纯噪声 (零均值高斯, sigma=res_rms) 下锁相 amp 服从瑞利分布,
+# E[amp]/sigma = sqrt(pi/2) ~= 1.2533 -> snr(amp/res) 低于 ~2.5x 该期望 = 信号与纯噪声
+# 不可区分, 该通道动导数不可提取 (N1 tfixed 后 r 批 tx 实测 snr 1.43/1.02, 贴底)。
+NOISE_RAYLEIGH = math.sqrt(math.pi / 2.0)
+SNR_FLOOR = 2.0 * NOISE_RAYLEIGH                           # ~= 2.5066
 # v4asm 重扫文件名 (osc_batch.sh: TAG="_osc_{axis}_{freq}_v4asm" -> out/forces${TAG}.csv);
 # 团块版旧 CSV (forces_osc_*.csv, 无后缀) 留在同 cache 目录作隔离对照, 不覆盖
 SSH_PATH = "~/fluidx3d_v3/FluidX3D-master/bin/out/forces_osc_%s_v4asm.csv"
@@ -145,6 +169,27 @@ def read_forces(path, t_skip=T_SKIP):
     arr = np.loadtxt(path, delimiter=",", skiprows=1)
     arr = arr[arr[:, 0] > t_skip]
     return arr[:, 0], arr[:, 1:].T
+
+
+def correct_torque(data):
+    """N1 力矩 bug 逐样本修正 (2026-11-14 tfixed): T_true = T_rep + c×F, c=CENTER_LU。
+
+    data[6,N] (fx..tz 行序) -> 返回新数组, 力通道 [0:3] 不动 (N1 验证
+    forces_untouched=true), 力矩通道加 c×F:
+        tx += cy*fz - cz*fy    (cy=cz=120 -> tx += 120*(fz-fy))
+        ty += cz*fx - cx*fz    (-> ty += 120*fx - 220*fz)
+        tz += cx*fy - cy*fx    (-> tz += 220*fy - 120*fx)
+    对拍: N1 wt_jobs/tmp/torque_fix_1114/osc_lockin_tfix.csv corrected 列 36 行六通道
+    dc/As/Ac 逐位一致 (__main__ 尾部自动对拍, 修正后 DC 与静态修正力矩自洽
+    ty 914.5/915.0 vs t2 静表 916.4)。
+    """
+    cx, cy, cz = CENTER_LU
+    out = data.copy()
+    fx, fy, fz = data[0], data[1], data[2]
+    out[3] = data[3] + (cy * fz - cz * fy)
+    out[4] = data[4] + (cz * fx - cx * fz)
+    out[5] = data[5] + (cx * fy - cy * fx)
+    return out
 
 
 # ---------------- 锁相回归 + ZOH 完整校正 ----------------
@@ -292,10 +337,12 @@ def run_extraction(no_fetch=False):
     nc = norm_consts()
     results = []
     for tag, axis, omega, main_ch in CASES:
-        path = fetch_csv(tag, no_fetch=no_fetch)
+        path = fetch_csv(tag, no_fetch=no_fetch)          # raw v4asm 缓存 (T_rep 口径, 对照档案)
         t, data = read_forces(path)
+        data = correct_torque(data)                        # tfixed: T_true = T_rep + c×F
         detail = {"tag": tag, "axis": axis, "omega": omega, "main_ch": main_ch,
-                  "n_rows": int(t.size), "t_skip": T_SKIP, "channels": {}}
+                  "n_rows": int(t.size), "t_skip": T_SKIP, "torque_fix": "T_true=T_rep+c*F c=(220,120,120)",
+                  "channels": {}}
         for i, name in enumerate(CH_NAMES):
             lk = zoh_undistort(lockin(t, data[i], omega), omega)
             detail["channels"][name] = lk
@@ -316,6 +363,29 @@ def collect(no_fetch=False):
         rs.sort(key=lambda r: r["omega"])                       # [f2(低频), f1(高频)]
         v_lo, v_hi = rs[0]["derived"][dkey], rs[1]["derived"][dkey]
         snrs = [r["channels"][AXIS_CH[axis][0]]["snr"] for r in rs]
+        # 噪声底裁决 (任务卡 11-14 tfixed): 修正后 r 批 tx 信号贴噪声底 (N1 实测
+        # amp/res f1 1.43 / f2 1.02, 纯噪声瑞利期望 1.25) -> 不可提取, Clp 置 null
+        # (lookup_aero.load_damp 跳过 null -> damp dict 缺 Clp 键 -> 该项补偿 0)。
+        if max(snrs) < SNR_FLOOR:
+            out["derivatives"][dkey] = {
+                "value": None,
+                "source": "不可提取: N1 力矩修正后主通道锁相信号低于噪声底 "
+                          "(amp/res_rms = %.2f/%.2f < 纯噪声瑞利期望 sqrt(pi/2)=%.3f 的 "
+                          "2 倍门槛 %.2f; 纯噪声下 P(amp/res>=实测) = %.0f%%/%.0f%%, "
+                          "信号与噪声不可区分)" % (snrs[0], snrs[1], NOISE_RAYLEIGH,
+                                                    SNR_FLOOR,
+                                                    100 * math.exp(-snrs[0] ** 2 / 2),
+                                                    100 * math.exp(-snrs[1] ** 2 / 2)),
+                "confidence": "not_extractable",
+                "f2_low_freq": v_lo, "f1_high_freq": v_hi,
+                "omega0_extrap_unref": extrapolate_omega0(v_hi, v_lo),
+                "snr": {"f2": snrs[0], "f1": snrs[1]},
+                "ac_quadrature_diag": {r["tag"]: r["derived"].get(dkey + "_ac_quadrature") for r in rs},
+                "equiv_static_amp": {r["tag"]: r["derived"].get(skey) for r in rs},
+                "physics_check": "滚转阻尼信号低于噪声底不可提取, damp 的 Clp 项默认 0 "
+                                 "(lookup_aero damp dict 缺 Clp 键 = 该项无补偿)",
+            }
+            continue
         v0 = extrapolate_omega0(v_hi, v_lo)                     # (f1, f2) 高频在前; 备查
         conf = conf_tag([v_lo, v_hi], snrs)
         phys = "负号 = 旋转阻尼物理先验 (amp 口径无符号信息, 符号按先验赋负)" if v_lo < 0 else \
@@ -342,17 +412,24 @@ def collect(no_fetch=False):
         "补偿时按保守 (偏小) 阻尼处理; v4asm 等效静刚度/静表值幅度比见 cases[*].derived."
         "*_atten_vs_table (团块版 6~13%, v4asm 信号增强后上移)",
         "r 批 (Clp) 口径: 激励 = 来流矢量绕 x 旋转 (准定常等效), 非镖体真实滚转 -- "
-        "该值不等于标准风洞滚转速降 Clp, 仅作同频等效阻尼估计 (F4 交付声明必带)",
-        "y 批 (Cnr): tx 通道存在 X 构型滚转-偏航手性耦合巨响应 (v4asm amp 306~411, "
-        "SNR 120~155, 团块版亦见 = 物理稳健; 与 11-03 T2 fy sign(α)sign(β) 同源, α=5° "
-        "固定下 β 摆动激发); Cnr 只取 tz 主通道 (y_f1 的 ty SNR 1.15 太弱不可用)",
+        "tfixed 后 tx 主通道信号低于噪声底 (amp/res 1.43/1.02 vs 纯噪声瑞利期望 1.25, "
+        "不可区分) -> **Clp 不可提取置 null**, lookup_aero damp 的 Clp 项默认 0 (无滚转"
+        "阻尼补偿); raw 口径的 Clp=-0.0043 是力矩 bug 伪影 (修正后 amp 缩至 0.007 倍), "
+        "归档 damp_defaults.json.raw_v4asm_1110 勿用",
+        "y 批 (Cnr): tfixed 后 tz 主通道信号跃升 (amp 33.5->675.9/78.8->571.9 = ×20.2/×7.3, "
+        "修正前俯仰-偏航力矩被 bug 低估); tx 通道修正后塌缩至噪声底 (381->2.6) -- raw 口径"
+        "的『手性耦合巨响应』大部是 c×F 伪影, 弃用不变; Cnr 只取 tz 主通道",
         "p 批 tx/tz 亦有响应 (X 构型强耦合), 全部提取主通道优先; 六通道完整分解见 cases",
         "归一基准 S_REF/L_REF 与 aero_table.csv 头一致 (S_REF=包围盒横径外接圆面积, "
         "保守偏大 -> 系数系统性偏小), 与 lookup_aero.aero_forces 的 damp 项口径闭合",
         "数据集 = F4 v4asm 真实装配几何重扫 (11-10 GPU 六例, GEOM=cfd_v4parts, read_stl_"
-        "assembly 逐件装配空间体素化, 团块 bug 修复); 团块版对照隔离档案 "
-        "damp_defaults.json.quarantined_gpu_geom_1109 (GPU 几何管线缺陷, 30 件穿插成团, "
-        "amp 仅为 v4asm 的 1/2.4~1/3.5), 扫描参数与团块版全同 (仅几何源差异)",
+        "assembly 逐件装配空间体素化, 团块 bug 修复) + N1 力矩 bug 修正 (11-14 tfixed: "
+        "kernel.cpp object_torque 混用 centered position()/absolute center, T_true=T_rep+"
+        "c×F 逐样本修正, c=(220,120,120); 对照 N1 wt_jobs/tmp/torque_fix_1114/osc_lockin_"
+        "tfix.csv corrected 列逐位一致); 三版并存: 本文件=tfixed 实装 / damp_defaults.json."
+        "raw_v4asm_1110=raw 力矩污染版对照 (Cmq/Cnr 低估 5~7 倍, Clp 伪影) / damp_defaults."
+        "json.quarantined_gpu_geom_1109=团块几何版隔离 (GPU 管线缺陷, amp 仅为 v4asm 的 "
+        "1/2.4~1/3.5), 扫描参数三版全同 (仅几何源/力矩口径差异)",
     ]
     return out
 
@@ -360,8 +437,16 @@ def collect(no_fetch=False):
 def norm_meta(nc):
     return {
         "units": "LBM lattice (lu, step, rho_lu=1); 无量纲系数换算严格等价物理口径",
-        "dataset": "F4 v4asm 真实装配几何重扫 (2026-11-10, GEOM=cfd_v4parts); 团块版隔离对照 "
-                   "damp_defaults.json.quarantined_gpu_geom_1109",
+        "dataset": "F4 v4asm 真实装配几何重扫 (2026-11-10, GEOM=cfd_v4parts) + N1 力矩 bug "
+                   "修正 tfixed (2026-11-14); 对照档案 damp_defaults.json.raw_v4asm_1110 "
+                   "(raw 力矩污染版) / damp_defaults.json.quarantined_gpu_geom_1109 (团块几何版)",
+        "torque_fix": {"date": "2026-11-14", "formula": "T_true(t)=T_rep(t)+c×F(t)",
+                       "center_lu": list(CENTER_LU),
+                       "source_refs": "kernel.cpp:826-828 position() centered; kernel.cpp:1985 "
+                                      "cross(pos-c,F); setup.cpp:77 Ny=Nz=240; setup.cpp:93/141 "
+                                      "center=com",
+                       "xcheck": "wt_jobs/tmp/torque_fix_1114/osc_lockin_tfix.csv corrected 列 "
+                                 "36 行六通道逐位一致 (extract_damp __main__ 自动对拍)"},
         "setup_cpp_anchors": {"V_lbm(L81-82)": V_LBM, "cpm(L94)": LU_PER_M, "rho_lu(L127)": RHO_LU,
                               "SAMPLE(L140)": SAMPLE, "AMP_deg(osc_batch)": AMP_DEG,
                               "T_skip(osc_batch)": T_SKIP},
@@ -449,49 +534,104 @@ def _selftest():
     assert abs(extrapolate_omega0(c1, c2) - 1.0) < 1e-9
     print("自测4 ω→0 两点外插                   PASS")
 
+    # 5) correct_torque 解析对拍: 合成 T_rep = T_true - c×F -> 修正应恢复 T_true, 力不动
+    n = 500
+    f = rng.normal(0, 100.0, (3, n))                       # 任意力时序
+    tt_true = rng.normal(0, 1000.0, (3, n))                # 任意真力矩时序
+    cx, cy, cz = CENTER_LU
+    t_rep = tt_true - np.stack([cy * f[2] - cz * f[1],
+                                cz * f[0] - cx * f[2],
+                                cx * f[1] - cy * f[0]])
+    got = correct_torque(np.vstack([f, t_rep]))
+    assert np.allclose(got[:3], f, atol=1e-9), "力通道不可被修正触碰"
+    assert np.allclose(got[3:], tt_true, rtol=1e-12, atol=1e-9), "力矩未恢复 T_true"
+    print("自测5 力矩修正 T_rep+c×F 解析对拍    PASS")
+
 
 if __name__ == "__main__":
     no_fetch = "--no-fetch" in sys.argv
     _selftest()
-    print("\n=== 真数据提取 (qianli 六例) ===")
+    print("\n=== 真数据提取 (qianli 六例, tfixed 力矩修正后) ===")
     out = collect(no_fetch=no_fetch)
     path = write_json(out)
     print("JSON -> %s" % path)
     for k in ("Cmq", "Cnr", "Clp"):
         d = out["derivatives"][k]
+        if d["value"] is None:
+            print("%s = null  [%s]\n    %s" % (k, d["confidence"], d["source"]))
+            continue
         print("%s = %+.4f  [%s | %s]\n    f2=%+.4f f1=%+.4f w0(ref)=%+.4f snr=%.1f/%.1f | %s"
               % (k, d["value"], d["confidence"], d["source"],
                  d["f2_low_freq"], d["f1_high_freq"], d["omega0_extrap_unref"],
                  d["snr"]["f2"], d["snr"]["f1"], d["physics_check"]))
-    # 主线锁相读数交叉对拍 (wt_jobs/tmp/f4_v4asm_lockin.json, osc_batch.sh 内联 lockin.py
-    # 幅度口径): CSV 全链结果与主线读数应一致 (主线值四舍五入, 阈值 2%), 全通道非 null 项
+
+    # N1 tfixed 对照表逐位对拍 (torque_fix_1114/osc_lockin_tfix.csv corrected 列):
+    # 六例×六通道×(dc/As/Ac/amp/res_rms) 共 180 点, 修正实现与 N1 工位逐位一致
+    # (N1 表 6 位有效数字, 阈值 1e-3 覆盖打印舍入; N1 自身 port-vs-lockin 差 ~1e-5)
+    import csv as _csv
+    n1_path = os.path.join(os.path.dirname(os.path.abspath(__file__)),
+                           "..", "..", "wt_jobs", "tmp", "torque_fix_1114",
+                           "osc_lockin_tfix.csv")
+    with open(n1_path, encoding="utf-8") as f:
+        n1 = {}
+        for row in _csv.DictReader(f):
+            n1[(row["case"], row["ch"])] = row
+    print("\ntfixed 锁相对拍 (vs N1 osc_lockin_tfix.csv corrected 列):")
+    ok2, n_cmp2, maxdev2 = True, 0, 0.0
+    for r in out["cases"]:
+        for ch in CH_NAMES:
+            row = n1[("osc_" + r["tag"], ch)]
+            lk = r["channels"][ch]
+            for k_mine, k_n1 in (("dc", "cor_dc"), ("As_raw", "cor_As"),
+                                 ("Ac_raw", "cor_Ac"), ("amp_raw", "cor_amp"),
+                                 ("res_rms", "cor_res_rms")):
+                got, want = lk[k_mine], float(row[k_n1])
+                dev = abs(got - want) / max(abs(want), 1e-30)
+                ok2 &= dev < 1e-3
+                maxdev2 = max(maxdev2, dev)
+                n_cmp2 += 1
+    print("  %d 点最大相对偏差 %.2e -> %s (阈值 1e-3)"
+          % (n_cmp2, maxdev2, "PASS" if ok2 else "FAIL"))
+    assert ok2
+
+    # 链路回归对拍 (raw T_rep 口径 vs 主线 f4_v4asm_lockin.json, osc_batch.sh 内联
+    # lockin.py 幅度口径): 锁相/ZOH 链未动, 用未修正数据复算应对拍一致 (阈值 2%)
     with open(os.path.join(os.path.dirname(os.path.abspath(__file__)),
                            "..", "..", "wt_jobs", "tmp", "f4_v4asm_lockin.json"),
               encoding="utf-8") as f:
         mainline = json.load(f)["cases"]
-    print("\namp_zoh_adj 交叉对拍 (vs 主线 f4_v4asm_lockin.json):")
+    print("\namp_zoh_adj 交叉对拍 (raw 口径 vs 主线 f4_v4asm_lockin.json, 链路回归):")
     ok = True
     n_cmp = 0
-    for r in out["cases"]:
-        ref = mainline[r["tag"]]                     # 主线 JSON cases 为 {tag: {...}} dict
-        assert abs(r["omega"] - ref["omega"]) < 1e-9
-        for ch, val in ref["amp_zoh_adj"].items():
+    for tag, axis, omega, main_ch in CASES:
+        ref = mainline[tag]                     # 主线 JSON cases 为 {tag: {...}} dict
+        t_raw, d_raw = read_forces(fetch_csv(tag, no_fetch=no_fetch))
+        ch_idx = {c: i for i, c in enumerate(CH_NAMES)}
+        for ch, val in ref["amp_zoh_adj"].items():   # 主线只记主通道+强响应通道 (非全六)
             if val is None:
                 continue
-            got = r["channels"][ch]["amp_zoh_adj"]
+            got = zoh_undistort(lockin(t_raw, d_raw[ch_idx[ch]], omega), omega)["amp_zoh_adj"]
             dev = abs(got - val) / val
             ok &= dev < 0.02
             n_cmp += 1
-            print("  %s/%s: %.3f vs %.3f (%.1f%%)" % (r["tag"], ch, got, val, 100 * dev))
-    print("amp 对拍 %s (%d 点, 阈值 2%%)" % ("PASS" if ok else "FAIL", n_cmp))
+    print("  %d 点全部复核 -> %s (阈值 2%%)" % (n_cmp, "PASS" if ok else "FAIL"))
     assert ok
-    # 量级守门 (任务卡 11-11): v4asm 主值应为团块隔离版同轴 2~3 倍 (信号质量飞跃),
-    # >10 倍或符号翻转 = 数据/链路异常, 拒绝交付
-    blob = {"Cmq": -0.004366590561990925, "Cnr": -0.00457531454700385,
-            "Clp": -0.0021246769703105453}
-    print("\nvs 团块隔离版倍数 (守门 2~10x):")
-    for k, v_blob in blob.items():
-        ratio = out["derivatives"][k]["value"] / v_blob
-        print("  %s: %+.5f / %+.5f = %.2fx" % (k, out["derivatives"][k]["value"], v_blob, ratio))
-        assert 2.0 <= ratio <= 10.0, "%s 倍数 %.2f 出守门区间 (任务卡: >10 倍停手)" % (k, ratio)
-    print("=== extract_damp 自测+提取全部通过 ===")
+
+    # 量级守门 (任务卡 11-14 tfixed): Cmq/Cnr 相对 raw 污染版 (damp_defaults.json.
+    # raw_v4asm_1110) 的倍数应与 N1 对照表 f2 主通道 amp 比一致 (p_f2 ty ×5.7477,
+    # y_f2 tz ×7.2545; ZOH K 同除相消 -> 导数倍数=amp 倍数), 容差 ±10%; Clp 必须 null
+    polluted = {"Cmq": -0.015295724876762675, "Cnr": -0.012559587944344794}
+    ratio_expect = {"Cmq": 5.74774, "Cnr": 7.254476}     # N1 osc_lockin_tfix.csv f2 主通道
+    print("\nvs raw 污染版倍数 (守门 = N1 对照倍数 ±10%):")
+    for k in ("Cmq", "Cnr"):
+        ratio = out["derivatives"][k]["value"] / polluted[k]
+        print("  %s: %+.5f / %+.5f = %.3fx (N1 预期 %.3fx)"
+              % (k, out["derivatives"][k]["value"], polluted[k], ratio, ratio_expect[k]))
+        assert abs(ratio / ratio_expect[k] - 1.0) < 0.10, \
+            "%s 倍数 %.3f 偏离 N1 对照 %.3f 超容差" % (k, ratio, ratio_expect[k])
+    d_clp = out["derivatives"]["Clp"]
+    assert d_clp["value"] is None, "Clp 应为 null (r 批修正后信号低于噪声底)"
+    print("  Clp: null — r 批 tx amp/res f2=%.2f f1=%.2f < 噪声底门槛 %.2f "
+          "(纯噪声瑞利期望 %.3f)"
+          % (d_clp["snr"]["f2"], d_clp["snr"]["f1"], SNR_FLOOR, NOISE_RAYLEIGH))
+    print("=== extract_damp 自测+提取全部通过 (tfixed) ===")
