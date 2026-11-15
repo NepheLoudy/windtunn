@@ -1,6 +1,6 @@
 # 气动数据集交付说明 v0.97-handoff
 
-> 2026-11-15 | CFD 侧交付 | 对接文档: `guidance_loop_dev_spec.md` (v0.8) | 控制路线: `control_approach_roadmap.md`
+> 2026-11-15 | CFD 侧交付 | 对接文档: `guidance_loop_dev_spec.md` (v0.8) | 控制路线: `control_approach_roadmap.md` | 项目谱系: `aeroacoustic_project_versions.md` (ver1.0→1.2)
 > **状态: v0.97 急交付版** — T0 全表 (δ=0) 544/546 (99.6%, 2 例 a0_b0 顽固发散治愈续航中不阻塞查表) +
 > damp 动导数实装 + 舵效批今晚出数。v0.96 声明保留于文末历史节。
 
