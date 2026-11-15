@@ -1,7 +1,7 @@
 # 气动数据集交付说明 v0.97-handoff
 
 > 2026-11-15 | CFD 侧交付 | 对接文档: `guidance_loop_dev_spec.md` (v0.8) | 控制路线: `control_approach_roadmap.md` | 项目谱系: `aeroacoustic_project_versions.md` (ver1.0→1.2)
-> **状态: v0.97 急交付版** — T0 全表 (δ=0) 544/546 (99.6%, 2 例 a0_b0 顽固发散治愈续航中不阻塞查表) +
+> **状态: v0.97 急交付版** — T0 全表 (δ=0) 546/546 全表达成 (2026-11-15 10:30, a0_b0 家族松弛 0.5 一轮治愈) +
 > damp 动导数实装 + 舵效批今晚出数。v0.96 声明保留于文末历史节。
 
 ## 0. 交接指南 (2026-11-15 v0.97 — 视觉侧必读)
@@ -10,7 +10,7 @@
 
 | 件 | 路径 (qianli / repo) | 角色 |
 |---|---|---|
-| **气动主表** | `~/sweep_t0v2/t0_table.csv` (645 行 = 544 数据 + 表头; V∈{20,21,22,23,24,25}×α×β∈[−15,15], δ=0) | 查表真值 (OpenFOAM L5/L7, ET 分档口径) |
+| **气动主表** | repo `guidance_sim/aero/aero_table.csv` (546 行 = V∈{20~25}×13α×7β 完整笛卡尔格, δ=0; qianli 全表 647 行含 V15/30 冷备 101 行) | 查表真值 (OpenFOAM L5/L7, ET1500 as-built 口径) |
 | **查表实现** | repo `guidance_sim/aero/lookup_aero.py` | 纯 numpy 引擎无关, 热加载, 出域钳位+警告 |
 | **动导数补偿** | repo `guidance_sim/aero/damp_defaults.json` (+ extract_damp.py 可复现链) | Cmq/Cnr 实装 (Clp=null), damp=None 默认启用 |
 | **舵效表** | qianli `~/sweep_delta/delta_table_t1q.csv` (今晚出全, 10 位形×L6/L8) | 舵效增量数据, delta-mode 查表路线见 §0.5 |
@@ -32,7 +32,7 @@ F_B, M_B = lookup_aero(V=20.0, alpha=5.0, beta=0.0, de=0.0, da=0.0, dr=0.0)
 
 | 层 | 状态 | 口径 |
 |---|---|---|
-| **T0 全表 δ=0** | **544/546 (99.6%)** — 2 例 a0_b0 顽固发散治愈续航 | OpenFOAM L5/L7, ET 分档 (1500 硬编码漂移口径, |α|≤5 档家规 600) |
+| **T0 全表 δ=0** | ✅ **546/546 全表达成** (2026-11-15, a0_b0 家族 4 例松弛 0.5 一轮治愈, CY 锚全过) | OpenFOAM L5/L7, ET1500 as-built 口径 |
 | damp 动导数 | ✅ 实装 (Cmq=−0.0879/Cnr=−0.0911/Clp=null) | GPU LBM v4asm, k≈8.7 超准定常域=同频等效阻尼(保守偏小) |
 | 舵效层 2 | 🔧 今晚出全 (10 位形×(0,0,V20)@L6/L8) | ET600, 无层口径 (与 T0 同族) |
 | T1 基座 546 | 排后面 (~14.5 天) | L6/L8 带层, 力矩可信档 |
