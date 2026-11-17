@@ -281,7 +281,7 @@ guidance_sim\
 ```
 D:\WindTunnelSuite\
 ├─ docs\guidance_loop_dev_spec.md   ← 本文
-├─ docs\transient_rotation_plan.md  ← (既有) 瞬态旋转调研, 方法论参考
+├─ docs\legacy-windtunnel\transient_rotation_plan.md  ← (既有, 风洞遗产线) 瞬态旋转调研, 方法论参考
 ├─ guidance_sim\                    ← Phase 1 建立: sim_core / detector / guidance / eval
 └─ openfoam\                        ← 气动库来源 (gen_* 生成器 + v12 扫气), 算法侧无需改动
 ```

@@ -1,132 +1,130 @@
-# WindTunnelSuite — 双线套件: 桌面风洞 CFD + 制导闭环全仿真
+# 镖体气动仿真 — 面向强化学习控制的气动数据集与全链路 CFD
 
-**新读者导读** (按身份选线):
-- **视觉/算法侧 (制导闭环项目)** → 先读 [制导闭环全仿真线](#制导闭环全仿真线-2026-10-08-起) 一节;
-- 风洞 CFD 线 → 从 [风洞 CFD 线](#风洞-cfd-线) 往下读。
+**一句话**: 给真实飞镖镖体 (南航镖复刻构型, X 布局四板翼 + 四片尾缘舵) 建一条
+CAD → 网格 → 求解 → 气动表的全链路 CFD 产线, 产出强化学习飞控**直接可查**的
+定常气动数据集 —— 状态 (V, α, β, δ) → 六分量力/力矩, 运动积分归 MuJoCo。
 
-风洞 ([WindTunnel3D](WindTunnel3D/README.md)) 与其供风风机 ([FanSim3D](FanSim3D/)) 的联合工程,
-自 2026-10-08 起扩展承载**制导闭环全仿真**项目 (MuJoCo 闭环 + CFD 侧气动数据集)。
-各项目同级并列, 相互以「套件相对定位」引用 — 整个 `WindTunnelSuite/` 文件夹
-挪到任何盘任何路径都可直接使用, 无需改代码。
+新读者按身份走:
+- **视觉/算法侧 (RL/制导)** → 读 [§ v0.97 交付](#v097-交付-2026-11-15-handoff) +
+  [docs/dataset_delivery.md](docs/dataset_delivery.md) §0 (五分钟接入);
+- **CFD/产线侧** → 读 [§ 全链路管线](#全链路管线) + [AUTOPILOT.md](AUTOPILOT.md) (无人值守规程);
+- 想了解风洞实物 → 直接跳 [§ 风洞技术栈 (ver1.0 遗产)](#风洞技术栈-ver10-遗产)。
 
 ```
 WindTunnelSuite/
-├── README.md            ← 本文件 (套件总览)
-├── docs/                跨线文档 (制导对接 spec / 控制路线 / 数据 vault 手册)
-├── guidance_sim/        制导线: 闭环仿真 (MuJoCo 环境 + 识别/制导/评估)
-├── openfoam/            OpenFOAM case: windtunnel-base / windtunnel-mrf / airframe-sweep (制导线气动库)
-├── WindTunnel3D/        风洞: 1D 设计 → MATLAB 体素化 → FluidX3D GPU LBM → 可视化/报告
-│                        (共享工具 read_fluidx3d_vtk.m 在其根目录, FanSim3D 经定位器引用)
-└── FanSim3D/            风机: 1D 性能模型 → 几何/体素化 → FluidX3D → 可视化
+├── README.md            ← 本文件 (镖体主线总览)
+├── docs/                镖体优先文档 (交付/规格/路线/排期) + legacy-windtunnel/ 风洞遗产线文档
+├── guidance_sim/        闭环仿真 + 气动查表: sim_core/detector/guidance/eval + aero/ (主表+lookup+damp)
+├── openfoam/            airframe-sweep = 镖体扫气产线 (主线); windtunnel-base/mrf = 风洞遗产 case
+├── wt_jobs/             扫气任务队列 / 仪表台 / 探针-guard (qianli 链式生产)
+├── wt/                  数据分层工具 (NAS vault 归档, 见 docs/data-vault.md)
+├── renders/             渲染成果图
+├── WindTunnel3D/        [遗产] 桌面风洞 GPU LBM (FluidX3D) 管线
+├── FanSim3D/            [遗产] 供风离心风机 GPU LBM 管线
+├── AUTOPILOT.md         无人值守自动化手册 (跨线基建, 定时任务唯一入口)
+├── devlog/              全程决策与踩坑日志 (审计链)
+└── memory/              域事件流 (wt 域, 全程可回放)
 ```
 
-## 制导闭环全仿真线 (2026-10-08 起)
+> 仓库可整体挪到任何盘符任何路径直接使用 (无盘符硬编码, 相对推导 + 环境变量覆盖,
+> 详见各子目录 README)。物理目录 `openfoam/airframe-sweep` 与 `wt_jobs` 正被
+> qianli 产线与桌面定时任务引用, 暂不移动。
 
-**视觉/算法侧同学从这里开始。** 闭环仿真 (目标识别 + 制导律, 500 Hz 主循环 / 30 Hz 视觉)
-在 MuJoCo 环境里跑; CFD 侧 (仿真数据集) 交付气动数据库 `aero_table.csv` + 查表参考实现 +
-参数化几何。文档链按序读:
+## v0.97 交付 (2026-11-15 handoff)
 
-| 顺序 | 文档 | 内容 |
+| 件 | 路径 | 状态 |
 |---|---|---|
-| 1 | [docs/guidance_loop_dev_spec.md](docs/guidance_loop_dev_spec.md) | **对接主文档 (v0.7)**: 接口规范 / 坐标系约定 / 里程碑与验收 |
-| 2 | [docs/control_approach_roadmap.md](docs/control_approach_roadmap.md) | 控制方案路线: B (PN+PID 参数枚举) 主线保底 / A (swarm 端到端 RL) M4+ 增益蒸馏 |
-| 3 | [docs/mujoco_alignment_questions.md](docs/mujoco_alignment_questions.md) | MuJoCo 切换对齐问题清单 (待算法侧逐条回复) |
-| 4 | [guidance_sim/README.md](guidance_sim/README.md) | 仓库代码: sim_core / detector / guidance / eval (Phase 0 全链路跑通) |
-| 5 | [openfoam/airframe-sweep/README.md](openfoam/airframe-sweep/README.md) | CFD 侧工作区: 参数化几何生成器 + STL/MJCF 产物 + 数据集登记 |
+| **气动主表** | `guidance_sim/aero/aero_table.csv` — **546 工况** = V{20~25 m/s 六档} × 13α × 7β 完整笛卡尔格 (δ=0, T0 全表 546/546 于 2026-11-15 达成) | ✅ |
+| **查表实现** | `guidance_sim/aero/lookup_aero.py` — 纯 numpy 引擎无关, 三线性插值, 出域钳位+RuntimeWarning (警告即补点信号), 表更新热加载 | ✅ 自测 7 项 + 生产端往返对拍 89 点恒等 (2.8e-15) |
+| **动导数 damp** | `guidance_sim/aero/damp_defaults.json` — Cmq=−0.0879 / Cnr=−0.0911 / Clp=null, `lookup_aero` 默认启用 | ✅ 实装 |
+| **舵效 T1q 表** | `delta_table_t1q.csv` — 10 位形 (8 单舵 ±10° + 2 合成) × L6/L8 (ET600), 增量=δ行−d0 行叠加 | ✅ 已入库 |
+| **几何真源** | `openfoam/airframe-sweep/cad/v1/cfd_parallel/` — B 系平行基准 (δ=0=舵面平行弹轴, 填实镖头深孔, 铰链=孔心精拟合 v4 真轴) + `glider.mjcf` (MuJoCo 3.16 实测加载) | ✅ |
+| **交付文档** | [docs/dataset_delivery.md](docs/dataset_delivery.md) — 口径/限制/责任分工的真源 (§0 交接指南 → §0.2 五分钟接入) | ✅ |
 
-- **环境**: Python venv + MuJoCo (外部仿真环境统一 MuJoCo, spec v0.7), 自举步骤见
-  guidance_sim/README.md; CFD 交付物 (aero_table / lookup_aero) 纯 numpy, 引擎无关。
-- **CFD 侧已交付并验证**: `openfoam/airframe-sweep/geometry/glider.mjcf` 经 MuJoCo 3.16
-  实测加载 (惯量逐位一致 + 3s 自由落体解析解吻合); `guidance_sim/aero/lookup_aero.py`
-  自测 6/6。待冻结会后扫气出 `aero_table.csv`。
+五分钟接入: `sys.path` 指到 `guidance_sim/aero` 后
+`lookup_aero(V, alpha, beta, de, da, dr) → (F_B, M_B)` —— 完整 Quickstart 见
+[dataset_delivery.md §0.2](docs/dataset_delivery.md)。
 
-## 风洞 CFD 线
+## 核心气动结论 (RL 增稳设计的定量输入)
 
-风洞-风机耦合管线 (FluidX3D GPU LBM)、OpenFOAM CPU 稳态管线、数据分层 (wt 工具) —
-以下各节均为风洞线内容。
+| 结论 | 实测铁证 | 含义 |
+|---|---|---|
+| **双轴强静不稳定** | Cm_α = **+0.59/rad** (线性区 \|α\|≤5°, R²=0.999; 5~10° 段 +0.21, 拐折双向复现); Cn_β = **−0.434/rad** (α=0 剖面, R²=0.993) | 弹体天然发散, **增稳是 RL/制导的硬责任, 纯 PN 外环必发散** (不只是"飘") |
+| 升力线性 | CL_α = +2.40/rad (R²=1.000), ±10° 线性 + ±15° 弯曲 | 可信域 α/β∈[−15,15°] 内插值安全 (15°=奖励终止阈值, 表边界对齐) |
+| **8 项特征验收 8/8 兑现** | 镜像 CY 2.8% · 跨 V 力钝感 0.3~0.4% · 压心随 α 系统移动跨 V ±0.3mm · β=±15° 失速回落 · CL ±15° 对称剖面 (564 行复核, 脚本可复现) | 数据集与规划文档零偏差, 出处 [dataset_delivery §0.7](docs/dataset_delivery.md) |
+| **damp 口径** | Cmq=−0.0879 / Cnr=−0.0911 (tfixed 口径, N1 力矩 bug 修正后); k≈8.7 **远超准定常域 k<<1** → 同频等效阻尼 (保守偏小); Clp 低于噪声底不可提取, 诚实置 null (滚转无阻尼补偿) | 防 RL 高频抖舵; 大角速度机动误差上升, 详见 [dataset_delivery §3](docs/dataset_delivery.md) |
 
-## 路径约定 (2026-09-30 套件化)
+已知边界 (诚实清单): GPU 线 Re 限界与 LBM 壁干扰 (定性结论可用, 量级以 OpenFOAM 线为定量真源) /
+com·惯量 PLACEHOLDER (实机称重前力矩绝对精度以此为上限) / X 布局四舵独立角与 + 布局混控约定不混用
+—— 全部七条见 [dataset_delivery §0.4](docs/dataset_delivery.md)。
 
-- **无盘符硬编码**: 跨项目引用一律 `fileparts(mfilename('fullpath'))` 相对推导
-  (`fan_params.m` 推导 `../WindTunnel3D`, `export_fluidx3d_fan.m` 推导 `../FanSim3D`)。
-- 环境变量可覆盖: `WT3D_DIR` (风洞根) / `FAN3D_DIR` (风机根)。
-- 所有编译 bat 用 `%~dp0` 相对定位, 在任何 cwd 下双击均可编译。
-- `D:\WindTunnel3D` / `D:\FanSim3D` 旧位置已清空 (仅剩会话锁定的空壳, 可删)。
+## 全链路管线
 
-## 数据分层 (2026-10-14, wt 工具)
-
-本地仓库只留**运算端** (代码/编译物/raw 输入); 大体积运行数据 (vtk 快照海, ~110G+) 归档到
-NAS vault (`WT3D_VAULT`), 本地 scratch 按需 pull 恢复。求解/渲染只读写本地盘, NAS 只做
-归档与分发 — 完整守则与迁移手册见 [docs/data-vault.md](docs/data-vault.md)。
-
-```bash
-bash wt/wt.sh doctor            # 体检 (NAS 挂载 + wt/wt.conf 配好即绿灯)
-bash wt/wt.sh push vtk --hash   # 跑完归档: 本地 fluidx3d/vtk → vault runs/
-bash wt/wt.sh pull vtk_<ts>     # 回看: vault → 本地原路径
-```
-
-## 数据流 (风机-风洞耦合, ④号管线)
+三代版本谱系 (实物风洞 → 全链路架构 → 纯数据集) 总览:
+[docs/aeroacoustic_project_versions.md](docs/aeroacoustic_project_versions.md) (ver1.0→1.2)。
+当前产线架构 (ver1.1, 双引擎 + 审计链):
 
 ```
-FanSim3D 1D 选型 (fan_params/fan_performance/fan_sweep)
-   → WindTunnel3D: export_fluidx3d_fan   (体素化 CSG: 大气+y→增压箱→钟形口→吸力眼
-     →叶轮绕y轴(xoz平面)→蜗壳xz螺旋→底部切向出口+x→渐扩短管→前置扩散段→…→试验段)
-   → build_windtunnel_fan.bat → fluidx3d\windtunnel_fan.exe
-   → explore_gpu / gpu_mov / whole_duct_mov / gpu_report
+CAD (STEP 30 实体) ──解析──> 镖体装配 (B 系, 114.6×239.3mm, X 布局四板翼+四舵 δ1..δ4)
+   │                              │
+   ├─ deflect_stl.py (v4 真铰链轴) ──> δ-位形几何 (独立 Rodrigues 自检 ±10.0000°)
+   │
+   ├─==> OpenFOAM v12 (CPU, qianli 链式) — snappyHexMesh L5/L7→L6/L8, simpleFoam k-ω SST
+   │       make_case → clone_case(网格复用) → run_solve → post_process(风轴系数) → aero_table
+   └─==> FluidX3D (GPU 5070, 桌面)    — LBM 瞬态/分支/舵效快扫 (300k 步 ~4min/例)
+           逐零件体素化+装配变换 (v4asm) — 定性结论源 (结构/分支/手性/定常)
 ```
 
-风机朝向 (2026-09-30 曼波定): **风洞工作方向=x | 抽风口面朝 +y (气体 -y 进入) |
-叶轮绕 y 轴在 xoz 平面旋转 | 蜗壳切向出口沿旋转切线 +x 喷入风洞**。
-旋向配对: 蜗壳螺旋逆时针生长 ↔ ω<0 (绕 +y); `WT_SPIN=-1` 整机 z 镜像。
+- **跨引擎互证**: FVM↔LBM 对拍 CD −0.14% (六项全<2%); 生产端↔lookup_aero 风轴往返 89 点 2.8e-15;
+  同输入重跑 bit-identical。**OpenFOAM 线 = 定量真源, GPU 线 = 定性结论源 + 快扫**。
+- **生产纪律**: qianli 链式生产 (桌面退出数据生产); 断电三防 (桌面哨兵 30min 拉回 + recover 回填 +
+  chain 补跑); 表 append-only, 出域警告即补点队列。多机协作协议见
+  [docs/compute_node_protocol.md](docs/compute_node_protocol.md)。
+- **数据分层**: 大体积运行数据 (vtk 快照 ~110G+) 跑完即归档 NAS vault, 本地只留运算端 ——
+  `bash wt/wt.sh push/pull`, 手册 [docs/data-vault.md](docs/data-vault.md)。
+- **对接文档链**: [guidance_loop_dev_spec.md](docs/guidance_loop_dev_spec.md) (接口/坐标系/验收) →
+  [control_approach_roadmap.md](docs/control_approach_roadmap.md) (B 保底/A 蒸馏) →
+  [guidance_sim/README.md](guidance_sim/README.md) (闭环代码) →
+  [openfoam/airframe-sweep/README.md](openfoam/airframe-sweep/README.md) (扫气工作区)。
+- 算力排期与拟真度路线: [compute_schedule_1108.md](docs/compute_schedule_1108.md) /
+  [fidelity_acceptance_1101.md](docs/fidelity_acceptance_1101.md);
+  架构审查: [architecture_review_1103.md](docs/architecture_review_1103.md)。
 
-## 快速开始
+## 交接与升级路径
 
-```matlab
-% 风机耦合管线 (WindTunnel3D 内)
-export_fluidx3d_fan        % 体素化 + 生成 cpp/bat (WT_QUICK=1 冒烟档)
-!build_windtunnel_fan.bat  % 或命令行双击
-fluidx3d\windtunnel_fan.exe
-explore_gpu                % 交互浏览; whole_duct_mov 出全涵道视频
+| 里程碑 | 内容 | 状态 |
+|---|---|---|
+| 实机称重 → recompute_cm | 曼波提供质量/com/惯量数值 → `openfoam/airframe-sweep/recompute_cm.py` 零重跑重出全表力矩 (分钟级) | 链路就绪待数值 |
+| 舵效 delta-mode 查表 | 基座=T0 表插值 + delta 表最近锚叠加, 四舵独立角口径 | 设计稿待对接会冻结 |
+| T1 基座 546 (力矩可信档) | L6/L8 带层, ~14.5 天, 排后面; 扩域二期 (V10-15 / ±25°) 见 compute_schedule_1108 | 阈值已就位 |
+| RL 期间按需补点 | append-only, lookup 出域警告即信号; 舵效姿态/位形随要随扩 | 常态运行 |
+| v1.0 完整版 | T1 力矩档 + 舵效带层重扫 + N4 域重设计 (GPU 量级精化) | 排期中 |
 
-% 风机单机管线 (FanSim3D 内)
-export_fan_fluidx3d
-!build_fan.bat
-fluidx3d\windfan.exe
-explore_fan / fan_mov
-```
+开放项与责任分工: [dataset_delivery §0.6](docs/dataset_delivery.md)。
 
-## 关键开关与注意事项
+## 风洞技术栈 (ver1.0 遗产)
 
-| 开关 | 作用 |
-|---|---|
-| `WT_VTK` | `u`(默认)=快照只写 u 场 (~200MB/帧); `all`=u+rho+F (~600MB/帧, F 供表面着色) |
-| `WT_QUICK=1` | 冒烟档 (6mm/4000 步) |
-| `WT_DX` / `WT_STEPS` | 晶格/步数覆盖 |
-| `WT_SPIN=-1` | 风机整机 z 镜像反转 |
-| `WT_XTRIM=1` | 风机域定量模式 (隧道折入背压) |
+> **历史遗产线** — 当前主线为镖体数据集 (见上)。本节保留实物风洞技术栈的入口与关键结论,
+> 供二期物理重构与溯源; ver1.0 由**张郭浩**负责实物落地 (3D 打印风机蜗壳/扇面/风洞结构)。
 
-**[2026-09-30 P0 修复] 快照镜像损坏**: FluidX3D 的 `update_fields()` 在本配置下对
-rho/u 镜像的重构是坏的 (rho 0.61~2.02、u 低 ~8 倍)。三套求解器模板已在快照前移除该调用
-— 主内核每步维护的镜像直接写盘即为真实流场。**此修复之前导出的瞬时 u/rho 快照一律不可信**
-(时间时均 mean_u.vtk 与 fan_diag.csv 诊断不受影响)。旧损坏快照已清除。
+- **[WindTunnel3D/](WindTunnel3D/README.md)** — 桌面风洞 (试验段 300×200×200mm, 目标 25 m/s):
+  1D 设计 → MATLAB 体素化 → FluidX3D GPU LBM → 渲染/报告; 与 OpenFOAM 五段 blockMesh
+  (57600 格 simpleFoam k-ω SST) 交叉验证 **22.00 m/s 完全一致 — 22 m/s 是物理真实值**
+  (25 m/s 差距 = 涵道沿程损失, 非仿真精度问题)。转速稳定窗口实测 790✗/960✓/1080✗/1180✓ rpm。
+- **[FanSim3D/](FanSim3D/README.md)** — 抽风式离心风机 (D2=460mm 前弯多叶, 960rpm):
+  1D 性能模型 → 几何/体素化 → FluidX3D; 与 WindTunnel3D 经定位器相对引用 (无盘符硬编码)。
+- **openfoam/windtunnel-base / windtunnel-mrf** — 风洞 OpenFOAM 稳态 case (五段 blockMesh +
+  MRF 叶轮全域 666k 格), 生成器 `WindTunnel3D/openfoam/gen_openfoam_mrf.m` 单一真源重建。
+- **docs/legacy-windtunnel/** — 风洞线文档已归档于此 (git mv 保历史):
+  [transient_rotation_plan.md](docs/legacy-windtunnel/transient_rotation_plan.md) (瞬态旋转两阶段方案) /
+  [eval_3mm_of.md](docs/legacy-windtunnel/eval_3mm_of.md) (3mm 交叉验证可行性) /
+  [gpu_plan_1101.md](docs/legacy-windtunnel/gpu_plan_1101.md) (GPU 利用计划) /
+  [delta_early_plan_1104.md](docs/legacy-windtunnel/delta_early_plan_1104.md) (涵道线舵效排期)。
+- 风洞→镖体的传承: **ver1.1 把镖体放进 ver1.0 标定的流场知识之上**, 同一仓库的求解器栈
+  (FluidX3D/OpenFOAM) 与审计纪律沿用至今 —— 谱系见
+  [aeroacoustic_project_versions.md](docs/aeroacoustic_project_versions.md)。
 
-## OpenFOAM CPU 稳态管线 (openfoam/, 2026-10-04 起)
+---
 
-套件顶层 `openfoam/` 双 case，跑在 WSL2 Ubuntu-24.04：
-
-| case | 内容 | 求解器 | 状态 |
-|---|---|---|---|
-| `windtunnel-base/` | 五段风洞 blockMesh 57600 格 | simpleFoam (v1912-deb) | ✅ 已验证：入口 16.3 m/s → 试验段 22.00 m/s (= FluidX3D 交叉验证) |
-| `windtunnel-mrf/` | 风机+蜗壳+风洞全域 (skin.stl 封闭 skin + impeller.stl)，MRF 叶轮 960rpm | foamRun v12 (见下) | 网格就绪 (666k 格 / 0.689 m³ / 非正交 max 51°)，求解段进行中 |
-
-- **生成器**: `WindTunnel3D/openfoam/gen_openfoam_mrf.m` — 从 `fan_params/fan_performance/fan_geometry`
-  单一真源复刻耦合布局 (蜗壳心 xC=-(Rvol+0.03)、舌部 300°、omega 绕 +y 取负与蜗壳螺旋配对)。
-  改几何只动 FanSim3D 参数后重跑生成器，全案可重建。
-- **运行环境**: v1912-deb 的 MRF 在 noble glibc-2.39 上必崩 (sha1) → MRF case 用 **openfoam.org v12**
-  (`source /opt/openfoam12/etc/bashrc`，与 v1912 共存；基线仍走 v1912 + `FOAM_ETC=/usr/share/openfoam/etc
-  WM_PROJECT_DIR=/usr/share/openfoam`)。case 放 `~/openfoam/` 跑，/mnt/d/ 会触发 v1912 sha1 bug。
-- **关键校核** (gen 完跑 checkMesh 必查): Total volume ≈ 流体手算值 (~0.7 m³，若 ≈4 m³ = ambient 未删，
-  skin 泄漏)；patch 清单 skin_casing/skin_inletCap/skin_outletCap/impeller 全在。
-- **边界条件约定**: 增压箱顶 skin_inletCap = 总压 0 (大气)，风洞出口 skin_outletCap = 静压 0，
-  风机自吸入驱动；omega 符号与蜗壳螺旋配对 (绕 +y 取负，同 FluidX3D cpp omegaFull)。
-- 坑点全集见 devlog/2026-10-04.md (STL 封闭性/转置三连/栅格截断/MRF 格式等)。
+*数据出处: 本 README 全部数字来自仓库实测记录 (devlog/ 逐日 + memory/domains/wt/ 事件流 66+ 条,
+任何一条可回放到原始日志与脚本)。项目复盘: project_review_* 系列 (跨线)。*
