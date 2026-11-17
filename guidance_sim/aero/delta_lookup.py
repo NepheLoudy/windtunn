@@ -27,6 +27,48 @@ import warnings
 
 _HERE = os.path.dirname(os.path.abspath(__file__))
 DELTA_TABLE_PATH = os.path.join(_HERE, "delta_table_t1q.csv")
+AERO_TABLE_PATH = os.path.join(_HERE, "aero_table.csv")  # S_REF/L_REF 元数据来源
+
+# 回退值 (v4 几何外接圆口径, 历史上与 aero_table 表头同源) — 表头缺失/解析失败时兜底
+_FALLBACK_REFS = {"S_REF": 0.010306121, "L_REF": 0.1146}
+_REFS = None  # {"S_REF":..., "L_REF":..., "mtime":...} 缓存 (mtime 热加载)
+
+
+def _ref_dims():
+    """S_REF/L_REF ← aero_table.csv 表头 '#' 元数据 (与 lookup_aero.from_csv 同解析口径)。
+
+    表头解析失败/文件缺失 → 回退 _FALLBACK_REFS + RuntimeWarning (与模块其他降级契约一致)。
+    按 mtime 热加载: 表 append-only 更新后下一次调用自动重读表头。
+    """
+    global _REFS
+    if not os.path.exists(AERO_TABLE_PATH):
+        if _REFS is None:
+            warnings.warn("aero_table.csv 不存在 — S_REF/L_REF 回退内置 v4 值 "
+                          "(0.010306121/0.1146)", RuntimeWarning, stacklevel=2)
+            _REFS = dict(_FALLBACK_REFS, mtime=None)
+        return _REFS
+    mtime = os.path.getmtime(AERO_TABLE_PATH)
+    if _REFS is not None and _REFS.get("mtime") == mtime:
+        return _REFS
+    meta = {}
+    with open(AERO_TABLE_PATH, encoding="utf-8-sig") as f:
+        for line in f:
+            line = line.strip()
+            if not line:
+                continue
+            if not line.startswith("#"):
+                break  # 表头注释区结束, 数据区不再有元数据
+            for tok in line.lstrip("#").split():
+                if "=" in tok:
+                    k, v = tok.split("=", 1)
+                    meta[k] = v
+    try:
+        _REFS = {"S_REF": float(meta["S_REF"]), "L_REF": float(meta["L_REF"]), "mtime": mtime}
+    except (KeyError, ValueError):
+        warnings.warn("aero_table.csv 表头无有效 S_REF=/L_REF= 元数据 — 回退内置 v4 值 "
+                      "(0.010306121/0.1146)", RuntimeWarning, stacklevel=2)
+        _REFS = dict(_FALLBACK_REFS, mtime=mtime)
+    return _REFS
 
 # d0 基线 (T0 表 (20,0,0) 行, 与 delta 批同管线同口径) — 供无主表时的独立降级
 _D0_FALLBACK = {"CL": -0.002568, "CD": 0.139294, "Cm": 0.001337,
@@ -119,14 +161,16 @@ def delta_forces_B(fin1, fin2, fin3, fin4, V, alpha, beta):
     """四舵增量 → B 系力/力矩增量 (dF, dM)。
 
     系数→力换算与 lookup_aero.aero_forces 同构: 稳定轴基 (CD 沿来流, CL ⊥来流,
-    CY 侧向), 力矩绕体轴。qS 用当前 V 与锚定 S_REF。
+    CY 侧向), 力矩绕体轴。qS 用当前 V 与 S_REF/L_REF (aero_table.csv 表头读取,
+    见 _ref_dims; 解析失败回退内置 v4 值+警告)。
     注意: 增量系数在 (α0,β0,V20) 锚提取, 施加到任意 (α,β) = 叠加假设的延伸 (caveat)。
     """
     dc = delta_coeffs(fin1, fin2, fin3, fin4)
     import math
     import numpy as np
-    S_REF = 0.010306121  # 外接圆口径 (aero_table 表头同源)
-    L_REF = 0.1146
+    refs = _ref_dims()
+    S_REF = refs["S_REF"]
+    L_REF = refs["L_REF"]
     rho = 1.225
     qS = 0.5 * rho * V * V * S_REF
     a = math.radians(alpha)
@@ -178,4 +222,29 @@ if __name__ == "__main__":
     dF, dM = delta_forces_B(10, 0, 0, 0, 20.0, 0.0, 0.0)
     assert dF[0] < 0 and abs(dM[1]) > 0
     print(f"自测5 delta_forces_B PASS (dF={ [round(x,3) for x in dF] })")
+    # 自测 6: S_REF/L_REF 表头读取 (11-18 P2: 硬编码 → aero_table.csv 元数据)
+    import tempfile
+    r = _ref_dims()
+    assert r["S_REF"] > 0 and r["L_REF"] > 0, r
+    _saved_path, _saved_refs = AERO_TABLE_PATH, _REFS
+    try:
+        tmp = os.path.join(tempfile.gettempdir(), "aero_refdims_selftest.csv")
+        with open(tmp, "w", encoding="utf-8") as f:
+            f.write("# S_REF=0.02 L_REF=0.2 RHO=1.225\nV,alpha\n1,0\n")
+        globals()["AERO_TABLE_PATH"] = tmp
+        globals()["_REFS"] = None
+        r2 = _ref_dims()
+        assert abs(r2["S_REF"] - 0.02) < 1e-12 and abs(r2["L_REF"] - 0.2) < 1e-12, r2
+        with open(tmp, "w", encoding="utf-8") as f:  # 无元数据表头 → 回退+警告
+            f.write("V,alpha\n1,0\n")
+        globals()["_REFS"] = None
+        with W.catch_warnings(record=True) as wl:
+            W.simplefilter("always")
+            r3 = _ref_dims()
+        assert len(wl) >= 1 and r3["S_REF"] == _FALLBACK_REFS["S_REF"], (r3, len(wl))
+        os.remove(tmp)
+    finally:
+        globals()["AERO_TABLE_PATH"] = _saved_path
+        globals()["_REFS"] = _saved_refs
+    print("自测6 S_REF/L_REF 表头读取+回退 PASS")
     print("=== delta_lookup 自测全部通过 ===")

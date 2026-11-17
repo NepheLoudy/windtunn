@@ -44,4 +44,4 @@ wt_jobs/
 
 - 数据生产: qianli `sweep_t0v2` (T0-v2 蓝基准) → 完成后链式 `sweep_t1`
 - 审计工具: `openfoam/airframe-sweep/audit_sweep.py` (A1-A5) + `audit_basis_check.py` (A6)
-- 蓝表满 364 且 A6 通过后, master `guidance_sim/aero/aero_table.csv` 才由人工换成蓝表 (J1 不越权)
+- 蓝表满 546 (V{20~25}×13α×7β) 且 A6 通过后, master `guidance_sim/aero/aero_table.csv` 才由人工换成蓝表 (J1 不越权)

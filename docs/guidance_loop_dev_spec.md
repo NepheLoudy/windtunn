@@ -9,7 +9,7 @@
 > v0.3: 补 §5.1.1 3D 环境引擎分阶段选型 (PyBullet→Unity/UE→Gazebo 路线, Isaac Sim 因 A 卡排除)。
 > v0.2: 补 §5.2 环境配置从零自举、§5.3 仓库骨架、§8 责任矩阵; 修正 sim_core 状态表述 (待建, 非已建)。
 > 读者: 负责目标识别与制导律的算法同学。CFD/气动侧细节见 §6 参考文档。
-> 主线选型: **Python + PyBullet**(方案 C, 理由 §5)。文档中所有接口以此为准。
+> 主线选型: **Python + MuJoCo** (Phase 0 过渡期用 PyBullet, v0.7 起 MuJoCo 接棒, PyBullet 退役; 理由 §5)。文档中所有接口以此为准。
 
 ---
 

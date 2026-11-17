@@ -1,6 +1,6 @@
 # airframe-sweep — 弹体气动库 CFD 侧工作区 (M0)
 
-对接文档: `../../docs/guidance_loop_dev_spec.md` (v0.6) · MuJoCo 对齐清单: `../../docs/mujoco_alignment_questions.md`
+对接文档: `../../docs/guidance_loop_dev_spec.md` (v0.8) · MuJoCo 对齐清单: `../../docs/mujoco_alignment_questions.md`
 
 ## 定位
 

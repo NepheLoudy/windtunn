@@ -108,7 +108,7 @@ table.hm td.m{background:var(--panel2)}
       <div class="mono" id="tabletail">—</div>
       <h3 style="margin-top:14px">管线说明</h3>
       <div class="note">blockMesh+snappy 建网格 (每姿态档首例) → clone 复用网格 (同姿态 4 个 V) → foamRun 14 核并行 → post_process 风轴系数落表 → case_reaper 清场。A1-A6 审计随每行落表自动跑。</div>
-      <div class="note">表: 364 = V{15,20,25,30} × α{13 档} × β{7 档} · δ=0 平行基准 · 几何 v4 真铰链轴</div>
+      <div class="note">表: 546 = V{20~25} × α{13 档} × β{7 档} · δ=0 平行基准 · 几何 v4 真铰链轴</div>
     </div>
   </div>
 </div>
@@ -179,7 +179,7 @@ function st(id,txt,cls){const d=$(id);if(d)d.className='st '+cls;const t=$(id+'_
   else{st('st_three','未就绪','warn');}
 })();
 
-/* ---------- 取数 (90s 轮询; mesh 版本走轻量戳, 变了才整页刷新) ---------- */
+/* ---------- 取数 (30s 轮询; mesh 版本走轻量戳, 变了才整页刷新) ---------- */
 function loadData(){
   fetch('dashboard_data.json?_='+Date.now()).then(r=>{if(!r.ok)throw 0;return r.json()})
   .then(d=>{

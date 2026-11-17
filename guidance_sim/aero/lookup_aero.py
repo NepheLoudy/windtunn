@@ -113,7 +113,12 @@ class AeroTable:
         """返回 (i0, w): 所在格下界索引与分数权重; 出域 clamp + 一次性 warning。"""
         v = self.values[key]
         if len(v) == 1:
-            return 0, 0.0          # 单值维度 (如 T0 表的 δ=0-only): 无插值, 直接取该值
+            # 单值维度 (如 δ=0-only 表的 de/da/dr): 无插值直接取该值; 输入偏离单值 =
+            # 该维未覆盖 — 舵效增量走 delta_lookup.delta_forces_B (与出域警告同契约, spec §6/§0.5)
+            if not (v[0] - 1e-9 <= x <= v[0] + 1e-9):
+                warnings.warn(f"aero_table 维度 {key} 仅覆盖 {v[0]:g} (单值维), 输入 {x:g} 仍取 {v[0]:g} — "
+                              f"该维未覆盖, 舵效走 delta_lookup", RuntimeWarning, stacklevel=3)
+            return 0, 0.0
         lo, hi = v[0], v[-1]
         xc = float(np.clip(x, lo, hi))
         if not (lo - 1e-9 <= x <= hi + 1e-9):
@@ -142,7 +147,7 @@ class AeroTable:
     # ---------- 上层: 合成 B 系力/力矩 ----------
 
     def aero_forces(self, V_B, omega_B=None, de=0.0, da=0.0, dr=0.0, damp=None,
-                    wind_noise_std=0.0):
+                    wind_noise_std=0.0, rng=None):
         """V_B: B 系速度 (3,) [m/s]; omega_B: B 系角速度 (3,) [rad/s] (阻尼用)。
 
         damp: 动导数补偿 dict, 键 'Cmq','Cnr','Clp' (量纲: q̄SL_ref·ω̄L_ref/(2V) 折算,
@@ -156,12 +161,18 @@ class AeroTable:
             安全; σ 大到 V_eff 出 [15,30] 会走 coeffs 的 clamp+warning (预期行为)。
             episode 级风速偏置 (恒定风) 由训练侧在 V_B 上自行加, 本参数只做步级抖动。
             eval 时传 0 关闭。默认 0 = 无噪声 (parity 测试不受影响)。
+        rng: 可选 numpy.random.Generator (wind_noise_std>0 时的噪声采样源)。
+            复现性: 默认 None = 每次调用新建 np.random.default_rng() 局部实例 —
+            采样不可复现, 但**不触碰 np.random 全局状态** (旧版 np.random.normal 会
+            污染调用方 np.random.seed(...) 的序列); 需要可复现噪声时显式传
+            rng=np.random.default_rng(seed) 并在同一 episode 内复用同一实例。
         返回 (F_B[3], M_B[3]), 力矩参考点 = 全系统质心 (meta.MOMENT_REF)。
         """
         V_B = np.asarray(V_B, float)
         V = float(np.linalg.norm(V_B))
         if wind_noise_std and wind_noise_std > 0 and V > 1e-6:
-            V = float(max(1e-3, V + np.random.normal(0.0, wind_noise_std)))
+            r = np.random.default_rng() if rng is None else rng
+            V = float(max(1e-3, V + r.normal(0.0, wind_noise_std)))
         S, L = self.meta["S_REF"], self.meta["L_REF"]
         rho = self.meta.get("RHO", 1.225)
         if V < 1e-6:

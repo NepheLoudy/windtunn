@@ -11,9 +11,9 @@ ROOT=${1:?usage: SWEEP_V=... SWEEP_ALPHA=... SWEEP_BETA=... ./run_sweep_v2.sh <r
 NP=${2:-8}
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 OUT_CSV=${OUT_CSV:-"$HERE/../../guidance_sim/aero/aero_table.csv"}
-SWEEP_V=${SWEEP_V:-"15 20 25 30"}
+SWEEP_V=${SWEEP_V:-"20 21 22 23 24 25"}
 SWEEP_ALPHA=${SWEEP_ALPHA:-"-15 -12.5 -10 -7.5 -5 -2.5 0 2.5 5 7.5 10 12.5 15"}
-SWEEP_BETA=${SWEEP_BETA:-"0"}
+SWEEP_BETA=${SWEEP_BETA:-"-15 -10 -5 0 5 10 15"}
 GEOM=${GEOM_DIR:-"$HERE/cfd_geom_multi"}
 SURF_LEVEL=${SURF_LEVEL:-5}
 FIN_LEVEL=${FIN_LEVEL:-7}
