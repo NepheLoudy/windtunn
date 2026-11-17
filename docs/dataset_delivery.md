@@ -48,15 +48,18 @@ F_B, M_B = lookup_aero(V=20.0, alpha=5.0, beta=0.0, de=0.0, da=0.0, dr=0.0)
 6. **窗口口径差**: T0 基线 ET1500 窗口 vs 舵效批 ET600 — 周期信号均值窗口无关, deltas 干净, 表头 source 注释已声明
 7. **com/惯量 PLACEHOLDER**: 实机称重前力矩绝对精度以此为上限; 称重后 recompute_cm 零重跑重出全表力矩
 
-### 0.5 舵效 delta 表 schema 与查表路线
+### 0.5 舵效 delta 表 schema 与 delta-mode 查表 (✅ 已实装)
 
 ```
 tag,fin1_deg,fin2_deg,fin3_deg,fin4_deg,V,alpha,beta,CL,CD,Cm,CY,Cl,Cn
 d1p,  10,  0,  0,  0, 20, 0, 0, ...
 ```
-- 10 位形 (8 单舵 ±10° + d13dd/d24dd) × (V20, α0, β0) — 增量=δ行−d0 行 (T0 表同点), 叠加假设已被 LBM 量级表六连验背书 (误差<0.02)
-- **查表路线 (delta-mode)**: 基座=T0 表插值, 舵效增量=delta 表最近锚插值/叠加 — 设计稿待冻结 (对接会); delta 表 append-only, RL 期间按需扩展姿态
-- fin↔δ 映射: delta_cases.csv 的 fin1..4 即四舵独立角 (绕 v4 真铰链轴右手正转, X 布局); **spec 的 + 布局混控约定不适用, 勿混用**
+- 10 位形 (8 单舵 ±10° + d13dd/d24dd) × (V20, α0, β0) @L6/L8 — 实测组合+叠加模型
+- **delta-mode 已实装**: `guidance_sim/aero/delta_lookup.py` — `delta_coeffs(fin1..4)` 六系数增量 + `delta_forces_B(fin1..4, V, alpha, beta)` B 系增量力
+- 查表策略: **实测组合精确匹配优先** → 未测组合走单舵叠加+线性缩放 — ⚠ **CPU L6/L8 实测 d13dd 叠加偏差 43.7% (超线性增强, LBM 量级表未解析出)** — 未测组合不确定度按 ±45% 理解, 关键组合建议实跑补点 (append-only)
+- fin_2 舵效 CPU 实测非零 (CY=-0.019 与 fin_1 同档) — LBM fin_2 近零为 LBM 口径 artifact (Re/壁干扰), fin_2 可用
+- 差动对 (d13dd/d24dd) **Cl≈0: 差动偏转给偏航/俯仰力偶不给滚转** — 控制律建模须知
+- fin↔δ 映射: fin1..4 = 四舵独立角 (绕 v4 真铰链轴右手正转, X 布局); **spec 的 + 布局混控约定不适用, 勿混用**
 
 ### 0.6 开放项与责任分工
 
