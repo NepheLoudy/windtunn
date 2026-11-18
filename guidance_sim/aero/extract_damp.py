@@ -618,17 +618,19 @@ if __name__ == "__main__":
     assert ok
 
     # 量级守门 (任务卡 11-14 tfixed): Cmq/Cnr 相对 raw 污染版 (damp_defaults.json.
-    # raw_v4asm_1110) 的倍数应与 N1 对照表 f2 主通道 amp 比一致 (p_f2 ty ×5.7477,
-    # y_f2 tz ×7.2545; ZOH K 同除相消 -> 导数倍数=amp 倍数), 容差 ±10%; Clp 必须 null
+    # raw_v4asm_1110) 的倍数 = N1 对照倍数 × 口径修正 (11-16 P1-1: norm_consts 从旧表
+    # 头 0.017671/0.15 修正为新口径 0.010306/0.1146, 系数 ×(S_old·L_old²)/(S_new·L_new²)
+    # = ×2.9372) — 合成预期 Cmq 16.88x / Cnr 21.31x; 容差 ±10%; Clp 必须 null
     polluted = {"Cmq": -0.015295724876762675, "Cnr": -0.012559587944344794}
-    ratio_expect = {"Cmq": 5.74774, "Cnr": 7.254476}     # N1 osc_lockin_tfix.csv f2 主通道
-    print("\nvs raw 污染版倍数 (守门 = N1 对照倍数 ±10%):")
+    _norm_fix = (0.017671458676442587 * 0.15 ** 2) / (0.010306121 * 0.1146 ** 2)
+    ratio_expect = {"Cmq": 5.74774 * _norm_fix, "Cnr": 7.254476 * _norm_fix}
+    print("\nvs raw 污染版倍数 (守门 = N1 对照 ×2.9372 口径修正, ±10%):")
     for k in ("Cmq", "Cnr"):
         ratio = out["derivatives"][k]["value"] / polluted[k]
-        print("  %s: %+.5f / %+.5f = %.3fx (N1 预期 %.3fx)"
+        print("  %s: %+.5f / %+.5f = %.3fx (预期 %.3fx)"
               % (k, out["derivatives"][k]["value"], polluted[k], ratio, ratio_expect[k]))
         assert abs(ratio / ratio_expect[k] - 1.0) < 0.10, \
-            "%s 倍数 %.3f 偏离 N1 对照 %.3f 超容差" % (k, ratio, ratio_expect[k])
+            "%s 倍数 %.3f 偏离预期 %.3f 超容差" % (k, ratio, ratio_expect[k])
     d_clp = out["derivatives"]["Clp"]
     assert d_clp["value"] is None, "Clp 应为 null (r 批修正后信号低于噪声底)"
     print("  Clp: null — r 批 tx amp/res f2=%.2f f1=%.2f < 噪声底门槛 %.2f "

@@ -3,3 +3,9 @@ state/
 # J1 每次重新生成
 www/dashboard_data.json
 out/
+tmp/
+collect/
+# 流线 JSON 大件走 NAS vault (P0-2 止血, 2026-11-19 结构审查: 84 件 2.84G 把 .git 撑到 1.3G)
+www/poses/
+www/poses_archive/
+MORNING_REPORT_*.md
