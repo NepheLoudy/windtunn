@@ -1,0 +1,31 @@
+{
+ "pack_id": "P01s4",
+ "parent": "P01",
+ "priority": 0,
+ "groups": [
+  {
+   "alpha": -5,
+   "beta": 0
+  }
+ ],
+ "V": [
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20
+ ],
+ "cases": 11,
+ "env": {
+  "SURF_LEVEL": 6,
+  "FIN_LEVEL": 7,
+  "BOX_LEVEL": 3,
+  "NP": 5
+ }
+}
