@@ -15,7 +15,7 @@ c=(Nx/2,Ny/2,Nz/2)=(220,120,120) lu — 源码锚点 kernel.cpp:826-828/1985 + s
 保留原样 = 修正前口径对照档案, 不覆盖。
 输出: damp_defaults.json ( Clp/Cmq/Cnr 主值 + 两频率原始值/SNR/置信标注 + 口径备注 ),
 供 lookup_aero.aero_forces(damp=None) 热加载。
-交叉验证: wt_jobs/tmp/f4_v4asm_lockin.json 主线锁相读数 (osc_batch.sh 内联 lockin.py,
+交叉验证: wt_jobs/repro/f4_v4asm_lockin.json 主线锁相读数 (osc_batch.sh 内联 lockin.py,
 幅度口径 amp_zoh_adj 应与本脚本逐位一致, __main__ 尾部自动对拍)。
 
 =========================== 单位制换算推导 ( src/setup.cpp v4asm, qianli 远端
@@ -52,7 +52,7 @@ setup.cpp L146-172 时序: 块 [t, t+SAMPLE) 的入口速度 = sin(ω*(t))  (上
   幅度衰减 K = sin(ωT/2)/(ωT/2)   (f1: 0.9355, f2: 0.9959)
   相位延迟 φ = ωT/2               (f1: 36.0°, f2: 9.0°)
 
-wt_jobs/tmp/osc_f4/lockin.py 只除了 sinc (幅度), 相位没转 -- 对总幅度无影响, 但对
+wt_jobs/repro/osc_f4/lockin.py 只除了 sinc (幅度), 相位没转 -- 对总幅度无影响, 但对
 As(静刚度)/Ac(阻尼)分解是致命的: f1 时 φ=36°, 静刚度分量会以 sin(36°)=0.59 的系数
 泄漏进 Ac, 符号都可能翻转。本脚本做完整逆变换:
   As = ( As_m*cosφ - Ac_m*sinφ ) / K
@@ -179,7 +179,7 @@ def correct_torque(data):
         tx += cy*fz - cz*fy    (cy=cz=120 -> tx += 120*(fz-fy))
         ty += cz*fx - cx*fz    (-> ty += 120*fx - 220*fz)
         tz += cx*fy - cy*fx    (-> tz += 220*fy - 120*fx)
-    对拍: N1 wt_jobs/tmp/torque_fix_1114/osc_lockin_tfix.csv corrected 列 36 行六通道
+    对拍: N1 wt_jobs/repro/torque_fix_1114/osc_lockin_tfix.csv corrected 列 36 行六通道
     dc/As/Ac 逐位一致 (__main__ 尾部自动对拍, 修正后 DC 与静态修正力矩自洽
     ty 914.5/915.0 vs t2 静表 916.4)。
     """
@@ -425,7 +425,7 @@ def collect(no_fetch=False):
         "数据集 = F4 v4asm 真实装配几何重扫 (11-10 GPU 六例, GEOM=cfd_v4parts, read_stl_"
         "assembly 逐件装配空间体素化, 团块 bug 修复) + N1 力矩 bug 修正 (11-14 tfixed: "
         "kernel.cpp object_torque 混用 centered position()/absolute center, T_true=T_rep+"
-        "c×F 逐样本修正, c=(220,120,120); 对照 N1 wt_jobs/tmp/torque_fix_1114/osc_lockin_"
+        "c×F 逐样本修正, c=(220,120,120); 对照 N1 wt_jobs/repro/torque_fix_1114/osc_lockin_"
         "tfix.csv corrected 列逐位一致); 三版并存: 本文件=tfixed 实装 / damp_defaults.json."
         "raw_v4asm_1110=raw 力矩污染版对照 (Cmq/Cnr 低估 5~7 倍, Clp 伪影) / damp_defaults."
         "json.quarantined_gpu_geom_1109=团块几何版隔离 (GPU 管线缺陷, amp 仅为 v4asm 的 "
@@ -445,7 +445,7 @@ def norm_meta(nc):
                        "source_refs": "kernel.cpp:826-828 position() centered; kernel.cpp:1985 "
                                       "cross(pos-c,F); setup.cpp:77 Ny=Nz=240; setup.cpp:93/141 "
                                       "center=com",
-                       "xcheck": "wt_jobs/tmp/torque_fix_1114/osc_lockin_tfix.csv corrected 列 "
+                       "xcheck": "wt_jobs/repro/torque_fix_1114/osc_lockin_tfix.csv corrected 列 "
                                  "36 行六通道逐位一致 (extract_damp __main__ 自动对拍)"},
         "setup_cpp_anchors": {"V_lbm(L81-82)": V_LBM, "cpm(L94)": LU_PER_M, "rho_lu(L127)": RHO_LU,
                               "SAMPLE(L140)": SAMPLE, "AMP_deg(osc_batch)": AMP_DEG,

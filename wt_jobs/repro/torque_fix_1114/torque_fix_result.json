@@ -1,0 +1,629 @@
+{
+ "meta": {
+  "date": "2026-11-14",
+  "bug": "object_torque mixes centered-frame position() with absolute-frame center arg",
+  "source_refs": "kernel.cpp:826-828 position() centered; kernel.cpp:1985 cross(pos-c,F); setup.cpp:77 Ny=Nz=uint(Nx*120/220+0.5); setup.cpp:93 center; setup.cpp:141 com=center",
+  "formula": "T_true = T_rep + center x F, center=(Nx/2,Ny/2,Nz/2)",
+  "inputs": [
+   "/home/qianli/fluidx3d_v3/FluidX3D-master/bin/out/t2_queue_summary_v4asm.csv",
+   "out/forces_osc_*_v4asm.csv",
+   "/home/qianli/sweep_t0v2/t0_table.csv"
+  ],
+  "outputs": [
+   "/home/qianli/fluidx3d_v3/FluidX3D-master/bin/out/t2_queue_summary_v4asm_tfix.csv",
+   "/home/qianli/fluidx3d_v3/FluidX3D-master/bin/out/osc_lockin_tfix.csv",
+   "/home/qianli/fluidx3d_v3/FluidX3D-master/bin/out/torque_fix_result.json"
+  ],
+  "rows_fixed": 229,
+  "forces_untouched": true
+ },
+ "validation": {
+  "a_symmetric_nearzero": {
+   "pass": true,
+   "tag": "x_a0_b0",
+   "raw": [
+    48.5461,
+    28685.876,
+    -29140.123
+   ],
+   "corrected": [
+    1.6141,
+    -218.12,
+    -150.085
+   ],
+   "corrected_over_absfxL": [
+    3.1738560500702106e-05,
+    -0.004288962775796508,
+    -0.002951168981319544
+   ],
+   "abs_corrected_over_absfxL": [
+    3.1738560500702106e-05,
+    0.004288962775796508,
+    0.002951168981319544
+   ],
+   "anchor_match": true,
+   "all_below_0p01": true
+  },
+  "b_mirror_antisymmetry": {
+   "pass": true,
+   "b0_pairs": [
+    {
+     "frame": "raw",
+     "pair": [
+      "x_a5_b0",
+      "x_an5_b0"
+     ],
+     "axis_col": "tx",
+     "v_pos": 2486.8803,
+     "v_neg": -2348.6611,
+     "signs_opposite": true,
+     "antisym_residual_ratio": 0.05557935377911032
+    },
+    {
+     "frame": "raw",
+     "pair": [
+      "x_a0_b5",
+      "x_a0_bn5"
+     ],
+     "axis_col": "tz",
+     "v_pos": -25450.172,
+     "v_neg": -32926.205,
+     "signs_opposite": false,
+     "antisym_residual_ratio": 1.772945804109523
+    },
+    {
+     "frame": "corrected",
+     "pair": [
+      "x_a5_b0",
+      "x_an5_b0"
+     ],
+     "axis_col": "tx_c",
+     "v_pos": 211.128,
+     "v_neg": -162.381,
+     "signs_opposite": true,
+     "antisym_residual_ratio": 0.23088837103558027
+    },
+    {
+     "frame": "corrected",
+     "pair": [
+      "x_a0_b5",
+      "x_a0_bn5"
+     ],
+     "axis_col": "tz_c",
+     "v_pos": -1262.46,
+     "v_neg": 951.593,
+     "signs_opposite": true,
+     "antisym_residual_ratio": 0.24623908876320838
+    }
+   ],
+   "mirror_pair_a12p5b5": [
+    {
+     "frame": "corrected",
+     "pair": [
+      "x_a12.5_b5",
+      "x_an12.5_bn5"
+     ],
+     "axis_col": "tx_c",
+     "v_pos": 638.604,
+     "v_neg": -444.139,
+     "signs_opposite": true,
+     "antisym_residual_ratio": 0.3045157875616188
+    },
+    {
+     "frame": "raw",
+     "pair": [
+      "x_a12.5_b5",
+      "x_an12.5_bn5"
+     ],
+     "axis_col": "tx",
+     "v_pos": 4066.1155,
+     "v_neg": -3810.8348,
+     "signs_opposite": true,
+     "antisym_residual_ratio": 0.06278245170359766
+    },
+    {
+     "frame": "corrected",
+     "pair": [
+      "x_a12.5_b5",
+      "x_an12.5_bn5"
+     ],
+     "axis_col": "ty_c",
+     "v_pos": 2873.79,
+     "v_neg": -3267.19,
+     "signs_opposite": true,
+     "antisym_residual_ratio": 0.12040928137022949
+    },
+    {
+     "frame": "raw",
+     "pair": [
+      "x_a12.5_b5",
+      "x_an12.5_bn5"
+     ],
+     "axis_col": "ty",
+     "v_pos": 18630.045,
+     "v_neg": 38269.23,
+     "signs_opposite": false,
+     "antisym_residual_ratio": 1.486815256016387
+    },
+    {
+     "frame": "corrected",
+     "pair": [
+      "x_a12.5_b5",
+      "x_an12.5_bn5"
+     ],
+     "axis_col": "tz_c",
+     "v_pos": -1929.22,
+     "v_neg": 1582.34,
+     "signs_opposite": true,
+     "antisym_residual_ratio": 0.17980323654119287
+    },
+    {
+     "frame": "raw",
+     "pair": [
+      "x_a12.5_b5",
+      "x_an12.5_bn5"
+     ],
+     "axis_col": "tz",
+     "v_pos": -23969.25,
+     "v_neg": -33781.804,
+     "signs_opposite": false,
+     "antisym_residual_ratio": 1.7095313796740992
+    }
+   ],
+   "note": "hard pass = sign opposition (mirror physics); residual ratio quantifies asymmetry (real assembly has DC offsets, e.g. fy(x_a0_b0)=0.51)"
+  },
+  "c_crosscheck_analysis_station": {
+   "pass": true,
+   "a0b0": {
+    "raw_match": [
+     true,
+     true,
+     true
+    ],
+    "corrected_match": [
+     true,
+     true,
+     true
+    ],
+    "corr_norm_match": [
+     true,
+     true,
+     true
+    ]
+   },
+   "xrows": {
+    "x_a0_b0": {
+     "got": [
+      3.2e-05,
+      -0.004284,
+      -0.002948
+     ],
+     "want": [
+      3e-05,
+      -0.00428,
+      -0.00295
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    },
+    "x_a5_b0": {
+     "got": [
+      0.004146,
+      0.017998,
+      -0.00819
+     ],
+     "want": [
+      0.00415,
+      0.018,
+      -0.00819
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    },
+    "x_an5_b0": {
+     "got": [
+      -0.003189,
+      -0.026452,
+      0.001955
+     ],
+     "want": [
+      -0.00319,
+      -0.02645,
+      0.00195
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    },
+    "x_a10_b0": {
+     "got": [
+      0.008303,
+      0.039913,
+      -0.012923
+     ],
+     "want": [
+      0.0083,
+      0.03991,
+      -0.01292
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    },
+    "x_a0_b5": {
+     "got": [
+      0.002732,
+      0.000937,
+      -0.024794
+     ],
+     "want": [
+      0.00273,
+      0.00094,
+      -0.02479
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    },
+    "x_a0_bn5": {
+     "got": [
+      -0.00366,
+      -0.009548,
+      0.018689
+     ],
+     "want": [
+      -0.00366,
+      -0.00955,
+      0.01869
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    },
+    "x_a12.5_b5": {
+     "got": [
+      0.012542,
+      0.056439,
+      -0.037888
+     ],
+     "want": [
+      0.01254,
+      0.05644,
+      -0.03789
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    },
+    "x_an12.5_bn5": {
+     "got": [
+      -0.008723,
+      -0.064165,
+      0.031076
+     ],
+     "want": [
+      -0.00872,
+      -0.06417,
+      0.03108
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    }
+   },
+   "nx_medians": {
+    "220": {
+     "n": 102,
+     "got": [
+      0.64,
+      -43.42,
+      -10.48
+     ],
+     "want": [
+      0.6,
+      -43.4,
+      -10.5
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    },
+    "330": {
+     "n": 3,
+     "got": [
+      220.66,
+      1062.53,
+      -319.59
+     ],
+     "want": [
+      220.7,
+      1062.5,
+      -319.6
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    },
+    "440": {
+     "n": 121,
+     "got": [
+      23.27,
+      47.71,
+      -215.45
+     ],
+     "want": [
+      23.3,
+      47.7,
+      -215.4
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    },
+    "660": {
+     "n": 2,
+     "got": [
+      192.59,
+      -1352.85,
+      -758.11
+     ],
+     "want": [
+      192.6,
+      -1352.9,
+      -758.1
+     ],
+     "match": [
+      true,
+      true,
+      true
+     ]
+    }
+   },
+   "denom_absfxL_x_a5_b0": 50918.4195780744
+  },
+  "ALL_PASS": true
+ },
+ "keypoint_a5b0_nx440_vs_fvm": {
+  "tag": "x_a5_b0",
+  "nx": 440,
+  "fvm_source": "t0_table.csv",
+  "L_lu": 211.33271399999998,
+  "denom_absfxL": 50918.4195780744,
+  "lbm_raw_over_denom": [
+   0.04884,
+   0.492039,
+   -0.56417
+  ],
+  "lbm_corrected_over_denom": [
+   0.004146,
+   0.017998,
+   -0.00819
+  ],
+  "fvm_means": {
+   "Cl/CD": -0.005027,
+   "Cm/CD": 0.317522,
+   "Cn/CD": -0.031288,
+   "CY/CD": 0.009827,
+   "CL/CD": 1.258575
+  },
+  "mapped_pairs": {
+   "tx_vs_-ClCD": {
+    "raw": 0.04884,
+    "corrected": 0.004146,
+    "fvm": 0.005027,
+    "ratio_raw_over_fvm": 9.716,
+    "ratio_corrected_over_fvm": 0.8249,
+    "gap_narrowed_by_correction": true
+   },
+   "ty_vs_CmCD": {
+    "raw": 0.492039,
+    "corrected": 0.017998,
+    "fvm": 0.317522,
+    "ratio_raw_over_fvm": 1.5496,
+    "ratio_corrected_over_fvm": 0.0567,
+    "gap_narrowed_by_correction": false
+   },
+   "tz_vs_-CnCD": {
+    "raw": -0.56417,
+    "corrected": -0.00819,
+    "fvm": 0.031288,
+    "ratio_raw_over_fvm": -18.0316,
+    "ratio_corrected_over_fvm": -0.2618,
+    "gap_narrowed_by_correction": true
+   }
+  },
+  "force_context_14x": {
+   "lbm_fz_over_absfx": -0.090089,
+   "fvm_CL_over_CD": 1.258575,
+   "ratio": 0.0716,
+   "note": "lift-axis collapse ~14x (0.0901 vs 1.2586); forces untouched by N1 => unchanged by this fix"
+  }
+ },
+ "osc_lockin_tfix": {
+  "per_case": {
+   "osc_p_f1": {
+    "axis": 1,
+    "axis_channel": "ty",
+    "omega": 0.012566,
+    "n_samples": 10000,
+    "port_vs_real_lockin_maxreldiff": 1.0009779727207333e-05,
+    "axis_channel_raw": {
+     "dc": 25045.66963,
+     "As": -29.222665,
+     "Ac": 125.532715,
+     "amp": 128.889203,
+     "phase_deg": 103.104454,
+     "res_rms": 11.538575,
+     "amp_over_res": 11.170287
+    },
+    "axis_channel_corrected": {
+     "dc": 914.505928,
+     "As": 227.168419,
+     "Ac": -624.914845,
+     "amp": 664.924096,
+     "phase_deg": -70.022833,
+     "res_rms": 2.82303,
+     "amp_over_res": 235.535613
+    },
+    "amp_change_ratio_corrected_over_raw": 5.158881
+   },
+   "osc_p_f2": {
+    "axis": 1,
+    "axis_channel": "ty",
+    "omega": 0.0031416,
+    "n_samples": 10000,
+    "port_vs_real_lockin_maxreldiff": 3.210857812063954e-05,
+    "axis_channel_raw": {
+     "dc": 25048.425885,
+     "As": -91.091898,
+     "Ac": -30.34736,
+     "amp": 96.014041,
+     "phase_deg": -161.574452,
+     "res_rms": 5.097855,
+     "amp_over_res": 18.834203
+    },
+    "axis_channel_corrected": {
+     "dc": 914.958045,
+     "As": 544.298849,
+     "Ac": -91.062487,
+     "amp": 551.863763,
+     "phase_deg": -9.497757,
+     "res_rms": 2.687199,
+     "amp_over_res": 205.367687
+    },
+    "amp_change_ratio_corrected_over_raw": 5.74774
+   },
+   "osc_y_f1": {
+    "axis": 2,
+    "axis_channel": "tz",
+    "omega": 0.012566,
+    "n_samples": 10000,
+    "port_vs_real_lockin_maxreldiff": 1.2517004291479177e-05,
+    "axis_channel_raw": {
+     "dc": -28724.122277,
+     "As": -3.819781,
+     "Ac": -33.319431,
+     "amp": 33.537668,
+     "phase_deg": -96.539908,
+     "res_rms": 7.085697,
+     "amp_over_res": 4.73315
+    },
+    "axis_channel_corrected": {
+     "dc": -415.648567,
+     "As": -228.435063,
+     "Ac": 636.115766,
+     "amp": 675.88893,
+     "phase_deg": 109.753683,
+     "res_rms": 3.184486,
+     "amp_over_res": 212.244307
+    },
+    "amp_change_ratio_corrected_over_raw": 20.153128
+   },
+   "osc_y_f2": {
+    "axis": 2,
+    "axis_channel": "tz",
+    "omega": 0.0031416,
+    "n_samples": 10000,
+    "port_vs_real_lockin_maxreldiff": 3.233882754406938e-05,
+    "axis_channel_raw": {
+     "dc": -28723.399114,
+     "As": 4.877182,
+     "Ac": 78.687811,
+     "amp": 78.838813,
+     "phase_deg": 86.453263,
+     "res_rms": 4.938136,
+     "amp_over_res": 15.965297
+    },
+    "axis_channel_corrected": {
+     "dc": -417.255167,
+     "As": -563.913694,
+     "Ac": 95.446984,
+     "amp": 571.934245,
+     "phase_deg": 170.393271,
+     "res_rms": 3.159239,
+     "amp_over_res": 181.035423
+    },
+    "amp_change_ratio_corrected_over_raw": 7.254476
+   },
+   "osc_r_f1": {
+    "axis": 3,
+    "axis_channel": "tx",
+    "omega": 0.012566,
+    "n_samples": 10000,
+    "port_vs_real_lockin_maxreldiff": 2.5133343461879812e-05,
+    "axis_channel_raw": {
+     "dc": 2487.126314,
+     "As": 10.313918,
+     "Ac": -31.999795,
+     "amp": 33.620883,
+     "phase_deg": -72.135246,
+     "res_rms": 1.507626,
+     "amp_over_res": 22.300543
+    },
+    "axis_channel_corrected": {
+     "dc": 210.918477,
+     "As": -0.065753,
+     "Ac": 0.225431,
+     "amp": 0.234824,
+     "phase_deg": 106.260658,
+     "res_rms": 0.163764,
+     "amp_over_res": 1.433922
+    },
+    "amp_change_ratio_corrected_over_raw": 0.006984
+   },
+   "osc_r_f2": {
+    "axis": 3,
+    "axis_channel": "tx",
+    "omega": 0.0031416,
+    "n_samples": 10000,
+    "port_vs_real_lockin_maxreldiff": 3.4657635317803917e-05,
+    "axis_channel_raw": {
+     "dc": 2487.193349,
+     "As": 26.600811,
+     "Ac": -3.873302,
+     "amp": 26.881325,
+     "phase_deg": -8.284526,
+     "res_rms": 1.896536,
+     "amp_over_res": 14.173908
+    },
+    "axis_channel_corrected": {
+     "dc": 210.942512,
+     "As": -0.133861,
+     "Ac": 0.096763,
+     "amp": 0.165172,
+     "phase_deg": 144.138242,
+     "res_rms": 0.162029,
+     "amp_over_res": 1.019395
+    },
+    "amp_change_ratio_corrected_over_raw": 0.006144
+   }
+  },
+  "port_verified_vs_lockin_py": true,
+  "table": "/home/qianli/fluidx3d_v3/FluidX3D-master/bin/out/osc_lockin_tfix.csv",
+  "note": "T_true(t)=T_rep(t)+center x F(t) per sample (c=(220,120,120), nx=440); DC/amp/phase all shift because F(t) carries the lock-in frequency"
+ }
+}

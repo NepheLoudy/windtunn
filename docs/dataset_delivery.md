@@ -78,7 +78,7 @@ d1p,  10,  0,  0,  0, 20, 0, 0, ...
 
 CL_α=+2.40/R²=1.000 · Cm_α 分段 +0.59/+0.21 (拐折双向复现) · Cn_β=−0.433 · β=±15 失速回落 ·
 镜像 CY 2.8% · 跨 V 力钝感 0.3~0.4% · 压心随 α 系统移动跨 V ±0.3mm · CL ±15 对称剖面。
-全部有 R²>0.99 回归支撑, 出处 `wt_jobs/tmp/fidelity_564_1113.py` 可复现。
+全部有 R²>0.99 回归支撑, 出处 `wt_jobs/repro/fidelity_564_1113.py` 可复现。
 
 
 
@@ -143,10 +143,10 @@ lookup_aero(V, α, β, de, da, dr) → (F_B, M_B)
 | 质量参数 | mass=160g (曼波定); **com/inertia 仍为 PLACEHOLDER — 实机称重前, 下一瞬态姿态/动能的绝对精度以此为上限** (CFD 侧无法替代); com 实测后 Cm 零重跑: `openfoam/airframe-sweep/recompute_cm.py` (10-31 恒等冒烟 IDENTICAL ✓) |
 
 > 静稳导数出处与时效 (2026-11-13 更新): Cm_α/Cn_β 由 T0 564 行快照复核
-> (`wt_jobs/tmp/t0_table_564_1113.csv` + 电池 `fidelity_564_1113.py` 可复核)——
+> (`wt_jobs/repro/t0_table_564_1113.csv` + 电池 `fidelity_564_1113.py` 可复核)——
 > 8 项规划特征 (斜率锚/镜像/跨V/压心/失速带) 全部兑现, 正 α 盲区摘标;
 > 力矩参考点 = 占位 com (0,0,0), 实机称重后 recompute_cm 零重跑, 数值届时更新。
-> (`wt_jobs/tmp/t0_table_snapshot_1106.csv` + 回归脚本 `wt_jobs/tmp/slope_beta0_1106.py`, 可复核);
+> (`wt_jobs/repro/t0_table_snapshot_1106.csv` + 回归脚本 `wt_jobs/repro/slope_beta0_1106.py`, 可复核);
 > 力矩参考点 = 占位 com (0,0,0), 实机称重后 recompute_cm 零重跑, 数值届时更新。
 
 ### 3.1 口径与置信度量化 (2026-10-31 底层审查补充 — 视觉侧必读)

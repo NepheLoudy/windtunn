@@ -1,0 +1,18 @@
+{
+  "note": "F4 v4asm 重扫 (真实装配几何) 六例全通道锁相 — 2026-11-11, 主线自 osc_batch_v4asm.log 后 CSV 直接 lockin",
+  "anchor": "ALPHA=5 BETA=0 AMP=2deg NX=440 V_lbm=0.05 NU=0.02, 1.2M steps, t_skip=200000, sample=100",
+  "cases": {
+    "p_f1": {"omega": 0.012566, "period_steps": 500, "amp_zoh_adj": {"ty": 137.78, "tz": 99.099, "tx": 407.54, "fz": 3.393}, "snr": {"ty": 11.17, "tz": 7.43, "tx": 240.0, "fz": 249.63}},
+    "p_f2": {"omega": 0.0031416, "period_steps": 2000, "amp_zoh_adj": {"ty": 96.41, "tz": 109.13, "tx": 313.35, "fz": 2.5362}, "snr": {"ty": 18.83, "tz": 21.30, "tx": 180.55, "fz": 183.02}},
+    "y_f1": {"omega": 0.012566, "period_steps": 500, "amp_zoh_adj": {"ty": 8.0495, "tz": 35.85, "tx": 411.06, "fz": null}, "snr": {"ty": 1.15, "tz": 4.73, "tx": 154.81, "fz": null}},
+    "y_f2": {"omega": 0.0031416, "period_steps": 2000, "amp_zoh_adj": {"ty": 109.65, "tz": 79.164, "tx": 305.53, "fz": null}, "snr": {"ty": 22.46, "tz": 15.97, "tx": 119.82, "fz": null}},
+    "r_f1": {"omega": 0.012566, "period_steps": 500, "amp_zoh_adj": {"ty": 0.3204, "tz": 2.9552, "tx": 35.939, "fz": null}, "snr": {"ty": 0.22, "tz": 1.90, "tx": 22.30, "fz": null}},
+    "r_f2": {"omega": 0.0031416, "period_steps": 2000, "amp_zoh_adj": {"ty": 5.7786, "tz": 7.1201, "tx": 26.992, "fz": null}, "snr": {"ty": 11.44, "tz": 12.75, "tx": 14.17, "fz": null}}
+  },
+  "physics_notes": [
+    "俯仰激励: ty 主响应 137.8/96.4 (团块版 57.9/27.5 的 2.4~3.5 倍) — 真实弹体信号质量飞跃",
+    "偏航激励: tx 巨响应 411/306 (SNR 155/120) = X 构型滚转-偏航手性耦合动态面 (与 delta 批/团块版一致, 物理稳健); Cnr 主通道 tz 35.9/79.2",
+    "滚转激励: tx 35.9/27.0 (SNR 22/14) 可用; y 轴批 ty 对偏航激励的响应偏弱 (y_f1 SNR 1.15 <2) — Cnr 提取取 tz 通道与 y_f2/f2 优先",
+    "DC 基线与 delta 批 d0 一致 (fx~-240.94 口径), 数据互洽"
+  ]
+}

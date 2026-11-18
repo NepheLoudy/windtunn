@@ -1,0 +1,791 @@
+snappy	
+foam	= 1876.16 s
+snappy	
+foam	= 1726.4 s
+snappy	
+foam	= 1732.17 s
+snappy	
+foam	= 1765.43 s
+snappy	
+foam	= 1728.07 s
+snappy	
+foam	= 1727.89 s
+snappy	
+foam	= 1715.82 s
+snappy	
+foam	= 1721.87 s
+snappy	
+foam	= 1772.32 s
+snappy	
+foam	= 1709.86 s
+snappy	
+foam	= 1811.99 s
+snappy	
+foam	= 1739.83 s
+snappy	
+foam	= 1748.89 s
+snappy	
+foam	= 1665.8 s
+snappy	
+foam	= 1719.24 s
+snappy	
+foam	= 1720.17 s
+snappy	
+foam	= 1717.01 s
+snappy	
+foam	= 1720.07 s
+snappy	
+foam	= 1719.55 s
+snappy	
+foam	= 1677.93 s
+snappy	
+foam	= 1666.39 s
+snappy	
+foam	= 1729.77 s
+snappy	
+foam	= 1719.72 s
+snappy	
+foam	= 1709.67 s
+snappy	
+foam	= 1725.51 s
+snappy	
+foam	= 1724.71 s
+snappy	
+foam	= 1714.35 s
+snappy	
+foam	= 1766.44 s
+snappy	
+foam	= 1800.38 s
+snappy	
+foam	= 1900.25 s
+snappy	
+foam	= 1862.18 s
+snappy	
+foam	= 1764.98 s
+snappy	
+foam	= 1767.68 s
+snappy	
+foam	= 1833.26 s
+snappy	
+foam	= 1819.49 s
+snappy	
+foam	= 1789.25 s
+snappy	
+foam	= 1818.69 s
+snappy	
+foam	= 1766.6 s
+snappy	
+foam	= 1788.65 s
+snappy	
+foam	= 1734.28 s
+snappy	
+foam	= 1796.75 s
+snappy	
+foam	= 1736.77 s
+snappy	
+foam	= 1788.57 s
+snappy	
+foam	= 1729.69 s
+snappy	
+foam	= 1763.53 s
+snappy	
+foam	= 1733.63 s
+snappy	
+foam	= 1795.44 s
+snappy	
+foam	= 1790.32 s
+snappy	
+foam	= 1802.22 s
+snappy	
+foam	= 1821.83 s
+snappy	
+foam	= 1794.74 s
+foam	= 1642.57 s
+foam	= 1909.53 s
+foam	= 1724.22 s
+foam	= 1691.8 s
+foam	= 1710.91 s
+foam	= 1726.75 s
+foam	= 1726.58 s
+foam	= 1716.29 s
+snappy	
+foam	= 1757.31 s
+foam	= 1757.96 s
+foam	= 1764.93 s
+snappy	
+foam	= 1908.08 s
+snappy	
+foam	= 1903.9 s
+foam	= 1709.75 s
+foam	= 1782.22 s
+snappy	
+foam	= 1808.73 s
+snappy	
+foam	= 1934.52 s
+foam	= 1749.17 s
+foam	= 1769.81 s
+snappy	
+foam	= 1954.02 s
+snappy	
+foam	= 1846.05 s
+foam	= 1671.66 s
+snappy	
+foam	= 1789.75 s
+foam	= 1721.59 s
+foam	= 1714.37 s
+snappy	
+foam	= 1942.49 s
+snappy	
+foam	= 1929.8 s
+foam	= 1718.64 s
+foam	= 1717.58 s
+snappy	
+foam	= 1886.2 s
+snappy	
+foam	= 1964.31 s
+foam	= 1728.14 s
+foam	= 1694.2 s
+snappy	
+foam	= 1915.54 s
+snappy	
+foam	= 1920.99 s
+foam	= 1665.65 s
+snappy	
+foam	= 1791.34 s
+foam	= 1736.7 s
+foam	= 1726.18 s
+snappy	
+foam	= 1957.42 s
+snappy	
+foam	= 1956.47 s
+foam	= 1724.27 s
+foam	= 1730.95 s
+snappy	
+foam	= 1864.55 s
+snappy	
+foam	= 1969.27 s
+foam	= 1721.16 s
+foam	= 1713.18 s
+snappy	
+foam	= 1861.41 s
+snappy	
+foam	= 1957.61 s
+foam	= 1742.57 s
+snappy	
+foam	= 1814.64 s
+foam	= 1791.28 s
+foam	= 1833.66 s
+foam	= 1837.09 s
+snappy	
+foam	= 1845.6 s
+foam	= 1782.37 s
+foam	= 1861 s
+foam	= 1723.86 s
+snappy	
+foam	= 1807.31 s
+foam	= 1802.92 s
+foam	= 1777.86 s
+snappy	
+foam	= 1990.36 s
+snappy	
+foam	= 1797.53 s
+foam	= 1795.88 s
+snappy	
+foam	= 1991.87 s
+foam	= 1788.1 s
+foam	= 1734.35 s
+snappy	
+foam	= 1886.14 s
+snappy	
+foam	= 1954.42 s
+foam	= 1788.04 s
+foam	= 1734.9 s
+snappy	
+foam	= 1932.82 s
+snappy	
+foam	= 1873.54 s
+foam	= 1761.28 s
+foam	= 1715.26 s
+snappy	
+foam	= 1959.63 s
+snappy	
+foam	= 1922.44 s
+foam	= 1776.58 s
+snappy	
+foam	= 1827.9 s
+foam	= 1758.56 s
+foam	= 1787.8 s
+snappy	
+foam	= 1851.68 s
+snappy	
+foam	= 1888.39 s
+foam	= 1812.86 s
+foam	= 1775.26 s
+snappy	
+foam	= 1853.62 s
+snappy	
+foam	= 1885.64 s
+foam	= 1808.02 s
+foam	= 1833.61 s
+snappy	
+foam	= 1847.19 s
+snappy	
+foam	= 1803.56 s
+snappy	
+foam	= 2131.84 s
+snappy	
+foam	= 1748.79 s
+snappy	
+foam	= 2015.89 s
+snappy	
+foam	= 1694.7 s
+snappy	
+foam	= 1858.1 s
+snappy	
+foam	= 1904.27 s
+snappy	
+foam	= 1820.79 s
+snappy	
+foam	= 1828.11 s
+foam	= 1800.03 s
+snappy	
+foam	= 1769.79 s
+snappy	
+foam	= 1859.15 s
+foam	= 1895.65 s
+foam	= 1917.98 s
+snappy	
+foam	= 1851.76 s
+snappy	
+foam	= 1752.86 s
+foam	= 1877.27 s
+foam	= 1915.68 s
+snappy	
+foam	= 1875.84 s
+snappy	
+foam	= 1864.87 s
+foam	= 1846.72 s
+foam	= 1840.43 s
+snappy	
+foam	= 1694 s
+foam	= 1810.57 s
+snappy	
+foam	= 1727.86 s
+snappy	
+foam	= 1831.1 s
+foam	= 1905.92 s
+foam	= 1981.15 s
+snappy	
+foam	= 1734.62 s
+snappy	
+foam	= 1772.08 s
+foam	= 1874.96 s
+foam	= 1899.71 s
+snappy	
+foam	= 1749.08 s
+snappy	
+foam	= 1741.28 s
+foam	= 1934.85 s
+foam	= 1865.73 s
+snappy	
+foam	= 1704.05 s
+foam	= 1827.49 s
+snappy	
+foam	= 1871.22 s
+snappy	
+foam	= 1739.95 s
+foam	= 1889.89 s
+foam	= 1946.82 s
+snappy	
+foam	= 1722.26 s
+snappy	
+foam	= 1746.07 s
+foam	= 1972.87 s
+foam	= 1906.37 s
+snappy	
+foam	= 1724.42 s
+snappy	
+foam	= 1775.58 s
+foam	= 1910.69 s
+foam	= 1950.87 s
+snappy	
+foam	= 1853.09 s
+foam	= 1781.55 s
+snappy	
+foam	= 1862.43 s
+snappy	
+foam	= 1882.07 s
+snappy	
+foam	= 2040.53 s
+foam	= 1765.81 s
+snappy	
+foam	= 1885.32 s
+snappy	
+foam	= 1839.81 s
+snappy	
+foam	= 1958.94 s
+foam	= 1824.58 s
+snappy	
+foam	= 1849.23 s
+snappy	
+foam	= 1764.76 s
+foam	= 1964.59 s
+foam	= 1861.01 s
+snappy	
+foam	= 1776.72 s
+foam	= 1981.1 s
+snappy	
+foam	= 1869.05 s
+snappy	
+foam	= 1828.63 s
+foam	= 1898.01 s
+foam	= 1937.89 s
+snappy	
+foam	= 1773.83 s
+snappy	
+foam	= 1761.47 s
+foam	= 1879.75 s
+foam	= 1917.57 s
+snappy	
+foam	= 1859.77 s
+snappy	
+foam	= 1879.86 s
+foam	= 1952.06 s
+foam	= 1938.09 s
+snappy	
+foam	= 1856.88 s
+foam	= 1870.77 s
+snappy	
+foam	= 1831.85 s
+snappy	
+foam	= 1873.16 s
+foam	= 1844.19 s
+foam	= 1890.87 s
+snappy	
+foam	= 1872.77 s
+snappy	
+foam	= 1902.86 s
+foam	= 1860.5 s
+foam	= 1825.94 s
+snappy	
+foam	= 1782.27 s
+snappy	
+foam	= 1810.48 s
+foam	= 1950.27 s
+foam	= 1904.75 s
+foam	= 5093.2 s
+foam	= 1765.48 s
+foam	= 2008.28 s
+foam	= 1686.89 s
+foam	= 1893.07 s
+foam	= 1769.16 s
+foam	= 1851.72 s
+foam	= 1823.69 s
+foam	= 1809.82 s
+foam	= 1869.31 s
+foam	= 1831.51 s
+foam	= 1916.69 s
+foam	= 1827.58 s
+foam	= 1772.63 s
+foam	= 1861.61 s
+foam	= 1862.56 s
+foam	= 1800.61 s
+foam	= 1894.09 s
+foam	= 1753.36 s
+foam	= 1868.92 s
+foam	= 1922.59 s
+foam	= 1705.62 s
+foam	= 1777.17 s
+foam	= 1733.79 s
+foam	= 1836.96 s
+foam	= 1892.19 s
+foam	= 1946.73 s
+foam	= 1739.84 s
+foam	= 1869.47 s
+foam	= 1919.45 s
+foam	= 1946.37 s
+foam	= 1792.4 s
+foam	= 1711.41 s
+foam	= 1876.23 s
+foam	= 1881.82 s
+foam	= 1684.61 s
+foam	= 1769.39 s
+foam	= 1837.39 s
+foam	= 1733.26 s
+foam	= 1971.09 s
+foam	= 1929.61 s
+foam	= 1723.19 s
+foam	= 1739.39 s
+foam	= 2009.6 s
+foam	= 1928.33 s
+foam	= 1725.21 s
+foam	= 1755.53 s
+foam	= 1912.15 s
+foam	= 1909.94 s
+foam	= 1822.18 s
+foam	= 1892.01 s
+foam	= 1861.79 s
+foam	= 1869.34 s
+foam	= 1949.71 s
+foam	= 1859.33 s
+foam	= 1756.29 s
+foam	= 1732.73 s
+foam	= 1986.38 s
+foam	= 1756.05 s
+foam	= 1892.01 s
+foam	= 1860.56 s
+foam	= 1976.57 s
+foam	= 1783.64 s
+foam	= 1798.59 s
+foam	= 1902.59 s
+foam	= 1801.5 s
+foam	= 1844.18 s
+foam	= 1898.08 s
+foam	= 1915.34 s
+foam	= 1777.2 s
+foam	= 1870.59 s
+foam	= 1816.7 s
+foam	= 1879.14 s
+foam	= 1847.83 s
+foam	= 1790.93 s
+foam	= 1986.02 s
+foam	= 1899.04 s
+foam	= 1834.12 s
+foam	= 1886.66 s
+foam	= 1716.85 s
+foam	= 1839.61 s
+foam	= 1841.01 s
+foam	= 1938.54 s
+foam	= 1869.1 s
+foam	= 1755.73 s
+foam	= 1860.51 s
+foam	= 1929.02 s
+foam	= 1847.91 s
+foam	= 1724.78 s
+foam	= 1933.3 s
+foam	= 1815.04 s
+foam	= 1722.88 s
+foam	= 1821.35 s
+foam	= 1914.74 s
+foam	= 1825.3 s
+foam	= 1899.09 s
+foam	= 1761.82 s
+foam	= 1931.08 s
+foam	= 1804.29 s
+foam	= 1899.37 s
+foam	= 1749.85 s
+foam	= 1769.73 s
+foam	= 2012.38 s
+foam	= 1895.49 s
+foam	= 1802.28 s
+foam	= 1855.53 s
+foam	= 1856.7 s
+foam	= 1869.38 s
+foam	= 1788.88 s
+foam	= 1869.09 s
+foam	= 1911.45 s
+foam	= 1800.41 s
+foam	= 1752.45 s
+foam	= 1839.62 s
+foam	= 1735.8 s
+foam	= 1732.54 s
+foam	= 1897.37 s
+foam	= 1989.09 s
+foam	= 1725.68 s
+foam	= 1773.43 s
+foam	= 1981.68 s
+foam	= 1860.65 s
+foam	= 1751.16 s
+foam	= 1724.86 s
+foam	= 1924.17 s
+foam	= 1910.73 s
+foam	= 1672.56 s
+foam	= 1800.31 s
+foam	= 1755.76 s
+foam	= 1736.56 s
+foam	= 1865.64 s
+foam	= 1840.73 s
+foam	= 1771.77 s
+foam	= 1744.98 s
+foam	= 1922.16 s
+foam	= 1967.77 s
+foam	= 1731.35 s
+foam	= 1736.22 s
+foam	= 1904.34 s
+foam	= 1934.19 s
+foam	= 1810.9 s
+foam	= 1772.78 s
+foam	= 1839.62 s
+foam	= 1901.48 s
+foam	= 2035.21 s
+foam	= 1882.45 s
+foam	= 1767.51 s
+foam	= 1733.55 s
+foam	= 1982.54 s
+foam	= 1823.3 s
+foam	= 1805.18 s
+foam	= 1799.28 s
+foam	= 1932 s
+foam	= 1900.29 s
+foam	= 1825.41 s
+foam	= 2008.3 s
+foam	= 1819.15 s
+foam	= 1844.95 s
+foam	= 1854.09 s
+foam	= 1890.25 s
+foam	= 1865.67 s
+foam	= 1879.28 s
+foam	= 1889.31 s
+foam	= 1888.76 s
+foam	= 1806.18 s
+foam	= 1750.54 s
+foam	= 1933.62 s
+foam	= 1939.43 s
+foam	= 1841.53 s
+foam	= 1802.92 s
+foam	= 1838.99 s
+foam	= 1875.76 s
+foam	= 1937.48 s
+foam	= 1918.52 s
+foam	= 1864.84 s
+foam	= 1876.1 s
+foam	= 1879.7 s
+foam	= 1900.76 s
+foam	= 1898.63 s
+foam	= 1866.42 s
+foam	= 1928.24 s
+foam	= 1943.61 s
+foam	= 5133.16 s
+foam	= 1871.18 s
+foam	= 1934.61 s
+foam	= 1737.87 s
+foam	= 1878.32 s
+foam	= 1879.01 s
+foam	= 2035.61 s
+foam	= 1707.38 s
+foam	= 1770.31 s
+foam	= 1762.05 s
+foam	= 1758.92 s
+foam	= 1898.76 s
+foam	= 1851.97 s
+foam	= 1855.67 s
+foam	= 1857.48 s
+foam	= 1851.42 s
+foam	= 1916.2 s
+foam	= 1892 s
+foam	= 1837.42 s
+foam	= 1886.38 s
+foam	= 1817.14 s
+foam	= 1683.99 s
+foam	= 1770.33 s
+foam	= 1732.4 s
+foam	= 1724.55 s
+foam	= 1957.83 s
+foam	= 1836.42 s
+foam	= 1731.79 s
+foam	= 1875.95 s
+foam	= 1845.5 s
+foam	= 1920.97 s
+foam	= 1755.91 s
+foam	= 1770.29 s
+foam	= 1871.85 s
+foam	= 1898.08 s
+foam	= 1677.06 s
+foam	= 1844.52 s
+foam	= 1754.27 s
+foam	= 1733.92 s
+foam	= 1933.93 s
+foam	= 1880.64 s
+foam	= 1848.12 s
+foam	= 1742.43 s
+foam	= 1862.65 s
+foam	= 1933.78 s
+foam	= 1733.23 s
+foam	= 1729.33 s
+foam	= 1965.05 s
+foam	= 1965.16 s
+foam	= 1748.57 s
+foam	= 1800.01 s
+foam	= 1805.96 s
+foam	= 1868.25 s
+foam	= 2028.88 s
+foam	= 1887.21 s
+foam	= 1897.83 s
+foam	= 1835.77 s
+foam	= 1979.84 s
+foam	= 1836.18 s
+foam	= 1846.09 s
+foam	= 1754.45 s
+foam	= 1966.9 s
+foam	= 1885.13 s
+foam	= 1770.64 s
+foam	= 1976.18 s
+foam	= 1771.56 s
+foam	= 1806.19 s
+foam	= 1981.32 s
+foam	= 1753.63 s
+foam	= 1769.97 s
+foam	= 1873.19 s
+foam	= 1897.52 s
+foam	= 1830.96 s
+foam	= 1799.97 s
+foam	= 1764.12 s
+foam	= 2013.67 s
+foam	= 2006.19 s
+foam	= 1866.7 s
+foam	= 1905.35 s
+foam	= 1826.61 s
+foam	= 1884.5 s
+foam	= 1861.86 s
+foam	= 1856.21 s
+foam	= 1857.85 s
+foam	= 1841.24 s
+foam	= 1904.27 s
+foam	= 2054.56 s
+foam	= 1857.85 s
+foam	= 1813.68 s
+foam	= 1886.34 s
+foam	= 1834.47 s
+snappy	
+foam	= 6596.2 s
+foam	= 1831.56 s
+foam	= 1725.39 s
+foam	= 1842.47 s
+foam	= 1714.4 s
+foam	= 1728.24 s
+foam	= 1726.34 s
+foam	= 1739.83 s
+foam	= 1755.61 s
+foam	= 1763.16 s
+foam	= 1779.43 s
+foam	= 1894.52 s
+foam	= 1841.42 s
+foam	= 1708.04 s
+foam	= 1801.52 s
+foam	= 1902.87 s
+foam	= 1872.35 s
+foam	= 1764.65 s
+foam	= 1780.59 s
+foam	= 1871.38 s
+foam	= 1946.03 s
+foam	= 1666.99 s
+foam	= 1864.05 s
+foam	= 1717.37 s
+foam	= 1710.13 s
+foam	= 1892.47 s
+foam	= 1946.34 s
+foam	= 1711.76 s
+foam	= 1746.24 s
+snappy	
+foam	= 1878.25 s
+foam	= 1971.26 s
+foam	= 1718.68 s
+foam	= 1703.62 s
+foam	= 1883.59 s
+foam	= 1872.65 s
+foam	= 1677.98 s
+foam	= 1826.87 s
+foam	= 1738.74 s
+foam	= 1706.99 s
+foam	= 1960.99 s
+foam	= 1922.89 s
+foam	= 1723.38 s
+foam	= 1732.66 s
+foam	= 1931.8 s
+foam	= 1910.66 s
+foam	= 1714.14 s
+foam	= 1716.64 s
+foam	= 1896.09 s
+foam	= 1894 s
+foam	= 1789.17 s
+foam	= 1789.32 s
+foam	= 1819.95 s
+foam	= 1781.19 s
+foam	= 1860.12 s
+foam	= 1823.35 s
+foam	= 1780.77 s
+foam	= 1727.16 s
+foam	= 1714.27 s
+foam	= 1876.21 s
+foam	= 1822.84 s
+foam	= 1919.96 s
+foam	= 1853.03 s
+foam	= 1765.14 s
+foam	= 1761.76 s
+foam	= 2033.47 s
+foam	= 1768.7 s
+foam	= 1719.76 s
+foam	= 2039.54 s
+foam	= 1829.04 s
+foam	= 1815.43 s
+foam	= 1738.04 s
+foam	= 1841.52 s
+foam	= 1813.52 s
+foam	= 1789.46 s
+foam	= 1710.13 s
+foam	= 2039.28 s
+foam	= 2018.7 s
+foam	= 1774.46 s
+foam	= 1898.35 s
+foam	= 1774.54 s
+foam	= 1803.87 s
+foam	= 1932.94 s
+foam	= 1861.48 s
+foam	= 1786.24 s
+foam	= 1802.88 s
+foam	= 1886.12 s
+foam	= 1935.35 s
+foam	= 1772 s
+foam	= 1756.98 s
+foam	= 1850.32 s
+foam	= 1798.48 s
+foam	= 1826.94 s
+foam	= 1766.26 s
+foam	= 1803.3 s
+foam	= 1756.93 s
+foam	= 1724.91 s
+foam	= 1730.9 s
+foam	= 1719.34 s
+foam	= 1770.56 s
+foam	= 1768.36 s
+foam	= 1716.62 s
+foam	= 1781.72 s
+foam	= 1775.22 s
+foam	= 1761.26 s
+foam	= 1674.64 s
+foam	= 1727.38 s
+foam	= 1714.95 s
+foam	= 1726.97 s
+foam	= 1750.34 s
+foam	= 1735.3 s
+foam	= 1694.72 s
+foam	= 1662.28 s
+foam	= 1743.33 s
+foam	= 1717.43 s
+foam	= 1715.65 s
+foam	= 1728.89 s
+foam	= 1715.76 s
+foam	= 1723.43 s
+foam	= 1782.73 s
+foam	= 1802.95 s
+foam	= 1750.79 s
+foam	= 1753.58 s
+foam	= 1780.99 s
+foam	= 1866.24 s
+foam	= 1794.77 s
+foam	= 1804.58 s
+foam	= 2096.69 s
+foam	= 1739.74 s
+foam	= 1789.66 s
+foam	= 1734.81 s
+foam	= 1809.4 s
+foam	= 1735.59 s
+foam	= 1791.4 s
+foam	= 1695.84 s
+foam	= 1771.22 s
+foam	= 1771.71 s
+foam	= 1778.97 s
+foam	= 1781.44 s
+foam	= 1790.38 s
+foam	= 1772.61 s
+foam	= 1742.87 s
