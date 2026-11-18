@@ -36,8 +36,9 @@ cd "$CASE"
 
 if [ -n "$ET" ]; then
   sed -i "s/^endTime.*/endTime         $ET;/" system/controlDict
-  # T1 档 (SURF_LEVEL>=6): endTime 上限抬到 3000, 收敛由 residualControl 1e-5 判停 (roadmap 对齐)
-  if [ "${SURF_LEVEL:-0}" -ge 6 ]; then
+  # T1 档 (FIN_LEVEL>=8, roadmap: fin L8 专属 3000 步): 收敛由 residualControl 1e-5 判停
+  # 2026-11-19 值班修复: 原触发 SURF_LEVEL>=6 过宽, 把 FIN=7 的 T0.5 档(P01)误伤进 3000 步口径(每例 190min vs 38min, ETA 8h→35h)
+  if [ "${FIN_LEVEL:-0}" -ge 8 ]; then
     sed -i "s/^endTime.*/endTime         3000;/" system/controlDict
   fi
 fi
