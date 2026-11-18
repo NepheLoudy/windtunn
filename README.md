@@ -78,10 +78,12 @@ CAD (STEP 30 实体) ──解析──> 镖体装配 (B 系, 114.6×239.3mm, X 
 - **跨引擎互证**: FVM↔LBM 对拍 CD −0.14% (六项全<2%); 生产端↔lookup_aero 风轴往返 89 点 2.8e-15;
   同输入重跑 bit-identical。**OpenFOAM 线 = 定量真源, GPU 线 = 定性结论源 + 快扫**。
 - **生产纪律**: qianli 链式生产 (桌面退出数据生产); 断电三防 (桌面哨兵 30min 拉回 + recover 回填 +
-  chain 补跑); 表 append-only, 出域警告即补点队列。多机协作协议见
-  [docs/compute_node_protocol.md](docs/compute_node_protocol.md);
-  **新机器加入算力池**（环境/冒烟/对拍/发车三道验证/禁令速查）见
-  [docs/new_node_onboarding.md](docs/new_node_onboarding.md)。
+  chain 补跑); 表 append-only, 出域警告即补点队列。**多机协同现行协议（四机任务包, 2026-11-19）见
+  [docs/task_pack_protocol.md](docs/task_pack_protocol.md)**（历史两机方案存档于
+  [docs/compute_node_protocol.md](docs/compute_node_protocol.md)）;
+  **新机器加入算力池**（环境/冒烟/对拍/领包三道验证/禁令速查）见
+  [docs/new_node_onboarding.md](docs/new_node_onboarding.md);
+  算力现状看每日晨报 `wt_jobs/MORNING_REPORT_*.md`。
 - **数据分层**: 大体积运行数据 (vtk 快照 ~110G+) 跑完即归档 NAS vault, 本地只留运算端 ——
   `bash wt/wt.sh push/pull`, 手册 [docs/data-vault.md](docs/data-vault.md)。
 - **对接文档链**: [guidance_loop_dev_spec.md](docs/guidance_loop_dev_spec.md) (接口/坐标系/验收) →

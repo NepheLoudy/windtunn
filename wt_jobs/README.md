@@ -2,6 +2,7 @@
 
 > 2026-10-29 | 曼波定: 桌面机只打杂 + 任务要"随时开关"。
 > 每个任务 = 双击一个 bat, 跑完自动退出 (J2 是服务, 计划任务隐藏保活), **无常驻后台、无状态依赖、幂等**。
+> 状态注记 (2026-11-19): J2 当前 **disabled** (`j2_task_disabled.flag` 哨兵存在时 vbs 保活退出); 四机协同的算力现状看 `fleet_status.log` (FleetMonitor 每 30min) 与 `MORNING_REPORT_<date>.md` (04:00 自动生成); 协议见 `docs/task_pack_protocol.md`。
 
 ## 任务一览
 

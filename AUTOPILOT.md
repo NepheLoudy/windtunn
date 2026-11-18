@@ -36,7 +36,7 @@ cd ~/openfoam/windtunnel-mrf"
 - **渲染管线**：✅ slices_of（掩膜已修+双轮视觉验收 PASS，像素 LUT 反演 vs FO 体平均互证 12.8/12.78）；slice_sweep.m GIF 链✓；**orbit_of.m 整体环绕✓（风洞本体+叶轮+三层等值面+纵切板, 36帧 mp4+gif, 视觉验收 PASS）**；**transient_mov.m 瞬态动态视频✓（叶轮按真实 ω 合成旋转+瞬态流动演化, 1180rpm 演示片已交付 3/3 PASS）**。foamToVTK 必须 `-ascii` + 先 `foamPostProcess -func writeCellCentres -time <t>`（多时刻导出用冒号区间 `-time '3000:'` + `-useTimeName`，C 场覆盖全部导出时刻）。**渲染产物归档 `renders/of/<日期_内容>/`，禁止放 case 内**（生成器 rmdir 连删）。MATLAB 图形层坑见 devlog 2026-10-06 两条（histcounts3 没了/accumarray 下标矩阵/surface texturemap ZData/exportgraphics 紧裁剪帧尺寸/rgb2ind 双输出）。
 - **瞬态 MRF 能力（2026-10-06 打通）**：case 配置已瞬态化（backward+PIMPLE+Final 解算器条目），从稳态场热启 0.05s×374 步无发散。**v12 瞬态重启三坑见 devlog 18:07 条**（uniform/time 存的 deltaT 覆盖 controlDict / PIMPLE 要 pFinal+*Final / foamToVTK 冒号区间+useTimeName）。演示解 maxCo 10+PISO(nOuter 1)；**定量瞬态的 dt 被 skew 尖峰格钳在 ~7e-5（Co max 11）——T3 清理后成本可降 ~6 倍**。
 - **已知病灶**：skew faces 已清零（Mesh OK 首达，Q 震荡带 σ 减半 0.008）；**170 m/s 尖峰=叶尖/MRF 区界面伪影**（r≈0.18 排线定位，skew 清理无效证明非网格质量 issue）——积分量无污染，处置候选挂 §7（MRF 区半径放大/界面加密/接受）。
-- **Q 差距主攻方向**（0.61/0.75 vs 1.38）：瞬态旋转（方案见 docs/transient_rotation_plan.md）> 网格加密 > 真叶片厚 3mm。
+- **Q 差距主攻方向**（0.61/0.75 vs 1.38）：瞬态旋转（方案见 docs/legacy-windtunnel/transient_rotation_plan.md）> 网格加密 > 真叶片厚 3mm。
 
 ## 3. 任务队列（按优先级；完成一项勾一项并写状态）
 
@@ -48,7 +48,7 @@ cd ~/openfoam/windtunnel-mrf"
 | T3 | skew faces 清理 | ✅ 2026-10-06 #4 轮收官: sphere 档重验完成（960rpm 2000 步, T3 收紧版 mesh）— Q=0.611/tsMean=10.39 与健康窗一致, **尖峰 170.7 仍在 → 界面伪影归因最终确认**（与转速/球档无关）; skew 清理收益=震荡带减半+Mesh OK, 定量可信度提升; 残留伪影处置挂 §7 | §4.3 |
 | T4 | 试验段横截面切片掩膜方向修复 | ✅ 2026-10-06：cnt2 转置修复+非对称网格单元测试实证+视觉验收 PASS | §4.4 |
 | T5 | GIF 输出：切片扫动动画 | ✅ 2026-10-06：slice_sweep.m 新增（114 帧 GIF 产出于 renders/of/2026-10-06_1180rpm/） | §4.5 |
-| T6 | Q 差距主攻 A：瞬态旋转可行性调研 | ✅ 2026-10-06：`docs/transient_rotation_plan.md`（两阶段：瞬态 MRF → createNonConformalCouples 真滑移；overset 无教程生态排除；核心洞察=790/1080 发散可能是稳态解存在性问题，瞬态可解锁扫掠） | §4.6 |
+| T6 | Q 差距主攻 A：瞬态旋转可行性调研 | ✅ 2026-10-06：`docs/legacy-windtunnel/transient_rotation_plan.md`（两阶段：瞬态 MRF → createNonConformalCouples 真滑移；overset 无教程生态排除；核心洞察=790/1080 发散可能是稳态解存在性问题，瞬态可解锁扫掠） | §4.6 |
 | T7 | 3mm OF 交叉验证可行性评估（.wslconfig 扩内存 → 全域加密档位测算） | ⬜ | §4.7 |
 | T8 | 全量代码与结构审查 | 🔶 定向预审完成（probe_flow P1 坐标错位已修、sphere_run 弃用标注、extract_sweep legend 修复、fixline/.broken 归档）；剩 gen_openfoam_mrf.m 本体全量审计 | — |
 | T9 | 遗留数据 NAS 迁移（~101 GiB，wt migrate 计划已出） | ✅ **11-03 销账**：回执 7/7 PASS 属实（v1 日志失败记录是老版本残影）；NAS 实测 flow3d_result.mat=305,571,468 字节完整在档，vault 六项+表推送齐（evt_003 风险→evt_004 解除） | docs/data-vault.md §2、migration_receipt_1030.md |
@@ -81,7 +81,7 @@ cd ~/openfoam/windtunnel-mrf"
 对收敛场：沿 x 从 -1.0 到 2.4 步进 3cm，每帧画 y=0 切片云图+当前位置竖线 → `imwrite` 帧 → `gif`（MATLAB）或 ffmpeg 合成。输出 `slice_sweep.gif`。
 
 ### 4.6 T6 瞬态旋转调研
-产出 `docs/transient_rotation_plan.md`：pimpleFoam+dynamicMesh（AMI 滑移网格）vs MRF 瞬态 vs overlappingMesh 的方案对比、网格/算力需求（7GB WSL 约束）、预期精度收益、实施步骤。只写方案不动代码。
+产出 `docs/legacy-windtunnel/transient_rotation_plan.md`：pimpleFoam+dynamicMesh（AMI 滑移网格）vs MRF 瞬态 vs overlappingMesh 的方案对比、网格/算力需求（7GB WSL 约束）、预期精度收益、实施步骤。只写方案不动代码。
 
 ### 4.7 T7 3mm OF 评估
 `C:\Users\nebula\.wslconfig` 设 `memory=24GB` 后 `wsl --shutdown` 重启生效（需确认宿主机物理内存 ≥32GB）。全域 3mm ≈ 30-40M 格（不可行）；涵道+试验段 4mm ≈ 4-6M（可行）。写评估到 §6。

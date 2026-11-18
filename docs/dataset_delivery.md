@@ -1,5 +1,7 @@
 # 气动数据集交付说明 v0.97-handoff
 
+> 2026-11-19 增量：V10-20 扩域由四机任务包生产（P01 分片中），合并侧经 verify_tables.py 六道关校验后入正本；协议见 `docs/task_pack_protocol.md`。
+
 > 2026-11-15 | CFD 侧交付 | 对接文档: `guidance_loop_dev_spec.md` (v0.8) | 控制路线: `control_approach_roadmap.md` | 项目谱系: `aeroacoustic_project_versions.md` (ver1.0→1.2)
 > **状态: v0.97 急交付版** — T0 全表 (δ=0) 546/546 全表达成 (2026-11-15 10:30, a0_b0 家族松弛 0.5 一轮治愈) +
 > damp 动导数实装 + 舵效批今晚出数。v0.96 声明保留于文末历史节。

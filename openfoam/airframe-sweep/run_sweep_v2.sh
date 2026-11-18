@@ -11,10 +11,16 @@ ROOT=${1:?usage: SWEEP_V=... SWEEP_ALPHA=... SWEEP_BETA=... ./run_sweep_v2.sh <r
 NP=${2:-8}
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 OUT_CSV=${OUT_CSV:-"$HERE/../../guidance_sim/aero/aero_table.csv"}
-SWEEP_V=${SWEEP_V:-"20 21 22 23 24 25"}
-SWEEP_ALPHA=${SWEEP_ALPHA:-"-15 -12.5 -10 -7.5 -5 -2.5 0 2.5 5 7.5 10 12.5 15"}
-SWEEP_BETA=${SWEEP_BETA:-"-15 -10 -5 0 5 10 15"}
-GEOM=${GEOM_DIR:-"$HERE/cfd_geom_multi"}
+# 缺省即报错 (E1, 2026-11-19 审查): 默认旧域会静默写错行; 走 run_pack.sh 领包才是正规入口
+# ${OUT_CSV+x} 判"是否显式传入" (默认值会写交付正本, 必须显式)
+if [ -z "${SWEEP_V:-}" ] || [ -z "${SWEEP_ALPHA:-}" ] || [ -z "${SWEEP_BETA:-}" ] || [ -z "${OUT_CSV+x}" ]; then
+  echo "FATAL: 缺 env (SWEEP_V/SWEEP_ALPHA/SWEEP_BETA/OUT_CSV) — 请走 sweep_packs/run_pack.sh 领包, 不直接调本脚本" >&2
+  exit 2
+fi
+SWEEP_V=${SWEEP_V}
+SWEEP_ALPHA=${SWEEP_ALPHA}
+SWEEP_BETA=${SWEEP_BETA}
+GEOM=${GEOM_DIR:-"$HERE/cad/v1/cfd_geom_multi_parallel"}
 SURF_LEVEL=${SURF_LEVEL:-5}
 FIN_LEVEL=${FIN_LEVEL:-7}
 BOX_LEVEL=${BOX_LEVEL:-3}
