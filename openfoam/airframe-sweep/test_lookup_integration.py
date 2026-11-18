@@ -9,7 +9,9 @@ import numpy as np
 sys.path.insert(0, r'D:/WindTunnelSuite/guidance_sim/aero')
 import lookup_aero as la
 
-SRC = r'C:/Users/nebula/AppData/Local/Temp/master_test.csv'
+# SRC 可 argv 覆盖; 默认正式表 (四机 P01 合并回正本后直接重跑全表)
+#   usage: py -3 test_lookup_integration.py [SRC_CSV]
+SRC = sys.argv[1] if len(sys.argv) > 1 else r'D:/WindTunnelSuite/guidance_sim/aero/aero_table.csv'
 fails = []
 def check(name, cond, detail=''):
     print(('  OK  ' if cond else '  FAIL'), name, detail)
@@ -40,18 +42,19 @@ for r in sub:
     maxerr = max(maxerr, max(abs(g-e) for g, e in zip(got, exp)))
 check('2) 角点恒等 (%d 行全采)' % len(sub), maxerr < 5e-4, 'max|Δ|=%.2e' % maxerr)
 
-# 3) V 维中点插值 = 两档均值 (同姿态)
-lo = next(r for r in sub if float(r['V'])==15.0 and float(r['alpha'])==-15.0 and float(r['beta'])==-15.0)
-hi = next(r for r in sub if float(r['V'])==20.0 and float(r['alpha'])==-15.0 and float(r['beta'])==-15.0)
-c = t.coeffs(17.5, -15.0, -15.0, 0.0, 0.0, 0.0)
+# 3) V 维中点插值 = 两档均值 (同姿态) — V 档动态选取, 不硬编码 (正式表 V 域会扩)
+v_lo, v_hi = sorted({float(r['V']) for r in sub})[:1] + sorted({float(r['V']) for r in sub})[-1:]
+lo = next(r for r in sub if float(r['V'])==v_lo and float(r['alpha'])==-15.0 and float(r['beta'])==-15.0)
+hi = next(r for r in sub if float(r['V'])==v_hi and float(r['alpha'])==-15.0 and float(r['beta'])==-15.0)
+c = t.coeffs((v_lo + v_hi) / 2, -15.0, -15.0, 0.0, 0.0, 0.0)
 exp = [(float(lo[col]) + float(hi[col]))/2 for col in ('CL','CD','Cm','CY','Cl','Cn')]
 got = [c['CL'], c['CD'], c['Cm'], c['CY'], c['Cl'], c['Cn']]
 err = max(abs(g-e) for g, e in zip(got, exp))
-check('3) V 中点插值=两档均值', err < 1e-3, 'max|Δ|=%.2e' % err)
+check('3) V 中点插值=两档均值 (V %g/%g)' % (v_lo, v_hi), err < 1e-3, 'max|Δ|=%.2e' % err)
 
-# 4) 全链出口: lookup_aero → F_B 量级 sanity (q̄S×CD 量级)
-F, M = la.lookup_aero(15.0, -15.0, -15.0, 0.0, 0.0, 0.0, table=t)
-qS = 0.5*1.225*15.0**2*0.010306121
+# 4) 全链出口: lookup_aero → F_B 量级 sanity (q̄S×CD 量级) — V 取域内值
+F, M = la.lookup_aero(v_lo, -15.0, -15.0, 0.0, 0.0, 0.0, table=t)
+qS = 0.5*1.225*v_lo**2*0.010306121
 cd = float(lo['CD'])
 check('4) F 模长 ~ q̄S×|C| 量级', 0.2*qS < np.linalg.norm(F) < 2.0*qS,
       '|F|=%.3f qS=%.3f CD=%.3f' % (np.linalg.norm(F), qS, cd))

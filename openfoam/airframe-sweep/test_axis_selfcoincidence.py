@@ -6,8 +6,12 @@
 测试: 对三个候选轴 (assembly / STL-Hough / 旧find_hinges), 把轴套区点绕其转 ±30°,
      测转后点云到原点云的最近邻中位距离。谁≈0 谁是真轴。
 另外: 网格搜索轴心偏移, 找"自重合最优"的轴心 — 反推真轴位置。"""
-import struct, json
+import struct, json, os
 import numpy as np
+
+# 相对路径基于脚本自身位置解析 (防 cwd 依赖, 2026-11-19 审查)
+BASE = os.path.dirname(os.path.abspath(__file__))
+os.chdir(BASE)
 
 def load(p):
     d = open(p, 'rb').read()
