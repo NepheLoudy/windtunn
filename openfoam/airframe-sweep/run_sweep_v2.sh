@@ -1,7 +1,10 @@
 #!/usr/bin/env bash
 # 扫气引擎 v2: 网格复用 (同一 (alpha,beta,delta) 几何组的 V 扫描只建一次网格)
-#   usage: SWEEP_V="15 20 25 30" SWEEP_ALPHA="..." SWEEP_BETA="..." \
+#   usage: SWEEP_V="15 20 25 30" SWEEP_ALPHA="..." SWEEP_BETA="..." OUT_CSV=<表路径> \
 #          ./run_sweep_v2.sh <work_root> [nproc]
+#   SWEEP_V/SWEEP_ALPHA/SWEEP_BETA 缺失即 FATAL (E1 守卫); OUT_CSV 未显式时守卫不拦、
+#   会落默认交付正本路径 — 直跑必须显式带 OUT_CSV; 正规入口 = sweep_packs/run_pack.sh 领包
+#   其余 env: GEOM_DIR (默认 cad/v1/cfd_geom_multi_parallel 真源) / SURF_LEVEL=5 / FIN_LEVEL=7 / BOX_LEVEL=3
 #
 # 断点续传: case 的 results.json 存在则跳过; 网格缓存: 首个 V 建网格, 其余 clone_case。
 # endTime 按 |alpha| 分档: <=5° -> 600 | 7.5~12.5° -> 1000 | 15° -> 1500
@@ -45,7 +48,9 @@ declare -A DONE_SET
 norm_key() { printf 'V%g_a%g_b%g' "$1" "$2" "$3"; }
 if [ -f "$OUT_CSV" ]; then
   while IFS=, read -r V A B DE DA DR REST; do
+    # 只吃数据行: 跳过注释/空行/列名行 (V 开头非数字) — 列名行喂 printf %g 会报错+set -e 炸脚本 (2026-11-19 07:00 值班)
     case "$V" in ''|'#'*) continue;; esac
+    [[ "$V" =~ ^[0-9] ]] || continue
     DONE_SET[$(norm_key "$V" "$A" "$B")]=1
     DONE_SET["$(norm_key "${V%.*}" "${A%.*}" "${B%.*}")"]=1
   done < "$OUT_CSV"

@@ -4,7 +4,8 @@
 #   产出: WORK_ROOT/<PACK_ID>/table.csv (合并用 collect.sh)
 #         WORK_ROOT/<PACK_ID>/status.json (看板)
 #   纪律: env 三件套自检不过不发车 (11-17 裸环境事故);
-#         不用 eval/嵌套 heredoc 解析参数 (多层引号会咬; 2026-11-18 实测)
+#         shell 不用 eval/嵌套 heredoc 解析参数 (多层引号会咬; 2026-11-18 实测 —
+#         python 侧 argv 直传, 对包 JSON 键路径求值)
 set +u
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
 SWEEP_DIR=$(cd "$HERE/.." && pwd)
@@ -26,7 +27,7 @@ for t in blockMesh snappyHexMesh foamRun; do
   command -v "$t" >/dev/null || { echo "FATAL: $t 不在 PATH (bashrc=${EOF_RC:-none})"; exit 1; }
 done
 
-# --- 读包参数 (逐项 python -c + argv, 无 eval) ---
+# --- 读包参数 (逐项 python -c + argv 直传; shell 层无 eval, python 侧对键路径求值) ---
 pyget() { python3 -c "import json,sys;p=json.load(open(sys.argv[1]));print(eval(sys.argv[2]))" "$PACK_JSON" "$1"; }
 PACK_ID=$(pyget 'p["pack_id"]')
 SWEEP_V=$(pyget '" ".join(str(v) for v in p["V"])')
@@ -54,10 +55,7 @@ JSON
 
 cd "$SWEEP_DIR" || exit 1
 # 逐组跑 (包内 (α,β) 是任意配对, 不能靠 α×β 笛卡尔积; 单组 = 全 V, 保网格复用+热启动)
-python3 -c "
-import json,sys
-for g in json.load(open(sys.argv[1]))['groups']:
-    print('%s %s' % (g['alpha'], g['beta']))" "$PACK_JSON" |
+# process substitution (非管道): while 在当前 shell, PACK_FAIL 可回传 (管道子 shell 丢变量, 2026-11-19 07:00 修)
 PACK_FAIL=0
 while read -r A B; do
   echo "----- [$(date +%H:%M:%S)] group alpha=$A beta=$B -----"
@@ -70,7 +68,10 @@ while read -r A B; do
     echo "  group alpha=$A beta=$B 有失败例 (继续下一组)"
     PACK_FAIL=$((PACK_FAIL+1))
   fi
-done
+done < <(python3 -c "
+import json,sys
+for g in json.load(open(sys.argv[1]))['groups']:
+    print('%s %s' % (g['alpha'], g['beta']))" "$PACK_JSON")
 
 ROWS=$(python3 -c "
 import sys,os
