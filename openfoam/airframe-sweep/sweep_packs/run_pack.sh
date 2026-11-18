@@ -58,13 +58,18 @@ python3 -c "
 import json,sys
 for g in json.load(open(sys.argv[1]))['groups']:
     print('%s %s' % (g['alpha'], g['beta']))" "$PACK_JSON" |
+PACK_FAIL=0
 while read -r A B; do
   echo "----- [$(date +%H:%M:%S)] group alpha=$A beta=$B -----"
-  OUT_CSV="$OUT_CSV" SWEEP_V="$SWEEP_V" SWEEP_ALPHA="$A" SWEEP_BETA="$B" \
+  if OUT_CSV="$OUT_CSV" SWEEP_V="$SWEEP_V" SWEEP_ALPHA="$A" SWEEP_BETA="$B" \
   SURF_LEVEL=$SURF_LEVEL FIN_LEVEL=$FIN_LEVEL BOX_LEVEL=$BOX_LEVEL \
   GEOM_DIR="$GEOM_DIR" \
-    ./run_sweep_v2.sh "$ROOT/g_a${A}_b${B}" "$NP" >> "$ROOT/pack.log" 2>&1 \
-    || echo "  group alpha=$A beta=$B 有失败例 (继续下一组)"
+    ./run_sweep_v2.sh "$ROOT/g_a${A}_b${B}" "$NP" >> "$ROOT/pack.log" 2>&1; then
+    :
+  else
+    echo "  group alpha=$A beta=$B 有失败例 (继续下一组)"
+    PACK_FAIL=$((PACK_FAIL+1))
+  fi
 done
 
 ROWS=$(python3 -c "
@@ -76,8 +81,16 @@ if os.path.exists(p):
         if l.strip() and not l.startswith('#') and not l.startswith('V,'):
             n+=1
 print(n)" "$OUT_CSV")
+# 状态诚实化 (A1, 2026-11-19 审查): rows<cases 或组有失败 → partial, 禁写 done
+if [ "$ROWS" -ge "$CASES" ] && [ "$PACK_FAIL" -eq 0 ]; then
+  ST="done"
+elif [ "$ROWS" -gt 0 ] || [ "$PACK_FAIL" -gt 0 ]; then
+  ST="partial"
+else
+  ST="failed"
+fi
 cat > "$ROOT/status.json" <<JSON
-{"pack_id":"$PACK_ID","status":"done","host":"$(hostname)",
- "finished":"$(date +%FT%T%z)","groups":$GROUPS_N,"cases":$CASES,"rows":$ROWS}
+{"pack_id":"$PACK_ID","status":"$ST","host":"$(hostname)",
+ "finished":"$(date +%FT%T%z)","groups":$GROUPS_N,"cases":$CASES,"rows":$ROWS,"group_fail":$PACK_FAIL}
 JSON
-echo "PACK $PACK_ID DONE rows=$ROWS/$CASES"
+echo "PACK $PACK_ID $ST rows=$ROWS/$CASES group_fail=$PACK_FAIL"

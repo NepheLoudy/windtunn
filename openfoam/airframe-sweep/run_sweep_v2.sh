@@ -32,14 +32,16 @@ set -eu
 unset DISPLAY
 export HWLOC_COMPONENTS=-gl
 
-n_done=0; n_run=0
+n_done=0; n_run=0; n_fail=0
 # 多机安全: 启动时读结果表建已完工况集合 (同表并行扫气自动去重跳过)
+# 键归一用 printf %g — ${B%.*} 对 β=±2.5 会截成 -2 与 tag b-2.5 失配 (2026-11-19 审查 B1)
 declare -A DONE_SET
+norm_key() { printf 'V%g_a%g_b%g' "$1" "$2" "$3"; }
 if [ -f "$OUT_CSV" ]; then
   while IFS=, read -r V A B DE DA DR REST; do
     case "$V" in ''|'#'*) continue;; esac
-    DONE_SET["V${V%.*}_a${A%.*}_b${B%.*}"]=1
-    DONE_SET["V${V%.*}_a${A}_b${B}"]=1
+    DONE_SET[$(norm_key "$V" "$A" "$B")]=1
+    DONE_SET["$(norm_key "${V%.*}" "${A%.*}" "${B%.*}")"]=1
   done < "$OUT_CSV"
   echo "表判重集: ${#DONE_SET[@]} 键"
 fi
@@ -60,11 +62,13 @@ for A in $SWEEP_ALPHA; do
       echo "===== [$n_run] $tag ====="
       if [ -z "$group_src" ]; then
         rm -rf "$CASE"
-        SURF_LEVEL=$SURF_LEVEL FIN_LEVEL=$FIN_LEVEL BOX_LEVEL=$BOX_LEVEL \
-          GEOM_DIR="$GEOM" "$HERE/make_case.sh" "$V" "$A" "$B" "$CASE" > /dev/null
+        if ! SURF_LEVEL=$SURF_LEVEL FIN_LEVEL=$FIN_LEVEL BOX_LEVEL=$BOX_LEVEL \
+          GEOM_DIR="$GEOM" "$HERE/make_case.sh" "$V" "$A" "$B" "$CASE" > /dev/null; then
+          echo "  MAKE FAILED — $CASE (几何/模板问题)"; n_fail=$((n_fail+1)); continue
+        fi
         echo "  meshing (blockMesh+snappy)..."
         ( cd "$CASE" && blockMesh > log.blockMesh 2>&1 && snappyHexMesh -overwrite > log.snappy 2>&1 ) || {
-          echo "  MESH FAILED — $CASE/log.snappy"; continue; }
+          echo "  MESH FAILED — $CASE/log.snappy"; n_fail=$((n_fail+1)); continue; }
         group_src="$CASE"
       else
         WARM_FROM="$warm_src" "$HERE/clone_case.sh" "$group_src" "$CASE" "$V"
@@ -74,14 +78,20 @@ for A in $SWEEP_ALPHA; do
       if awk -v a="$ia" 'BEGIN{exit !(a>6.7)}'; then ET=1000; fi
       if awk -v a="$ia" 'BEGIN{exit !(a>13.7)}'; then ET=1500; fi
       "$HERE/run_solve.sh" "$CASE" "$NP" "$ET" > "$ROOT/log.$tag" 2>&1 || {
-        echo "  RUN FAILED — $ROOT/log.$tag"; continue; }
+        echo "  RUN FAILED — $ROOT/log.$tag"; n_fail=$((n_fail+1)); continue; }
       python3 "$HERE/post_process.py" "$CASE" \
               --mass-props "$HERE/cad/v1/cfd/mass_properties.json" \
-              --json "$CASE/results.json" --out "$OUT_CSV" || { echo "  POST FAILED"; continue; }
+              --json "$CASE/results.json" --out "$OUT_CSV" || { echo "  POST FAILED"; n_fail=$((n_fail+1)); continue; }
       n_done=$((n_done+1))
       warm_src="$CASE"   # 成功+落表才作热启动源 (clone_case 内部还会再校 residual_rel)
     done
   done
 done
+# 横幅与通知诚实化: 有失败必须显式说 (A3, 2026-11-19 审查)
+if [ "$n_fail" -gt 0 ]; then
+  echo "=== 扫气完成(有失败 $n_fail 例): $n_done/$n_run -> $OUT_CSV ==="
+  "$HERE/notify_done.sh" "扫气批次完成(有失败 $n_fail 例)" "$n_done/$n_run 工况完成, 失败 $n_fail -> $OUT_CSV"
+  exit 1   # 失败计数非零退出 → run_pack 聚合 partial
+fi
 echo "=== 扫气完成: $n_done/$n_run -> $OUT_CSV ==="
 "$HERE/notify_done.sh" "扫气批次完成" "$n_done/$n_run 工况完成 -> $OUT_CSV (anchor/全表批次)"
