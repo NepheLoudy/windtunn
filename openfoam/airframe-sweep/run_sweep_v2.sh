@@ -46,6 +46,7 @@ fi
 for A in $SWEEP_ALPHA; do
   for B in $SWEEP_BETA; do
     group_src=""
+    warm_src=""     # 热启动场源: 组内最近一个「跑成功且收敛」的 case (空=冷启动)
     for V in $SWEEP_V; do
       tag="V${V}_a${A}_b${B}"
       CASE="$ROOT/case_$tag"
@@ -66,7 +67,7 @@ for A in $SWEEP_ALPHA; do
           echo "  MESH FAILED — $CASE/log.snappy"; continue; }
         group_src="$CASE"
       else
-        "$HERE/clone_case.sh" "$group_src" "$CASE" "$V"
+        WARM_FROM="$warm_src" "$HERE/clone_case.sh" "$group_src" "$CASE" "$V"
       fi
       ET=600
       ia=$(awk -v a="$A" 'BEGIN{print (a<0?-a:a)}')
@@ -78,6 +79,7 @@ for A in $SWEEP_ALPHA; do
               --mass-props "$HERE/cad/v1/cfd/mass_properties.json" \
               --json "$CASE/results.json" --out "$OUT_CSV" || { echo "  POST FAILED"; continue; }
       n_done=$((n_done+1))
+      warm_src="$CASE"   # 成功+落表才作热启动源 (clone_case 内部还会再校 residual_rel)
     done
   done
 done

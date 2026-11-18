@@ -193,6 +193,17 @@ tail -5 ../sweep_t1/sweep.log
 - `openfoam/airframe-sweep` 与 `wt_jobs` 被在跑产线和桌面 schtasks 硬引用 —— **物理移动需先改所有引用方**
 - `extract_damp.py` 的对拍锚点硬引用 `wt_jobs/tmp/osc_f4/cache/`
 
+### 6.4 WSL 节点特有雷（2026-11-18 桌面机实战，**WSL 当算力节点必读**）
+
+| 雷 | 现象 | 解法 |
+|---|---|---|
+| **`vmIdleTimeout` 杀后台任务** | `~/.wslconfig` 若配 `vmIdleTimeout=60000`，WSL 在**无活跃客户端会话 60 秒后关闭整个 VM** → 所有 `nohup`/`setsid` 后台求解被无声杀掉 | 长跑期间必须有**持久客户端会话**：`(wsl.exe -e bash -c "while :; do sleep 300; done" &)`；或跑批量前临时去掉该行 |
+| **`/tmp` 是 tmpfs** | VM 关闭 = `/tmp` 全部丢失（case、mesh、结果） | **case 一律建在 `/mnt/<盘>/...` 持久路径**，不要用 `/tmp` |
+| **`wsl --shutdown` 会杀进程** | 改 `.wslconfig` 后重启 VM，正在跑的求解全死 | 改配置前先确认无在跑任务；求解中有断点续跑就没事（mesh 复用 + results.json 判重） |
+| WSL 默认内存 = 宿主机 50% | 16GB 机器只给 7GB，装不下双道 T1（各 ~3GB+） | `.wslconfig` 显式 `memory=10GB` / `processors=10`（留 2 核给 Windows 侧仪表台/sync） |
+| PATH 缺 OpenFOAM | 与 qianli 同款「裸环境 blockMesh 未找到」 | 启动脚本 `source /opt/openfoam12/etc/bashrc` + 三件套 `command -v` 自检 |
+
+
 ---
 
 ## 7. 接入检查清单（打勾即上岗）
