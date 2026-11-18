@@ -1,83 +1,164 @@
+/*--------------------------------*- C++ -*----------------------------------*\
+  =========                 |
+  \\      /  F ield         | OpenFOAM: The Open Source CFD Toolbox
+   \\    /   O peration     | Website:  https://openfoam.org
+    \\  /    A nd           | Version:  12
+     \\/     M anipulation  |
+\*---------------------------------------------------------------------------*/
 FoamFile
 {
-    version 2.0;
-    format ascii;
-    class dictionary;
-    object snappyHexMeshDict;
+    format      ascii;
+    class       dictionary;
+    object      snappyHexMeshDict;
 }
+// * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
+// 2026-11-18 字典整体换代: 底稿 = OF12 官方 annotated 版
+//   /home/qianli/OpenFOAM-12-20250206/etc/caseDicts/annotated/snappyHexMeshDict
+// 旧 OF 结构逐键补丁路线终止 (V20_a-12.5_b-15 死于 meshQualityControls.relaxed
+// 缺失; 此前 featureAngle/nGrow/maxFaceThicknessRatio/nBufferCellsNoExtrude/
+// minMedialAxisAngle 系逐键连环炸, 旧结构补不完)。
+// 关键结构差异 (vs 旧模板):
+//   - locationInMesh -> insidePoint (OF12 键名, 源码三键兼容)
+//   - meshQualityControls 改 #include "meshQualityDict" + relaxed 子字典
+//     (层阶段 nRelaxedIter 后降档用, 官方 tutorial flange 同构)
+//   - 旧模板 minMedThicknessRatio / nLayerFacesToRecover / minArea /
+//     minTriangleTwist 为 ESI/老版本键, OF12 官方键集没有, 丢弃
+// 占位符协议 (__XXX__) 与 make_case.sh 保持不变。
+
+// Which of the steps to run
 castellatedMesh true;
-snap              true;
-addLayers         __ADDLAYERS__;   // T0=false; T1(SURF_LEVEL>=6) 自动 true+3 层
+snap            true;
+addLayers       __ADDLAYERS__;   // T0=false; T1(SURF_LEVEL>=6) 自动 true+3 层
 
+// Geometry. Definition of all surfaces (all of class searchableSurface).
 geometry
 {
 __SURFACES_GEOM__
     // 近体细化盒: 基础网格 0.3m > 弹径 0.15m, 无此盒则表面不与任何网格边相交
-    airframeBox { type searchableBox; min (__BOXMIN__); max (__BOXMAX__); }
+    airframeBox
+    {
+        type    searchableBox;
+        min     (__BOXMIN__);
+        max     (__BOXMAX__);
+    }
 }
 
+// Settings for the castellatedMesh generation.
 castellatedMeshControls
 {
-    maxLocalCells     2000000;
-    maxGlobalCells    5000000;
-    minRefinementCells 0;
-    maxLoadUnbalance  0.10;
-    nCellsBetweenLevels 3;
+    // Refinement parameters
+    maxLocalCells       2000000;   // T1 调校 (官方 100000)
+    maxGlobalCells      5000000;   // T1 调校 (官方 2000000)
+    minRefinementCells  0;
+    maxLoadUnbalance    0.10;
+    nCellsBetweenLevels 3;         // T1 调校 (官方 1): 缓冲层防 level 跳变
 
+    // Explicit feature edge refinement (无 .eMesh 特征文件, 留空)
     features ();
 
+    // Surface based refinement
     refinementSurfaces
     {
 __SURFACES_REFINE__
     }
-    refinementRegions
-    {
-        airframeBox { mode inside; levels ((1e15 __BOXLEVEL__)); }
-    }
 
+    // Feature angle: used if min/max refinement level differ,
+    // and in feature snapping
     resolveFeatureAngle 30;
 
-    // 流体区内点 (避开所有实体, make_case.sh 按几何包围盒计算)
-    locationInMesh (__LOCINMESH__);
+    // Planar angle: surface normals same/opposite detection
+    planarAngle         30;
+
+    // Region-wise refinement
+    refinementRegions
+    {
+        airframeBox
+        {
+            mode    inside;
+            levels  ((1e15 __BOXLEVEL__));
+        }
+    }
+
+    // Mesh selection: 流体区内点 (OF12 键名, 兼容旧 locationInMesh;
+    // make_case.sh 按几何包围盒计算, 避开所有实体)
+    insidePoint (__LOCINMESH__);
 
     allowFreeStandingZoneFaces true;
+    extendedRefinementSpan      true;
 }
 
+// Settings for the snapping.
 snapControls
 {
-    nSmoothPatch 3;
-    tolerance    2.0;
-    nSolveIter   50;
-    nRelaxIter   5;
+    nSmoothPatch    3;
+    tolerance       2.0;
+    nSolveIter      50;    // T1 调校 (官方 30)
+    nRelaxIter      5;
+
+    // Feature snapping
+    nFeatureSnapIter        10;
+    implicitFeatureSnap     false;
+    explicitFeatureSnap     true;
+    multiRegionFeatureSnap  false;
 }
 
+// Settings for the layer addition.
 addLayersControls
 {
     relativeSizes true;
-    layers {__LAYERS__}
-    minThickness  0.25;
-    expansionRatio 1.2;
-    finalLayerThickness 0.5;
-    nSurfaceLayers 3;
+
+    // Layer thickness: expansionRatio + finalLayerThickness 模式
+    expansionRatio       1.2;   // T1 调校 (官方 1.0)
+    finalLayerThickness  0.5;   // T1 调校 (官方 0.3)
+    minThickness         0.25;
+
+    // Per final patch (not geometry!) the layer information
+    layers
+    {
+__LAYERS__
+    }
+
+    nGrow 0;
+
+    // Advanced settings
+
+    // Static analysis of starting mesh
+    featureAngle            60;   // T1 调校 (官方 100): 舵折角以上不挤层
+    maxFaceThicknessRatio   0.5;
+
+    // Patch displacement
+    nSmoothSurfaceNormals   1;
+    nSmoothThickness        10;
+
+    // Medial axis analysis
+    minMedialAxisAngle      90;
+    maxThicknessToMedialRatio 0.3;
+    nSmoothNormals          3;
+
+    // Mesh shrinking
+    slipFeatureAngle        30;
+    nRelaxIter              5;
+    nBufferCellsNoExtrude   0;
+    nLayerIter              50;
+    nRelaxedIter            20;
 }
 
+// Generic mesh quality settings. At any undoable phase these determine
+// where to undo.
 meshQualityControls
 {
-    maxNonOrtho         65;
-    maxBoundarySkewness 20;
-    maxInternalSkewness 4;
-    maxConcave          80;
-    minVol              1e-13;
-    minTetQuality       1e-15;
-    minArea             -1;
-    minTwist            0.02;
-    minDeterminant      0.001;
-    minFaceWeight       0.05;
-    minVolRatio         0.01;
-    minTriangleTwist    -1;
-    nSmoothScale        4;
-    errorReduction      0.75;
+    #include "meshQualityDict"
+
+    // Optional: some meshing phases allow usage of relaxed rules.
+    // See addLayersControls::nRelaxedIter.
+    relaxed
+    {
+        maxNonOrtho 75;
+    }
 }
 
+// Merge tolerance. Is fraction of overall bounding box of initial mesh.
 mergeTolerance 1e-6;
+
+// ************************************************************************* //
