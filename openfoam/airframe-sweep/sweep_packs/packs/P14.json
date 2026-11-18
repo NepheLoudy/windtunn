@@ -1,0 +1,48 @@
+{
+ "pack_id": "P14",
+ "priority": 30.0,
+ "groups": [
+  {
+   "alpha": -27.5,
+   "beta": 2.5
+  },
+  {
+   "alpha": -25,
+   "beta": -5
+  },
+  {
+   "alpha": -25,
+   "beta": 5
+  },
+  {
+   "alpha": 25,
+   "beta": -5
+  },
+  {
+   "alpha": 25,
+   "beta": 5
+  }
+ ],
+ "V": [
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20
+ ],
+ "cases": 55,
+ "env": {
+  "SURF_LEVEL": 6,
+  "FIN_LEVEL": 7,
+  "BOX_LEVEL": 3,
+  "NP": 5
+ },
+ "status": "pending",
+ "assigned_to": null
+}
