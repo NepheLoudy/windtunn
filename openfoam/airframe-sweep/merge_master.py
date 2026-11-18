@@ -7,8 +7,9 @@
   ①表头元数据重建: S_REF/L_REF/RHO/MOMENT_REF 逐输入一致性核对 (不一致即拒合,
     防 10-31 口径类事故混档)
   ②七键判重 (V,α,β,de,da,dr): 重复键按来源优先级取档, 重复=事故信号要报告
+    (dups 非空时退出码 4 — 静默滚走防线; 需强行合并传 --allow-dups)
   ③来源分档列 source: t0/t1 网格档可追溯, 力矩类以 T1 为可信档 (fidelity_1101)
-  ④MOMENT_REF 逐行核对: 行内 moment_ref 与表头不符的行打 FLAG (recompute_cm 链)
+    (表本身无行内 moment_ref 列, 逐行核对无从谈起 — 原④宣称已删, 2026-11-19 审查)
 
 用法:
   python3 merge_master.py --inputs "host:path..." [--out aero_table.csv] [--dry-run]
@@ -52,23 +53,26 @@ def parse_meta(lines):
 
 
 def read_table(path, source):
-    """本地表文件 → (meta, rows)；rows 每行带 source 列"""
+    """本地表文件 → (meta, rows, skipped)；rows 每行带 source 列。
+    skipped = 半截行数 (断电窗口产物) — 静默丢弃=事故信号, 由调用方报告"""
     meta, body = parse_meta(open(path, encoding='utf-8', errors='replace').readlines())
-    rows = []
+    rows, skipped = [], 0
     rdr = csv.DictReader(ln for ln in body if not ln.startswith('#'))
     for r in rdr:
         try:
             row = {k: float(r[k]) for k in KEYCOLS + VALCOLS}
         except (KeyError, ValueError, TypeError):
-            continue  # 半截行 (断电窗口) 跳过并计数
+            skipped += 1  # 半截行 (断电窗口) 跳过并计数
+            continue
         row['source'] = source
         row['_file'] = os.path.basename(path)
         rows.append(row)
-    return meta, rows
+    return meta, rows, skipped
 
 
 def pull_remote(host_remote_pairs, tmpdir):
-    """经 WSL ssh 把 qianli 表拉到本地 tmpdir, 返回本地路径列表"""
+    """经 WSL ssh 把 qianli 表拉到本地 tmpdir, 返回 [(idx, 本地路径)] —
+    失败项不占位, 调用方按 idx 对齐 (防 zip 错位串源, 2026-11-19 审查)"""
     out = []
     for i, (host, remote) in enumerate(host_remote_pairs):
         local = os.path.join(tmpdir, 'pull_%d.csv' % i)
@@ -77,7 +81,7 @@ def pull_remote(host_remote_pairs, tmpdir):
                            capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=180)
         if r.returncode == 0 and r.stdout.strip():
             open(local, 'w', newline='').write(r.stdout)
-            out.append(local)
+            out.append((i, local))
     return out
 
 
@@ -101,6 +105,8 @@ def main():
     ap.add_argument('--out', default='aero_table.master.csv')
     ap.add_argument('--dry-run', action='store_true', help='只报告不落盘')
     ap.add_argument('--prefer', default='t1,t0', help='重复键来源优先级 (逗号分隔, 前者优先)')
+    ap.add_argument('--allow-dups', action='store_true',
+                    help='重复键仍继续合并 (默认拒合, 退出码 4)')
     args = ap.parse_args()
 
     tables = []  # (source, meta, rows)
@@ -110,7 +116,9 @@ def main():
         if not os.path.exists(path):
             print('WARN 本地表不存在, 跳过: %s' % path)
             continue
-        meta, rows = read_table(path, source)
+        meta, rows, skipped = read_table(path, source)
+        if skipped:
+            print('WARN %s: %d 半截行被跳过 (断电窗口产物?)' % (source, skipped))
         tables.append((source, meta, rows, path))
 
     if args.pull:
@@ -121,10 +129,17 @@ def main():
                 host, _, rest = spec.partition(':')
                 remote, _, src = rest.partition(':')
                 pairs.append((host, remote, src))
-            pulled = pull_remote([(h, r) for h, r, _ in pairs], td)
-            for (h, r, src), path in zip(pairs, pulled):
+            # pull_remote 返回 (idx, path) 对 — 失败项缺席不致 zip 错位串源
+            pulled = dict(pull_remote([(h, r) for h, r, _ in pairs], td))
+            for i, (h, r, src) in enumerate(pairs):
+                path = pulled.get(i)
+                if not path:
+                    print('WARN pull 失败, 跳过: %s:%s' % (h, r))
+                    continue
                 source = src or ('%s:%s' % (h.split('@')[0], os.path.basename(r)))
-                meta, rows = read_table(path, source)
+                meta, rows, skipped = read_table(path, source)
+                if skipped:
+                    print('WARN %s: %d 半截行被跳过' % (source, skipped))
                 tables.append((source, meta, rows, path))
 
     if not tables:
@@ -171,7 +186,8 @@ def main():
 
     # ---- ③④ 输出 ----
     out_rows = sorted(merged.values(), key=lambda r: (r['V'], r['alpha'], r['beta'], r['de'], r['da'], r['dr']))
-    hdr = '# ' + ' '.join('%s=%s' % (k, base[k]) for k in MASTER_HEADER_KEYS)
+    # dry-run 时 base 可能缺键 (拒合路径不 return) — 不崩, 用 '?' 占位
+    hdr = '# ' + ' '.join('%s=%s' % (k, base.get(k, '?')) for k in MASTER_HEADER_KEYS)
     # source 分档走注释行 (lookup_aero.from_csv 严格校验表头=KEYS+COEFFS,
     # 数据列多一个 source 都会拒表 — 2026-11-03 E4 集成测试抓到)
     src_map = {}
@@ -199,6 +215,11 @@ def main():
             print('   V=%g α=%g β=%g δ=(%g,%g,%g): %s ← %s' % (*key, a, b))
         if len(dups) > 10:
             print('   ... 共 %d' % len(dups))
+        if args.allow_dups:
+            print('⚠ --allow-dups: 带重复键继续')
+        else:
+            print('ERR 重复键=事故信号, 拒绝静默合并 (退出码 4); 确认要合请加 --allow-dups')
+            return 4
     else:
         print('✅ 零重复键')
     print('来源分布: %s' % ', '.join('%s=%d' % (s, sum(1 for r in out_rows if r['source'] == s))

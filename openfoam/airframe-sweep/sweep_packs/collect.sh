@@ -14,7 +14,9 @@ ARGS=()
 for root in "$@"; do
   for f in "$root"/*/table.csv; do
     [ -f "$f" ] || continue
-    ARGS+=(--local "$f:t1")
+    # source = 包 ID (目录名, 如 P01s1) — 保留来源分档与判重归属, 不再统一标 t1
+    pid=$(basename "$(dirname "$f")")
+    ARGS+=(--local "$f:$pid")
   done
 done
 [ ${#ARGS[@]} -gt 0 ] || { echo "FATAL: 没找到任何 table.csv"; exit 1; }

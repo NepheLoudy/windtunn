@@ -21,8 +21,14 @@ echo "-- 本机执行状态 ($LOCAL_ROOT) --"
 python3 - "$LOCAL_ROOT" "$HERE/packs" <<'PY'
 import glob, json, os, sys
 root, pdir = sys.argv[1], sys.argv[2]
-defs = {os.path.basename(p)[:-5]: json.load(open(p, encoding="utf-8"))
-        for p in glob.glob(os.path.join(pdir, "P*.json"))}
+all_defs = {os.path.basename(p)[:-5]: json.load(open(p, encoding="utf-8"))
+            for p in glob.glob(os.path.join(pdir, "P*.json"))}
+# 分片 (带 parent) 代表父包的执行 — 父包从合计中排除, 防双计数 (2026-11-19 审查)
+sharded_parents = {d.get("parent") for d in all_defs.values() if d.get("parent")}
+shards = sorted(p for p, d in all_defs.items() if d.get("parent"))
+defs = {pid: d for pid, d in all_defs.items() if pid not in sharded_parents}
+if sharded_parents:
+    print("  (分片接管: %s → 由 %s 代表)" % (",".join(sorted(sharded_parents)), ",".join(shards)))
 tot_done = tot = 0
 rows = 0
 for pid in sorted(defs):
