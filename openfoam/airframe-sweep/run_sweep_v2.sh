@@ -13,13 +13,13 @@ set -euo pipefail
 ROOT=${1:?usage: SWEEP_V=... SWEEP_ALPHA=... SWEEP_BETA=... ./run_sweep_v2.sh <root> [nproc]}
 NP=${2:-8}
 HERE=$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)
-OUT_CSV=${OUT_CSV:-"$HERE/../../guidance_sim/aero/aero_table.csv"}
 # 缺省即报错 (E1, 2026-11-19 审查): 默认旧域会静默写错行; 走 run_pack.sh 领包才是正规入口
-# ${OUT_CSV+x} 判"是否显式传入" (默认值会写交付正本, 必须显式)
+# 守卫必须在默认赋值之前 (原版本赋值在前导致 ${OUT_CSV+x} 恒真, 直跑护栏名存实亡 — 11-19 复审修正)
 if [ -z "${SWEEP_V:-}" ] || [ -z "${SWEEP_ALPHA:-}" ] || [ -z "${SWEEP_BETA:-}" ] || [ -z "${OUT_CSV+x}" ]; then
   echo "FATAL: 缺 env (SWEEP_V/SWEEP_ALPHA/SWEEP_BETA/OUT_CSV) — 请走 sweep_packs/run_pack.sh 领包, 不直接调本脚本" >&2
   exit 2
 fi
+OUT_CSV=${OUT_CSV}
 SWEEP_V=${SWEEP_V}
 SWEEP_ALPHA=${SWEEP_ALPHA}
 SWEEP_BETA=${SWEEP_BETA}
@@ -82,7 +82,9 @@ for A in $SWEEP_ALPHA; do
           echo "  MESH FAILED — $CASE/log.snappy"; n_fail=$((n_fail+1)); continue; }
         group_src="$CASE"
       else
-        WARM_FROM="$warm_src" "$HERE/clone_case.sh" "$group_src" "$CASE" "$V"
+        # clone 失败也须显式计数 (原裸跑: set -e 会整批退出, 分组口径不一致 — 11-19 复审修正)
+        WARM_FROM="$warm_src" "$HERE/clone_case.sh" "$group_src" "$CASE" "$V" || {
+          echo "  CLONE FAILED — $CASE"; n_fail=$((n_fail+1)); continue; }
       fi
       ET=600
       ia=$(awk -v a="$A" 'BEGIN{print (a<0?-a:a)}')
