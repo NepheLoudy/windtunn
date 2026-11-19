@@ -35,6 +35,9 @@ SURF_LEVEL=$(pyget 'p["env"]["SURF_LEVEL"]')
 FIN_LEVEL=$(pyget 'p["env"]["FIN_LEVEL"]')
 BOX_LEVEL=$(pyget 'p["env"]["BOX_LEVEL"]')
 NP=$(pyget 'p["env"]["NP"]')
+# 按机器覆盖 (2026-11-19 曼波: 除本机外利用率拉满; 内存实测 foamRun ~190MB/rank, 内存非瓶颈)
+#   PACK_NP=10 bash run_pack.sh P02 → 用 10 rank, 不改包定义/不动 git
+[ -n "${PACK_NP:-}" ] && NP="$PACK_NP"
 CASES=$(pyget 'p["cases"]')
 GROUPS_N=$(pyget 'len(p["groups"])')
 
