@@ -1,0 +1,49 @@
+{
+ "pack_id": "P02T1",
+ "parent_t05": "P02",
+ "tier": "T1",
+ "priority": 5,
+ "groups": [
+  {
+   "alpha": 0,
+   "beta": 5
+  },
+  {
+   "alpha": 5,
+   "beta": 0
+  },
+  {
+   "alpha": -5,
+   "beta": -2.5
+  },
+  {
+   "alpha": -5,
+   "beta": 2.5
+  },
+  {
+   "alpha": 5,
+   "beta": -2.5
+  }
+ ],
+ "V": [
+  10,
+  11,
+  12,
+  13,
+  14,
+  15,
+  16,
+  17,
+  18,
+  19,
+  20
+ ],
+ "cases": 55,
+ "env": {
+  "SURF_LEVEL": 6,
+  "FIN_LEVEL": 8,
+  "BOX_LEVEL": 3,
+  "NP": 5,
+  "note": "T1: fin L8 + 3-layer BL (auto by SURF>=6) + ET3000 residual 1e-5"
+ }
+}

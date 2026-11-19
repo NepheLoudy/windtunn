@@ -1,10 +1,21 @@
 # 气动数据集交付说明 v0.97-handoff
 
 > 2026-11-19 增量：V10-20 扩域由四机任务包生产（P01 分片中），合并侧经 verify_tables.py 六道关校验后入正本；协议见 `docs/task_pack_protocol.md`。
+>
+> **【口径定死 · 2026-11-19 曼波裁决】主表（T0.5 档）与锚定批（T1 档）双轨：**
+> - **主表（查表正本）**：V 10-20（11 档）× α ±30（17 档，失速带 2.5° 加密）× β ±5（5 档）= 935 例
+>   - 网格 body L6 / fin L7 / BOX 3，**3 层边界层**（SURF≥6 自动档），ET 按 |α| 分档 600/1000/1500（residualControl 兜底）
+>   - **与老表 T0（L5/L7 无层, V20-25, CD=0.139@α0β0）不同源不可混用**；老表自本裁决起仅冷备
+>   - V20 同姿态新口径 CD=0.076（-45%），系 3 层边界层解析壁面摩擦所致，物理方向正确，已由 L5→L6 网格敏感性历史 + T1 锚定批三重对拍确认
+> - **T1 锚定批**（qianli TA20/TA15/TA10）：V {20,15,10} × α ±15（7 档）× β ±5（5 档）= 105 例
+>   - fin L8 + 3 层边界层 + ET 3000（residual 1e-5 判停）—— 力矩可信档
+>   - 用途：主表 Cm/Cn 修正系数场 + RL 训练前数据背书
+> - **速度域纪律：V>20 一律不跑**（11-17 裁决重申，T1 老域 V21-25 精扫已中止，4 例归档冷备）
+> - 精度域纪律：主表力矩 Cm/Cn 置信度待 TA 锚定批回填修正场后升级；力（CL/CD）即刻可用
 
 > 2026-11-15 | CFD 侧交付 | 对接文档: `guidance_loop_dev_spec.md` (v0.8) | 控制路线: `control_approach_roadmap.md` | 项目谱系: `aeroacoustic_project_versions.md` (ver1.0→1.2)
 > **状态: v0.97 急交付版** — T0 全表 (δ=0) 546/546 全表达成 (2026-11-15 10:30, a0_b0 家族松弛 0.5 一轮治愈) +
-> damp 动导数实装 + 舵效批今晚出数。v0.96 声明保留于文末历史节。
+> damp 动导数实装 + 舵效批已入库 (delta_table_t1q.csv + delta_lookup.py)。v0.96 声明保留于文末历史节。
 
 ## 0. 交接指南 (2026-11-15 v0.97 — 视觉侧必读)
 
@@ -15,7 +26,7 @@
 | **气动主表** | repo `guidance_sim/aero/aero_table.csv` (546 行 = V∈{20~25}×13α×7β 完整笛卡尔格, δ=0; qianli 全表 647 行含 V15/30 冷备 101 行) | 查表真值 (OpenFOAM L5/L7, ET1500 as-built 口径) |
 | **查表实现** | repo `guidance_sim/aero/lookup_aero.py` | 纯 numpy 引擎无关, 热加载, 出域钳位+警告 |
 | **动导数补偿** | repo `guidance_sim/aero/damp_defaults.json` (+ extract_damp.py 可复现链) | Cmq/Cnr 实装 (Clp=null), damp=None 默认启用 |
-| **舵效表** | qianli `~/sweep_delta/delta_table_t1q.csv` (今晚出全, 10 位形×L6/L8) | 舵效增量数据, delta-mode 查表路线见 §0.5 |
+| **舵效表+查表** | repo `guidance_sim/aero/delta_table_t1q.csv` + `delta_lookup.py` (10 位形×L6/L8, 已入库; qianli `~/sweep_delta/` 为产线源) | 舵效增量数据 + delta-mode 查表 (§0.5) |
 | **交付文档** | repo `docs/dataset_delivery.md` (本文件) | 口径/限制/责任分工的真源 |
 | **审计链** | repo `devlog/` + `memory/domains/wt/` + 仪表台 (j2_open.bat) | 全程可回放 |
 
@@ -27,7 +38,9 @@ from lookup_aero import lookup_aero
 # 输入: V[m/s], alpha/beta[deg], de/da/dr[deg] (δ1..δ4 混控, 见 §0.4)
 # 输出: (F_B, M_B) — B 系 (x前 y右 z下), 力矩绕表头 MOMENT_REF (=占位 com (0,0,0))
 F_B, M_B = lookup_aero(V=20.0, alpha=5.0, beta=0.0, de=0.0, da=0.0, dr=0.0)
-# 出域 (V∉[20,25] 等) 自动 clamp 到表边界 + RuntimeWarning; damp 动导数默认启用
+# 出域 (V∉[20,25] 等) 自动 clamp 到表边界 + RuntimeWarning
+# damp 阻尼补偿走 aero_forces(V_B, omega_B) 路径 (damp=None 默认启用);
+# lookup_aero() 标量便捷入口不含阻尼项 (omega=None)
 ```
 
 ### 0.3 数据现状矩阵 (2026-11-15)
@@ -35,8 +48,8 @@ F_B, M_B = lookup_aero(V=20.0, alpha=5.0, beta=0.0, de=0.0, da=0.0, dr=0.0)
 | 层 | 状态 | 口径 |
 |---|---|---|
 | **T0 全表 δ=0** | ✅ **546/546 全表达成** (2026-11-15, a0_b0 家族 4 例松弛 0.5 一轮治愈, CY 锚全过) | OpenFOAM L5/L7, ET1500 as-built 口径 |
-| damp 动导数 | ✅ 实装 (Cmq=−0.0879/Cnr=−0.0911/Clp=null) | GPU LBM v4asm, k≈8.7 超准定常域=同频等效阻尼(保守偏小) |
-| 舵效层 2 | 🔧 今晚出全 (10 位形×(0,0,V20)@L6/L8) | ET600, 无层口径 (与 T0 同族) |
+| damp 动导数 | ✅ 实装 (Cmq=−0.2583/Cnr=−0.2677/Clp=null, 11-16 归一口径修正后) | GPU LBM v4asm, k≈8.7 超准定常域=同频等效阻尼(保守偏小) |
+| 舵效层 2 | ✅ 加急批已入库 (10 位形×(0,0,V20)@L6/L8 → `delta_table_t1q.csv`; ±20° 未跑) | ET600, 无层口径 (与 T0 同族) |
 | T1 基座 546 | 排后面 (~14.5 天) | L6/L8 带层, 力矩可信档 |
 | GPU 线角色 | 结构/分支/手性/定常等**定性结论源**; 量级含壁干扰风险 (N4) | OpenFOAM 线=定量真源 |
 
@@ -53,7 +66,7 @@ F_B, M_B = lookup_aero(V=20.0, alpha=5.0, beta=0.0, de=0.0, da=0.0, dr=0.0)
 ### 0.5 舵效 delta 表 schema 与 delta-mode 查表 (✅ 已实装)
 
 ```
-tag,fin1_deg,fin2_deg,fin3_deg,fin4_deg,V,alpha,beta,CL,CD,Cm,CY,Cl,Cn
+tag,fin1,fin2,fin3,fin4,V,alpha,beta,CL,CD,Cm,CY,Cl,Cn
 d1p,  10,  0,  0,  0, 20, 0, 0, ...
 ```
 - 10 位形 (8 单舵 ±10° + d13dd/d24dd) × (V20, α0, β0) @L6/L8 — 实测组合+叠加模型
@@ -68,7 +81,7 @@ d1p,  10,  0,  0,  0, 20, 0, 0, ...
 | 项 | 责任 | 状态 |
 |---|---|---|
 | 实机称重 → recompute_cm 零重跑 | 曼波提供数值 / CFD 侧执行 | 链路就绪待数值 |
-| 舵效 delta-mode 查表设计 | 双边对接会 | 设计稿待冻结 |
+| 舵效 delta-mode 查表 | CFD 侧 | ✅ 已实装 (`delta_lookup.py`, §0.5); 口径对接会复核 |
 | 舵效姿态/位形扩展 | CFD 侧 (append-only 按需) | RL 期间随要随补 |
 | T1 基座 546 (力矩可信档) | CFD 侧 (排后面) | chain 阈值已就位 |
 | MuJoCo 力注入约定 | 对接会 §2 | 待冻结 |
@@ -103,7 +116,7 @@ v0.9 声明中的 "CY(β=0)=−0.135 恒定偏置" 已随基准切换**溯源关
 镖体 (南航镖复刻构型, X 布局四板翼 + 四片尾缘舵) 的**定常气动数据库**:
 给定飞行状态 → 查表输出六分量气动力系数, 供 MuJoCo 闭环 (识别→制导→舵机→六自由度) 使用。
 
-**查表签名** (6 维输入, 引擎无关; 实装 `guidance_sim/aero/lookup_aero.py` L207):
+**查表签名** (6 维输入, 引擎无关; 实装 `guidance_sim/aero/lookup_aero.py` L261):
 
 ```
 lookup_aero(V, α, β, de, da, dr) → (F_B, M_B)
@@ -125,7 +138,7 @@ lookup_aero(V, α, β, de, da, dr) → (F_B, M_B)
 | 能干的事 | 用什么 | 限制 |
 |---|---|---|
 | **闭环联调跑通全链路** (DAgger 专家 PN+PID 调参 / 接口联调 / 状态机) | V=25, α∈[−10,15], β∈{0,±5} 已可查 | 仅 V=25 单速度档 |
-| **MuJoCo 模型加载与动力学** | `openfoam/airframe-sweep/cad/v1/cfd/glider.mjcf` (惯量经 MuJoCo 3.16 实测验证) | 质量/质心/惯量为**占位**, 待实机称重后改 `mass_properties.json` (查表力矩自动跟随) |
+| **MuJoCo 模型加载与动力学** | `openfoam/airframe-sweep/geometry/glider.mjcf` (惯量经 MuJoCo 3.16 实测验证) | 质量/质心/惯量为**占位**, 待实机称重后改 `mass_properties.json` (查表力矩自动跟随) |
 | **舵效预研** | `deflect_stl.py` 任意舵偏几何 + 铰链轴定义 (r=1.63mm 销轴, 已确认) | 舵偏扫气在队列层2 |
 | **几何迭代** | 参数化管线全链路 (STEP→B 系→扫气→表), 换镖体只改配置 | — |
 
@@ -138,15 +151,13 @@ lookup_aero(V, α, β, de, da, dr) → (F_B, M_B)
 | β 镜像对称 | 蓝基准 δ=0 为对称构型, 恢复为硬判据; α≥5° 残差仍预期 10% 级 = **非对称涡分岔物理** (±0.03 分支不确定性, 非 bug) |
 | **Cm_α 分段: +0.59/rad (线性区 \|α\|≤5°, R²=0.999) → +0.21/rad (5~10° 段, α≈−5° 有 3× 拐折)** | 纵向**强静不稳定** (2026-11-13 564 行复核: **正负半侧对称验证 +0.599/+0.551, 拐折双向复现, 正 α 盲区已补齐摘标**; RL 小扰动线性化用 0.59; 折叠舵旧锚定 +0.0026, 平行舵展开后放大两个量级) — 增稳是制导/RL 的硬责任 |
 | **Cn_β = −0.434/rad** (alpha=0 剖面, \|β\|≤10° 线性段, R²=0.993; 2026-11-08 370 行复核不变) | 航向**强静不稳定**; β=±15° 出现失速非线性回落 (\|Cn\| 回落) — 大侧滑区分支不确定性照旧降权 |
-| 动导数 (Cmq/Cnr/Clp) | **tfixed 重提取实装 (2026-11-14, N1 力矩 bug 修正后口径)**: F4 六例测得 **Cmq=−0.0879/Cnr=−0.0911/Clp=null** (f2 低频点直取, 同频等效阻尼 amp/θ̇ 口径; SNR 205/181 both high), 已实装 `damp_defaults.json` + lookup_aero 热加载 (自测 7 项 ✓, wind_axis parity 89 点 2.8e-15 ✓)。**N1 力矩 bug 修正后口径**: kernel.cpp object_torque 混用 centered-frame position() 与 absolute-frame center (kernel.cpp:826-828/1985, setup.cpp:77/93/141), CSV 力矩 T_rep=T_true−c×F, 逐样本修正 T_true=T_rep+c×F, c=(220,120,120) lu; 修正后 osc DC 与静态修正力矩自洽 (ty 914.5/915.0 vs 静表 916.4); 对拍 N1 `osc_lockin_tfix.csv` corrected 列 180 点逐位一致 (最大偏差 4.2e-06)。**vs raw 污染版 (11-11 实装值, 归档 `damp_defaults.json.raw_v4asm_1110` 勿用)**: Cmq ×5.75 / Cnr ×7.25 (与 N1 对照倍数精确吻合; 修正前俯仰/偏航力矩被 bug 低估 5~20 倍); **Clp 旧值 −0.0043 是伪影** — 修正后 r 批 tx amp 缩至 0.007 倍, amp/res 1.02/1.43 < 纯噪声瑞利期望 √(π/2)=1.253 的 2 倍门槛 2.51 (纯噪声下 P(amp/res≥实测)=59%/36%, 信号与噪声不可区分) → **不可提取置 null, damp 的 Clp 项默认 0** (lookup_aero damp dict 缺 Clp 键兜 0 = 无滚转阻尼补偿; y 批 tx「手性耦合巨响应」修正后塌缩至噪声底 381→2.6, 大部为 c×F 伪影, 弃用不变, Cnr 仍取 tz 主通道)。三版并存: `damp_defaults.json`(tfixed 实装) / `.raw_v4asm_1110`(raw 力矩污染版对照) / `.quarantined_gpu_geom_1109`(11-09 团块几何版隔离, GPU 管线缺陷, 值为 v4asm 的 1/2.0~1/3.5)。口径声明 (不变): k≈8.7 (ω→0 外插仅备查) **远超准定常域 k<<1**, \|C\| 为准定常值的下界、补偿按保守阻尼处理, 符号取旋转阻尼物理先验; r 批 = 来流绕 x 旋转准定常等效口径 ≠ 标准风洞滚转速降 Clp; 准定常近似在巡航 k~0.06 成立, 大角速度机动误差上升 |
-| 舵维覆盖 | **层1 δ=0 (重跑中) → 层2 单舵 ±10/±20° (未跑) → 层3 耦合校验 (未跑)** — 层2/3 到位前, RL 只能飞"舵全零"或使用 v0.9 红表极端点 |
+| 动导数 (Cmq/Cnr/Clp) | **tfixed 重提取实装 (2026-11-14, N1 力矩 bug 修正后口径; 2026-11-16 P1-1 归一口径修正 ×2.9372——11-14 提取时误用旧表头 S_REF/L_REF 归一, 已按新口径重提, extract_damp 守门 ±10%)**: F4 六例测得 **Cmq=−0.2583/Cnr=−0.2677/Clp=null** (f2 低频点直取, 同频等效阻尼 amp/θ̇ 口径; SNR 205/181 both high), 已实装 `damp_defaults.json` + lookup_aero 热加载 (自测 7 项 ✓, wind_axis parity 89 点 2.8e-15 ✓)。**N1 力矩 bug 修正后口径**: kernel.cpp object_torque 混用 centered-frame position() 与 absolute-frame center (kernel.cpp:826-828/1985, setup.cpp:77/93/141), CSV 力矩 T_rep=T_true−c×F, 逐样本修正 T_true=T_rep+c×F, c=(220,120,120) lu; 修正后 osc DC 与静态修正力矩自洽 (ty 914.5/915.0 vs 静表 916.4); 对拍 N1 `osc_lockin_tfix.csv` corrected 列 180 点逐位一致 (最大偏差 4.2e-06)。**vs raw 污染版 (11-11 实装值, 归档 `damp_defaults.json.raw_v4asm_1110` 勿用)**: Cmq ×16.9 / Cnr ×21.3 (= N1 对照倍数 5.75/7.25 × 口径修正 2.9372, 守门 ±10% 内; 修正前俯仰/偏航力矩被 bug 低估 5~20 倍); **Clp 旧值 −0.0043 是伪影** — 修正后 r 批 tx amp 缩至 0.007 倍, amp/res 1.02/1.43 < 纯噪声瑞利期望 √(π/2)=1.253 的 2 倍门槛 2.51 (纯噪声下 P(amp/res≥实测)=59%/36%, 信号与噪声不可区分) → **不可提取置 null, damp 的 Clp 项默认 0** (lookup_aero damp dict 缺 Clp 键兜 0 = 无滚转阻尼补偿; y 批 tx「手性耦合巨响应」修正后塌缩至噪声底 381→2.6, 大部为 c×F 伪影, 弃用不变, Cnr 仍取 tz 主通道)。三版并存: `damp_defaults.json`(tfixed 实装) / `.raw_v4asm_1110`(raw 力矩污染版对照) / `.quarantined_gpu_geom_1109`(11-09 团块几何版隔离, GPU 管线缺陷, 值为 v4asm 的 1/2.0~1/3.5)。口径声明 (不变): k≈8.7 (ω→0 外插仅备查) **远超准定常域 k<<1**, \|C\| 为准定常值的下界、补偿按保守阻尼处理, 符号取旋转阻尼物理先验; r 批 = 来流绕 x 旋转准定常等效口径 ≠ 标准风洞滚转速降 Clp; 准定常近似在巡航 k~0.06 成立, 大角速度机动误差上升 |
+| 舵维覆盖 | **层1 δ=0 ✅ 546/546 (11-15) → 层2 单舵 ±10° 加急批 ✅ (`delta_table_t1q.csv` 10 位形, V20/α0/β0 单锚; ±20° 未跑) → 层3 耦合校验 (未跑)** — 全位形覆盖前, RL 飞行域 = 舵全零基座 + delta-mode ±10° 单锚域 (出锚即警告) |
 | 质量参数 | mass=160g (曼波定); **com/inertia 仍为 PLACEHOLDER — 实机称重前, 下一瞬态姿态/动能的绝对精度以此为上限** (CFD 侧无法替代); com 实测后 Cm 零重跑: `openfoam/airframe-sweep/recompute_cm.py` (10-31 恒等冒烟 IDENTICAL ✓) |
 
 > 静稳导数出处与时效 (2026-11-13 更新): Cm_α/Cn_β 由 T0 564 行快照复核
 > (`wt_jobs/repro/t0_table_564_1113.csv` + 电池 `fidelity_564_1113.py` 可复核)——
 > 8 项规划特征 (斜率锚/镜像/跨V/压心/失速带) 全部兑现, 正 α 盲区摘标;
-> 力矩参考点 = 占位 com (0,0,0), 实机称重后 recompute_cm 零重跑, 数值届时更新。
-> (`wt_jobs/repro/t0_table_snapshot_1106.csv` + 回归脚本 `wt_jobs/repro/slope_beta0_1106.py`, 可复核);
 > 力矩参考点 = 占位 com (0,0,0), 实机称重后 recompute_cm 零重跑, 数值届时更新。
 
 ### 3.1 口径与置信度量化 (2026-10-31 底层审查补充 — 视觉侧必读)
@@ -182,7 +193,7 @@ lookup_aero(V, α, β, de, da, dr) → (F_B, M_B)
 
 1. **侧向分量 (CY/Cl/Cn) 初期降权或加噪声**: 大攻角区分支不确定性 ±0.03 — 闭环舵修能兜住, 但开环使用请谨慎;
 2. **出域即补点**: 策略探索到表外状态时把工况发给 CFD 侧 (格式 = 表行), 扫完热加载;
-3. **Cmα>0 / Cnβ<0 双轴强静不稳定** (2026-11-06 实测 +0.360 / −0.434 /rad): 专家 PN+PID 的内环必须带姿态稳定项 (spec §4.5.2 双环结构已含); 该静不稳量级下纯 PN 外环直接飞会**发散**, 不只是"飘"。
+3. **Cmα>0 / Cnβ<0 双轴强静不稳定** (实测 Cm_α=+0.59/rad 线性区 \|α\|≤5° / 5~10° 段 +0.21 分段见 §3 / Cn_β=−0.434/rad): 专家 PN+PID 的内环必须带姿态稳定项 (spec §4.5.2 双环结构已含); 该静不稳量级下纯 PN 外环直接飞会**发散**, 不只是"飘"。
 4. **风速域随机化 (11-04 曼波需求: 训练时给风速插噪声, T0 之后即用)**:
    `lookup_aero / aero_forces(..., wind_noise_std=σ)` — 对 |V| 注入 N(0,σ) 步级抖动 (方向不变),
    eval 传 0 关闭; episode 级恒定风偏置由训练侧在 V_B 上自行加。
@@ -197,7 +208,7 @@ lookup_aero(V, α, β, de, da, dr) → (F_B, M_B)
 | `guidance_sim/aero/aero_table_foldedfin_T0.csv` | v0.9 红表归档 (折叠位形 = 全舵满偏 45° 标定点, 勿与蓝表混用) |
 | `guidance_sim/aero/lookup_aero.py` | 查表参考实现 (纯 numpy, 热加载) |
 | `openfoam/airframe-sweep/cad/v1/cfd_parallel/` | **B 系平行基准几何真源** (填实 body + 4 舵零位 STL + assembly: 铰链=孔心精拟合) |
-| `openfoam/airframe-sweep/cad/v1/cfd/` | 旧装配角几何 (红基准存档) + MJCF + mass_properties |
+| `openfoam/airframe-sweep/cad/v1/cfd/` | 旧装配角几何 (红基准存档) + mass_properties (MJCF 在 `geometry/glider.mjcf`) |
 | `openfoam/airframe-sweep/audit_basis_check.py` | A6 基准锚审计 (CY 归零/β镜像/CL_α 漂移三锚) |
 | `openfoam/airframe-sweep/cad/v1/ANALYSIS.md` | 真镖体 STEP 分析报告 |
 | `openfoam/airframe-sweep/docs/airframe_handoff.md` | 几何/自由度交接规范 |

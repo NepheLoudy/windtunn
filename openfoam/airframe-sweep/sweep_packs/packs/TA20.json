@@ -1,0 +1,158 @@
+{
+ "pack_id": "TA20",
+ "tier": "T1-anchor",
+ "priority": 0,
+ "groups": [
+  {
+   "alpha": -15,
+   "beta": -5
+  },
+  {
+   "alpha": -15,
+   "beta": -2.5
+  },
+  {
+   "alpha": -15,
+   "beta": 0
+  },
+  {
+   "alpha": -15,
+   "beta": 2.5
+  },
+  {
+   "alpha": -15,
+   "beta": 5
+  },
+  {
+   "alpha": -10,
+   "beta": -5
+  },
+  {
+   "alpha": -10,
+   "beta": -2.5
+  },
+  {
+   "alpha": -10,
+   "beta": 0
+  },
+  {
+   "alpha": -10,
+   "beta": 2.5
+  },
+  {
+   "alpha": -10,
+   "beta": 5
+  },
+  {
+   "alpha": -5,
+   "beta": -5
+  },
+  {
+   "alpha": -5,
+   "beta": -2.5
+  },
+  {
+   "alpha": -5,
+   "beta": 0
+  },
+  {
+   "alpha": -5,
+   "beta": 2.5
+  },
+  {
+   "alpha": -5,
+   "beta": 5
+  },
+  {
+   "alpha": 0,
+   "beta": -5
+  },
+  {
+   "alpha": 0,
+   "beta": -2.5
+  },
+  {
+   "alpha": 0,
+   "beta": 0
+  },
+  {
+   "alpha": 0,
+   "beta": 2.5
+  },
+  {
+   "alpha": 0,
+   "beta": 5
+  },
+  {
+   "alpha": 5,
+   "beta": -5
+  },
+  {
+   "alpha": 5,
+   "beta": -2.5
+  },
+  {
+   "alpha": 5,
+   "beta": 0
+  },
+  {
+   "alpha": 5,
+   "beta": 2.5
+  },
+  {
+   "alpha": 5,
+   "beta": 5
+  },
+  {
+   "alpha": 10,
+   "beta": -5
+  },
+  {
+   "alpha": 10,
+   "beta": -2.5
+  },
+  {
+   "alpha": 10,
+   "beta": 0
+  },
+  {
+   "alpha": 10,
+   "beta": 2.5
+  },
+  {
+   "alpha": 10,
+   "beta": 5
+  },
+  {
+   "alpha": 15,
+   "beta": -5
+  },
+  {
+   "alpha": 15,
+   "beta": -2.5
+  },
+  {
+   "alpha": 15,
+   "beta": 0
+  },
+  {
+   "alpha": 15,
+   "beta": 2.5
+  },
+  {
+   "alpha": 15,
+   "beta": 5
+  }
+ ],
+ "V": [
+  20
+ ],
+ "cases": 35,
+ "env": {
+  "SURF_LEVEL": 6,
+  "FIN_LEVEL": 8,
+  "BOX_LEVEL": 3,
+  "NP": 8,
+  "note": "T1 anchor: fin L8 + 3-layer BL + ET3000 residual 1e-5"
+ }
+}
