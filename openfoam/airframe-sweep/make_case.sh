@@ -1,9 +1,12 @@
 #!/usr/bin/env bash
 # 生成一个弹体扫气工况 case (从 case_template 实例化)
 #   usage: make_case.sh <V> <alpha_deg> [beta_deg] [dest_dir]
-#   环境变量: GEOM_DIR=<含 *.stl 的目录>  (默认 ../geometry)
+#   环境变量: GEOM_DIR=<含 *.stl 的目录>  (默认 <脚本目录>/geometry)
 #             SURF_LEVEL=<壁面细化级>     (默认 4)
+#             FIN_LEVEL=<舵面细化级>      (默认 = SURF_LEVEL)
 #             BOX_LEVEL=<近体盒细化级>    (默认 3)
+#             LAYERS=<边界层> (默认 0; SURF_LEVEL>=6 自动开 3 层 — T1 档)
+#             I_TURB=<湍流入流强度>       (默认 0.02)
 #   V: 来流速度 m/s; alpha/beta: 攻角/侧滑角 deg (B 系定义)
 set -euo pipefail
 

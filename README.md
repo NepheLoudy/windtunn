@@ -36,8 +36,8 @@ WindTunnelSuite/
 |---|---|---|
 | **气动主表** | `guidance_sim/aero/aero_table.csv` — **546 工况** = V{20~25 m/s 六档} × 13α × 7β 完整笛卡尔格 (δ=0, T0 全表 546/546 于 2026-11-15 达成) | ✅ |
 | **查表实现** | `guidance_sim/aero/lookup_aero.py` — 纯 numpy 引擎无关, 三线性插值, 出域钳位+RuntimeWarning (警告即补点信号), 表更新热加载 | ✅ 自测 7 项 + 生产端往返对拍 89 点恒等 (2.8e-15) |
-| **动导数 damp** | `guidance_sim/aero/damp_defaults.json` — Cmq=−0.0879 / Cnr=−0.0911 / Clp=null, `lookup_aero` 默认启用 | ✅ 实装 |
-| **舵效 T1q 表** | `delta_table_t1q.csv` — 10 位形 (8 单舵 ±10° + 2 合成) × L6/L8 (ET600), 增量=δ行−d0 行叠加 | ✅ 已入库 |
+| **动导数 damp** | `guidance_sim/aero/damp_defaults.json` — Cmq=−0.2583 / Cnr=−0.2677 / Clp=null (11-16 归一口径修正后), `lookup_aero` 默认启用 | ✅ 实装 |
+| **舵效 T1q 表** | `guidance_sim/aero/delta_table_t1q.csv` — 10 位形 (8 单舵 ±10° + 2 合成) × L6/L8 (ET600), 增量=δ行−d0 行叠加 | ✅ 已入库 |
 | **几何真源** | `openfoam/airframe-sweep/cad/v1/cfd_parallel/` — B 系平行基准 (δ=0=舵面平行弹轴, 填实镖头深孔, 铰链=孔心精拟合 v4 真轴) + `glider.mjcf` (MuJoCo 3.16 实测加载) | ✅ |
 | **交付文档** | [docs/dataset_delivery.md](docs/dataset_delivery.md) — 口径/限制/责任分工的真源 (§0 交接指南 → §0.2 五分钟接入) | ✅ |
 
@@ -52,7 +52,7 @@ WindTunnelSuite/
 | **双轴强静不稳定** | Cm_α = **+0.59/rad** (线性区 \|α\|≤5°, R²=0.999; 5~10° 段 +0.21, 拐折双向复现); Cn_β = **−0.434/rad** (α=0 剖面, R²=0.993) | 弹体天然发散, **增稳是 RL/制导的硬责任, 纯 PN 外环必发散** (不只是"飘") |
 | 升力线性 | CL_α = +2.40/rad (R²=1.000), ±10° 线性 + ±15° 弯曲 | 可信域 α/β∈[−15,15°] 内插值安全 (15°=奖励终止阈值, 表边界对齐) |
 | **8 项特征验收 8/8 兑现** | 镜像 CY 2.8% · 跨 V 力钝感 0.3~0.4% · 压心随 α 系统移动跨 V ±0.3mm · β=±15° 失速回落 · CL ±15° 对称剖面 (564 行复核, 脚本可复现) | 数据集与规划文档零偏差, 出处 [dataset_delivery §0.7](docs/dataset_delivery.md) |
-| **damp 口径** | Cmq=−0.0879 / Cnr=−0.0911 (tfixed 口径, N1 力矩 bug 修正后); k≈8.7 **远超准定常域 k<<1** → 同频等效阻尼 (保守偏小); Clp 低于噪声底不可提取, 诚实置 null (滚转无阻尼补偿) | 防 RL 高频抖舵; 大角速度机动误差上升, 详见 [dataset_delivery §3](docs/dataset_delivery.md) |
+| **damp 口径** | Cmq=−0.2583 / Cnr=−0.2677 (tfixed + 11-16 归一口径修正 ×2.9372, N1 力矩 bug 修正后); k≈8.7 **远超准定常域 k<<1** → 同频等效阻尼 (保守偏小); Clp 低于噪声底不可提取, 诚实置 null (滚转无阻尼补偿) | 防 RL 高频抖舵; 大角速度机动误差上升, 详见 [dataset_delivery §3](docs/dataset_delivery.md) |
 
 已知边界 (诚实清单): GPU 线 Re 限界与 LBM 壁干扰 (定性结论可用, 量级以 OpenFOAM 线为定量真源) /
 com·惯量 PLACEHOLDER (实机称重前力矩绝对精度以此为上限) / X 布局四舵独立角与 + 布局混控约定不混用
@@ -99,7 +99,7 @@ CAD (STEP 30 实体) ──解析──> 镖体装配 (B 系, 114.6×239.3mm, X 
 | 里程碑 | 内容 | 状态 |
 |---|---|---|
 | 实机称重 → recompute_cm | 曼波提供质量/com/惯量数值 → `openfoam/airframe-sweep/recompute_cm.py` 零重跑重出全表力矩 (分钟级) | 链路就绪待数值 |
-| 舵效 delta-mode 查表 | 基座=T0 表插值 + delta 表最近锚叠加, 四舵独立角口径 | 设计稿待对接会冻结 |
+| 舵效 delta-mode 查表 | 基座=T0 表插值 + delta 表最近锚叠加, 四舵独立角口径 — `guidance_sim/aero/delta_lookup.py` 已实装 | ✅ 已实装 (口径对接会复核) |
 | T1 基座 546 (力矩可信档) | L6/L8 带层, ~14.5 天, 排后面; 扩域二期 (V10-15 / ±25°) 见 compute_schedule_1108 | 阈值已就位 |
 | RL 期间按需补点 | append-only, lookup 出域警告即信号; 舵效姿态/位形随要随扩 | 常态运行 |
 | v1.0 完整版 | T1 力矩档 + 舵效带层重扫 + N4 域重设计 (GPU 量级精化) | 排期中 |

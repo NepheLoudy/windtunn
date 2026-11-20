@@ -101,7 +101,7 @@ class AeroTable:
             if seen[flat]:
                 raise ValueError(
                     f"{path} 重复工况 V={r[0]} α={r[1]} β={r[2]} δ=({r[3]},{r[4]},{r[5]}) — "
-                    "七键唯一性破坏 (合并表 last-wins 静默污染防线, 2026-11-19 审查)")
+                    "六键唯一性破坏 (合并表 last-wins 静默污染防线, 2026-11-19 审查)")
             coeff[flat, :] = r[6:]
             seen[flat] = True
         if not seen.all():

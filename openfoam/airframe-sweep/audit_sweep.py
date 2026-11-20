@@ -5,8 +5,9 @@
 用法:
   python3 audit_sweep.py <aero_table.csv> [--tol 0.15] [--report audit_report.md]
 规则:
-  A1 跨V一致性: 同(α,β) 不同V 的 CL/CD/Cm 离散度 (max-min)/|中位数| — |α|<15 用 tol, |α|=15 放宽 2×tol
-  A2 β镜像反对称: (C(β+)-C(β0)) + (C(β-)-C(β0)) ≈ 0
+  A1 跨V一致性: 同(α,β) 不同V 的 CL/CD/Cm 离散度 (max-min)/|中位数| — |α|<14 用 tol, |α|>=14 放宽 2×tol;
+                Cm 另有 |max-min|<0.02 绝对离散闸门 (零点附近相对离散数学性放大, 10-30)
+  A2 β镜像指纹: X 翼手性几何下不要求反对称 (10-28 曼波修正) — 只记录手性气动效应量级, 不判 PASS/FAIL
   A3 CY偏置: CY(β=0) 均值与波动
   A4 值域: CL∈[-1.5,1.5], CD∈(0,1.5), |Cm|<1, |CY|<1
   A5 重复行: V,α,β,de,da,dr 完全相同

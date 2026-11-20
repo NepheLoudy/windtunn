@@ -12,9 +12,11 @@
 | `jobs\j2_dashboard.bat` | 起本机仪表台 **http://127.0.0.1:8123** (禁缓存, 自检面板; 已在跑则直接退出) | 常驻 (计划任务经 wscript 隐藏壳跑, 无黑窗) | `schtasks /End /TN "WT_dashboard"` + `schtasks /Change /TN "WT_dashboard" /DISABLE` (只 End 不禁用, 2min 后自动回来) |
 | `jobs\j3_t2_report.bat` | 拉 R8b LBM 力数据 + 折叠位对照, 出 fy 对称性报告 | ~1 min | 自动退出 |
 | `jobs\j4_guard.bat` | **qianli 哨兵**: 探活 chain/reaper/引擎, 掉线自动拉回 + 空闲时 recover 回填补行 | ~30 s | 自动退出 (schtasks 每 30min 触发, `jobs\j5_register_tasks.bat` 安装) |
+| `jobs\j2_open.bat` | **仪表台随用随开** (J2 disabled 期间的主入口): 8123 未监听→隐藏拉起 httpd (`--idle-exit 30`)→开浏览器; 页面关闭 30min 后服务自清 (幂等) | 即开 | 自动闲置退出 |
+| `git_history_slim.sh` | **P01 收工 filter-repo 瘦身备勤**: 四机进程静止+收工确认双安全阀, 旧仓库改名保底不删, NUC 走 bundle 中转 (曼波 11-19 批) | 按需 | 手动 |
 
-**推荐流程**: 双击 J1 → 双击 J2 → 浏览器开 `http://127.0.0.1:8123`。数据旧了就再跑一次 J1 (J2 不用重启, 页面刷新即取新)。
-J2 服务端每 8min 自动跑一次 J1 (页面开着数据永远新鲜); 仪表台由 WT_dashboard 计划任务每 2min 隐藏保活/自启 (2026-11-01 套 wscript 壳消灭黑窗, 启动文件夹旧副本已删)。
+**推荐流程**: 双击 J1 → 双击 `j2_open.bat` → 浏览器开 `http://127.0.0.1:8123`。数据旧了就再跑一次 J1 (页面刷新即取新)。
+J2 常驻链 (WT_dashboard 计划任务 2min 保活 + 服务端 8min 自跑 J1) 当前**经 `j2_task_disabled.flag` 哨兵有意禁用** (2026-11-07 曼波定随用随开, 见上表 j2_open.bat); 重新启用 = 删 flag 文件再跑 `j5_register_tasks.bat`。
 
 > ⚠ 哨兵铁律 (10-31 定): qianli 断电重启后三守护零自启, 由本机 guard 隔 30min 拉回——
 > 它**永不调用 `launch_t0v2b.sh`** (那是 rm -rf 全清启动器), 引擎补拉一律走 chain v3 的

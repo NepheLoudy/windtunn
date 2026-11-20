@@ -12,7 +12,7 @@ solver          incompressibleFluid;
 startFrom       latestTime;
 startTime       0;
 stopAt          endTime;
-endTime         800;          // 校验点; 定量表工况 1500-2000
+endTime         800;          // 校验点; 定量档按 |alpha| 分档 600/1000/1500 (run_sweep_v2), T1(FIN>=8) 3000
 
 deltaT          1;
 

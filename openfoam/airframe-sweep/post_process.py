@@ -4,10 +4,12 @@
 
 用法:
   python3 post_process.py <case_dir> [--tail 0.3] [--out .../aero_table.csv] [--json r.json]
+                          [--mass-props mass_properties.json] [--cofr x,y,z]
 
 坐标系: B 系 (x 前弹轴, y 右, z 下), 弹体固定、来流按 make_case.sh 约定。
 来流方向 = -V̂_B; 升力方向 = 弹体系"上" (-z) 在垂直于来流平面内的分量。
-力矩参考点 = CofR = 全系统质心 (case CASEINFO)。
+力矩参考点 = 求解 CofR (make_case 恒设原点); 真实质心经 --mass-props 的 com_B 平移
+(M'=M+(c'-c)×F, 缺省退 --cofr), 表头记 MOMENT_REF。
 依赖: 仅 Python 标准库。
 """
 import argparse

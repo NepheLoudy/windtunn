@@ -8,8 +8,8 @@
 
 用法 (与 lookup_aero 组合):
     from lookup_aero import lookup_aero
-    from delta_lookup import delta_forces_B, DELTA_ANCHOR
-    F0, M0 = lookup_aero(V, alpha, beta)          # δ=0 基座
+    from delta_lookup import delta_forces_B
+    F0, M0 = lookup_aero(V, alpha, beta, 0, 0, 0)  # δ=0 基座
     dF, dM = delta_forces_B(fin1, fin2, fin3, fin4, V, alpha, beta)  # 舵效增量 (B 系)
     F, M = F0 + dF, M0 + dM
 

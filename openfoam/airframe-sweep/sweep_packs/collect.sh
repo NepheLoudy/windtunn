@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 回填 — 汇总所有包的 table.csv → 单一 T1 表 (七键判重 + 表头一致性核对)
+# 回填 — 汇总所有包的 table.csv → 单一 T1 表 (六键判重 + 表头一致性核对)
 #   usage: collect.sh <OUT_CSV> <WORK_ROOT> [MORE_WORK_ROOTS...]
 #   依赖 ../merge_master.py (E2): 表头必须同源, 重复键按来源优先级取档并报告
 set -uo pipefail

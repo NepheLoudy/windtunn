@@ -1,8 +1,15 @@
-<!-- updated: 2026-11-08T22:23:40+0800 (dt) -->
+<!-- updated: 2026-11-19T02:25:19+0800 (dt) -->
 
 # wt 域工作态快照 — 风洞套件工程域
 
-## 现状（2026-11-08）
+## 现状（2026-11-19）
+- **T0 全表 546/546 达成（2026-11-15，M1 完结）**；舵效加急批 `delta_table_t1q.csv`（10 位形@V20/α0/β0, L6/L8）已入库 + `delta_lookup.py` delta-mode 查表实装（914a157）。
+- **damp 实装值 = Cmq −0.2583 / Cnr −0.2677 / Clp null**（tfixed + 2026-11-16 P1-1 归一口径修正 ×2.9372，extract_damp 守门 ±10%；旧值 −0.0879/−0.0911 是 11-14 误用旧表头归一——文档已于 11-19 全线回写）。
+- **P01 四机分片发车（11-19）**：V10-20 扩域 17 包/935 例；endTime 3000 触发已收窄 FIN_LEVEL≥8（961bf46，P01 FIN=7 曾被误伤）；desktop WSL = P01s4（vmIdleTimeout 停用 + setsid nohup 托管）。
+- **11-19 全仓文档一致性审计+修复（evt_090，曼波单）**：24 文件 50+ 处；含 onboarding NUL 字节修复（工具链拒读根因）、七键→六键措辞、AUTOPILOT 产线例外注记。历史快照文档一律未动。
+- 值班体系：FleetMonitor 30min + MorningReport 4AM + ZCode 每小时巡检（55 例齐自动 collect+verify）。
+
+### 2026-11-08 快照（历史，部分数字已被上节取代）
 - **T0 扩格批：370/546（V20-25 目标网格 269 done，ETA ~11-13 深夜-11-14）**。11-08 手术后引擎健康：新 runner OUT_CSV=t0_table（environ 实证）、SWEEP_V=20-25、chain/reaper/harvest 三防在岗。表落地链已修复。
 - T2 GPU 229 例收官、T3 队列完成（对拍 <2% 已入档）。
 - 观察台流线管线**终版语义**（11-06 曼波裁定落地）：
@@ -25,6 +32,11 @@
 - MSYS 调 wsl/scp/robocopy 必须 MSYS2_ARG_CONV_EXCL='*'；多层引经 wsl.exe 传 ssh 命令易碎——复杂远程操作一律落脚本 scp 上去跑。
 
 ## 待办
+- **run_sweep_v2.sh E1 守卫死码修复**（evt_091 verifier 实证：L15 先赋默认值致 L18 `${OUT_CSV+x}` 永真——缺 OUT_CSV 直跑仍静默写 aero_table.csv；修法=守卫提到默认赋值前；产线 run_pack 恒显式设 OUT_CSV 不受影响；**需与四机 md5 纪律协同**，D 盘改不碰 /root/work 在跑副本）。
+- run_sweep.sh L8 预存语法雷（bash -n FAIL，尾部裸引号——v1 已标遗留勿直跑，低优先）。
+- **recover_table.py 补 --mass-props 与引擎同参**（11-19 审计存疑首雷：当前靠 com_B=[0,0,0] 占位巧合成立，实机称重后回填行 Cm 口径会静默分裂——代码行为改动，待曼波点头）。
+- fleet_monitor.sh / morning_report.sh / accept_scan 三脚本无仓库实体（schtasks 注册无落盘），灾后不可照文档重建——建议入库。
+- NUC1/NUC2 同 hostname DESKTOP-0L9S7C0（fleet 报告靠人肉标签区分，按 hostname 的自动逻辑会混）。
 - **V20 层重跑裁决（待曼波）**：V20 收敛场随旧批 processor 清理丢失，重收割需重跑 91 例（引擎 ETA 拉长）；V21_a-15_b-10 同失。
 - V20_a-2.5_b0 收割后消失存疑（磁盘 230G 充裕，非配额；daemon done 表已标，暂弃）。
 - 收割覆盖随引擎扩展（现 α -15~-2.5，滑块高 α 姿态走姿态差徽标）。

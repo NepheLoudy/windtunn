@@ -13,7 +13,7 @@
 |---|---|---|
 | `gen_airframe.m` | 参数化几何生成器 (MATLAB, flat/cone 头型; STL×5 + inertial + MJCF + 参数 JSON) | ✅ v1 |
 | `geometry/` | 生成产物 (B 系 x前y右z下, 米制) | ✅ |
-| `case_template/` | OpenFOAM v12 弹体绕流扫气 case 模板 (V/α/β/de/da/dr 长表输出) | ⬜ 待冻结会议后建 |
+| `case_template/` | OpenFOAM v12 弹体绕流扫气 case 模板 (V/α/β/de/da/dr 长表输出) | ✅ 在用 (OF12 注释版 snappyHexMeshDict + meshQualityDict) |
 
 ## 已验证 (2026-10-14)
 
@@ -21,7 +21,7 @@
 - cone 模式独立验证 (质心后移 -0.0918, 惯量下降, 体积对拍 PASS)
 - **MuJoCo 3.16 真机加载** `geometry/glider.mjcf`: 6 body/5 joint/10.2 kg, 惯量逐位一致;
   3s 自由落体 z = -44.17 m ≈ ½gt² (解析), qacc=9.81 纯重力, 无 NaN
-- `lookup_aero.py` 自测 6/6 (网格回读/插值/出域 clamp+warning/力矩符号/CSV 闭环)
+- `lookup_aero.py` 自测 7/7 (网格回读/插值/出域 clamp+warning/力矩符号/CSV 闭环/damp 默认值与量纲)
 
 ## 扫气管线 (2026-10-21 建)
 
@@ -31,7 +31,8 @@
 | `make_case.sh <V> <α> [β] [dest]` | 实例化一个工况 (自动算来流矢量/湍流量/CofR) |
 | `run_case.sh <case> [nproc]` | blockMesh → snappyHexMesh → checkMesh → decomposePar → foamRun 并行 |
 | `post_process.py <case>` | forces 时均 → 风轴 CL/CD/Cm/CY/Cl/Cn → 追加 aero_table.csv |
-| `run_sweep.sh <root> [nproc]` | 全参数网格扫气 (断点可续, 已有 results.json 跳过) |
+| `run_sweep.sh <root> [nproc]` | 全参数网格扫气 v1 (**遗留勿直跑** — OUT_CSV 缺省会静默写交付正本, 正是 11-08 表落地链事故模式) |
+| `run_sweep_v2.sh <root> [nproc]` | 扫气引擎 v2: 网格复用 + 热启动链 (E1 守卫: SWEEP_V/ALPHA/BETA 缺即 FATAL; ⚠ OUT_CSV 未显式守卫不拦、会落默认正本路径——直跑必带); **正规入口 = `sweep_packs/run_pack.sh` 领包** (协议见 `docs/task_pack_protocol.md`) |
 | `deflect_stl.py <asm.json> --de/--da/--dr` | **按舵偏旋转操纵面 STL** → 某工况的 triSurface 几何组 (仅标准库) |
 | `airframe_assembly.example.json` | 真镖体交接模板 (实体 STL + 铰链线 + 行程 + 混控系数 + 质量属性) |
 | `docs/airframe_handoff.md` | **从 Fusion 交几何/自由度的规范** (拆件/铰链线取法/避坑) |
@@ -47,8 +48,9 @@
 python3 post_process.py ~/openfoam/airframe-sweep/run_V25_a4 --json r.json
 
 # 全表: 按《飞镖闭环仿真方案讨论》的安全阈值 (α/β ±15°, V 15-25)
+# 四 env 必显式 (E1 守卫, 缺 OUT_CSV 直接 FATAL — 防静默写交付正本); 正规入口走 sweep_packs/run_pack.sh 领包
 SWEEP_V="15 20 25 30" SWEEP_ALPHA="-15 -10 -5 0 5 10 15" SWEEP_BETA="-15 -10 0 10 15" \
-  ./run_sweep.sh ~/openfoam/airframe-sweep/sweep 8
+  OUT_CSV=~/sweep_v2/table.csv ./run_sweep_v2.sh ~/openfoam/airframe-sweep/sweep 8
 ```
 
 **算量预算** (单工况 7 分钟 / 32.5 万格 / 8 进程):
@@ -63,7 +65,7 @@ SWEEP_V="15 20 25 30" SWEEP_ALPHA="-15 -10 -5 0 5 10 15" SWEEP_BETA="-15 -10 0 1
 效率与非线性拐点。**总预算 ~40 机时**, 台式机夜间分几天可跑完。
 
 **约定**: 来流矢量 = −V(cosαcosβ, sinβ, sinαcosβ) (空气相对弹体速度的方向);
-力矩参考点 = CofR = 全系统质心 (airframe_params.json `system.com`);
+力矩参考点 = 求解 CofR=原点, 真实质心经 `--mass-props` 的 `com_B` 平移 (表头 `MOMENT_REF` 记录);
 风轴: 阻力沿来流, 升力 = 垂直于来流的弹体系"上"分量 (α>0 → CL>0, F_z<0)。
 
 ### 网格策略与已知限制 (定量表前必须处理)
@@ -88,10 +90,12 @@ SWEEP_V="15 20 25 30" SWEEP_ALPHA="-15 -10 -5 0 5 10 15" SWEEP_BETA="-15 -10 0 1
 | Cm | **−0.5789** | 负 = 低头 = 静稳定 (Cmα ≈ −8.3 /rad) ✓ |
 | CY / Cl / Cn | −0.0014 / +0.0021 / +0.0099 | 对称构型应≈0 ✓ |
 | 末段力振荡 | 0.000 | 力已 4 位稳定 |
-| 残差 (t=800) | Ux 1.4e-4 / p 3.9e-4 | 未到 1e-5 但力稳定; 定量档需 1500-2000 步 |
+| 残差 (t=800) | Ux 1.4e-4 / p 3.9e-4 | 未到 1e-5 但力稳定; 定量档 endTime 按 \|α\| 分档 600/1000/1500 (T1 FIN≥8 档 3000) |
 
 **这批数字只用于链路与符号校验, 不进 aero_table.csv** — 舵面在 level 5 (9.4mm) 下
 远粗于 3mm 舵厚, 升力/稳定性由舵面主导, 定量不可信。见下节网格策略。
+其中 "Cm 负=静稳定" 是 v1 占位圆柱弹体 (gen_airframe) 的校验口径 — 真镖体 v4 实测已翻案为
+**Cm_α=+0.59/rad 线性区强静不稳** (2026-11-06/13 复核, 见 `docs/dataset_delivery.md` §3)。
 
 ## 数据集资产登记
 

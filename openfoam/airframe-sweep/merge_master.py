@@ -6,13 +6,13 @@
 交付正本是 guidance_sim/aero/aero_table.csv 单文件 — 合并时必须:
   ①表头元数据重建: S_REF/L_REF/RHO/MOMENT_REF 逐输入一致性核对 (不一致即拒合,
     防 10-31 口径类事故混档)
-  ②七键判重 (V,α,β,de,da,dr): 重复键按来源优先级取档, 重复=事故信号要报告
+  ②六键判重 (V,α,β,de,da,dr): 重复键按来源优先级取档, 重复=事故信号要报告
     (dups 非空时退出码 4 — 静默滚走防线; 需强行合并传 --allow-dups)
   ③来源分档列 source: t0/t1 网格档可追溯, 力矩类以 T1 为可信档 (fidelity_1101)
     (表本身无行内 moment_ref 列, 逐行核对无从谈起 — 原④宣称已删, 2026-11-19 审查)
 
 用法:
-  python3 merge_master.py --inputs "host:path..." [--out aero_table.csv] [--dry-run]
+  python3 merge_master.py --pull HOST:REMOTE[:SOURCE] [--out aero_table.csv] [--dry-run]
   python3 merge_master.py --local ~/sweep_t0v2/t0_table.csv --local ~/sweep_t1/t1_table.csv
   (qianli 表先经 wt_jobs J1 同步到本地 state/, 或 WSL ssh cat — 见 --pull)
 
@@ -169,7 +169,7 @@ def main():
         if not args.dry_run:
             return 3
 
-    # ---- ② 七键判重合并 ----
+    # ---- ② 六键判重合并 ----
     prefer = [s.strip() for s in args.prefer.split(',')]
     rank = {s: i for i, s in enumerate(prefer)}
     merged, dups, flags = {}, [], []

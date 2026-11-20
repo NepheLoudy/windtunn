@@ -103,6 +103,7 @@ bash openfoam/airframe-sweep/run_sweep_v2.sh <root> <nproc>   # 表判重自动�
 
 ### 6.4 新设备算力接入路径 (如果要跑扫气)
 
-照 §3 初始化 (git clone → OpenFOAM v12 → run_sweep_v2 表判重自动跳过已完成) + §5 验收对拍
-(同工况 CL 差 <2% 才上岗)。GPU 类任务 (FluidX3D) 需自备 5070 级显卡 + 逐零件体素化管线
-(见仓库 `openfoam/airframe-sweep/setup.cpp` v4asm 注释)。
+现行路径 = **任务包领包制**: 按 `docs/new_node_onboarding.md` 全流程接入 (环境/冒烟/对拍硬门槛),
+再按 `docs/task_pack_protocol.md` §2 领包跑 (`sweep_packs/run_pack.sh`)。
+本节 §3 初始化 + §5 验收对拍是**历史两机方案**的口径, 保留作对照。GPU 类任务 (FluidX3D)
+需自备 5070 级显卡 + 逐零件体素化管线 (见仓库 `openfoam/airframe-sweep/setup.cpp` v4asm 注释)。

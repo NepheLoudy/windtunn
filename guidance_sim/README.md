@@ -26,7 +26,7 @@ python scripts\record_nominal.py       # 录制 M1 测试序列
 
 ## 已知占位项 (Phase 1+ 替换)
 
-- aero/placeholder.py: 解析占位气动 → CFD 扫气表 lookup (CFD 侧交付)
+- aero/placeholder.py: 解析占位气动 → CFD 扫气表 lookup (**交付物已就位**: `aero/lookup_aero.py` 同签名 + `delta_lookup.py` 舵效增量, sim_core 接入待换)
 - detector/color_blob.py: 红色色块 → ArUco/真实纹理
 - guidance/pn_pid.py: 横向追踪+俯仰阻尼 → 双环 PN+姿态控制 (含纵向射程管理)
 - 场景: 单一靶板 → 可配置环境 (§5.1.1 引擎选型)

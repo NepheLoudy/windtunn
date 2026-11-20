@@ -4,6 +4,7 @@
 # 保留: constant/(组网格源) system postProcessing results.json log.* CASEINFO
 # 删除: processor* 整目录 (重启动=decomposePar -force 再生) + 顶层重构时间目录
 # 保护: constant(组网格源) system 0(初始场, clone 依赖) postProcessing results.json
+# 出口: 每轮把 ROOT 下 *.csv 增量推 NAS (~/bin_nas_push.sh, 工作期数据交换)
 ROOT=${1:?usage: case_reaper.sh <sweep_root> [interval_s]}
 IV=${2:-600}
 cd "$ROOT" || exit 1

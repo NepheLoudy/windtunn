@@ -1,6 +1,7 @@
 #!/usr/bin/env bash
 # 对已建好网格的 case 只跑求解 (decompose + foamRun + reconstruct)
 #   usage: run_solve.sh <case_dir> [nproc] [endTime]
+#   env: FIN_LEVEL>=8 时 endTime 强制 3000 (T1 fin-L8 档专属, residualControl 1e-5 判停)
 set -euo pipefail
 
 CASE=$(cd "${1:?usage: run_solve.sh <case> [nproc] [endTime]}" && pwd)

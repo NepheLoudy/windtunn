@@ -3,6 +3,8 @@
 #   usage: clone_case.sh <src_case> <dst_case> <V_m/s>
 #   环境: WARM_FROM=<已收敛同组 case>  热启动场源 (可选; 空=冷启动, 从 SRC 复制 0/)
 #         — mesh 恒从 SRC 复用; 热启动只换「初始场」, 稳态解唯一故不改变答案 (只改收敛路径)
+#         WARM_MIN_RESID=<热启动源收敛门槛> (默认 0.3, residual_rel 上限)
+#         I_TURB=<湍流入流强度> (默认 0.02)
 #   alpha/beta 从 src 的 CASEINFO 继承 (同一几何组)
 #   替换机制: 按场源 CASEINFO 记录的旧 U/k/omega 数值 → 新 V 数值 (占位符已被消费, 不可依赖)
 set -euo pipefail

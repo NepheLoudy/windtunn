@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# 全表扫气: V × alpha × beta 网格 (de/da/dr=0, 舵偏扫气见 --deflect)
+# 全表扫气: V × alpha × beta 网格 (de/da/dr=0, 舵偏几何用 deflect_stl.py 生成 — 舵效批见 delta_table_t1q.csv)
 #   usage: SWEEP_V="15 20 25 30" SWEEP_ALPHA="-5 0 5 10 15" SWEEP_BETA="0" \
 #          ./run_sweep.sh <work_root> [nproc]
 # 断点可续: 已有 results.json 的工况跳过
