@@ -60,21 +60,26 @@ cd "$SWEEP_DIR" || exit 1
 # 逐组跑 (包内 (α,β) 是任意配对, 不能靠 α×β 笛卡尔积; 单组 = 全 V, 保网格复用+热启动)
 # process substitution (非管道): while 在当前 shell, PACK_FAIL 可回传 (管道子 shell 丢变量, 2026-11-19 07:00 修)
 PACK_FAIL=0
+# 组行列表先落盘再循环 (三重防 stdin 吞行: 循环体里 run_sweep_v2/notify 等子进程
+# 会继承并消费 while 的 stdin, 只剩第 1 组 — 2026-11-20 04:5x 实测 P02/P03 各只跑 1 组)
+GROUP_LIST=$(mktemp)
+python3 -c "
+import json,sys
+for g in json.load(open(sys.argv[1]))['groups']:
+    print('%s %s' % (g['alpha'], g['beta']))" "$PACK_JSON" > "$GROUP_LIST"
 while read -r A B; do
   echo "----- [$(date +%H:%M:%S)] group alpha=$A beta=$B -----"
   if OUT_CSV="$OUT_CSV" SWEEP_V="$SWEEP_V" SWEEP_ALPHA="$A" SWEEP_BETA="$B" \
   SURF_LEVEL=$SURF_LEVEL FIN_LEVEL=$FIN_LEVEL BOX_LEVEL=$BOX_LEVEL \
   GEOM_DIR="$GEOM_DIR" \
-    ./run_sweep_v2.sh "$ROOT/g_a${A}_b${B}" "$NP" >> "$ROOT/pack.log" 2>&1; then
+    ./run_sweep_v2.sh "$ROOT/g_a${A}_b${B}" "$NP" >> "$ROOT/pack.log" 2>&1 </dev/null; then
     :
   else
     echo "  group alpha=$A beta=$B 有失败例 (继续下一组)"
     PACK_FAIL=$((PACK_FAIL+1))
   fi
-done < <(python3 -c "
-import json,sys
-for g in json.load(open(sys.argv[1]))['groups']:
-    print('%s %s' % (g['alpha'], g['beta']))" "$PACK_JSON")
+done < "$GROUP_LIST"
+rm -f "$GROUP_LIST"
 
 ROWS=$(python3 -c "
 import sys,os
