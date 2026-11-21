@@ -113,6 +113,28 @@ def main():
             if cl is not None and abs(cl) > 3.0:
                 problems.append(f"[P1] {n} {k}: |CL|={abs(cl)} >3")
 
+    # 5.5 组内 V 序列平滑性 (第 7 道关, 2026-11-20: 分岔区双稳态检测)
+    # CD 在同 (α,β) 组内随 V 应平滑; 跳变 >25% = 分岔锁分支嫌疑 (α≈±5×β≈±2.5-5 区实测)
+    import math
+    for n, (_, _, rows) in tables.items():
+        bygroup = {}
+        for k, c in rows.items():
+            if k[0] == "MALFORMED":
+                continue
+            bygroup.setdefault((k[1], k[2]), []).append((k[0], c))
+        for (a, b), items in bygroup.items():
+            items.sort(key=lambda x: x[0])
+            if len(items) < 3:
+                continue
+            cds = [c["CD"] for _, c in items]
+            jumps = [abs(cds[i+1]-cds[i])/max(abs(cds[i]), 1e-9) for i in range(len(cds)-1)]
+            mj = max(jumps)
+            if mj > 0.25:
+                warns.append(
+                    f"[P1] {n} α={a:+.1f} β={b:+.1f}: 组内 CD 跳变 {mj*100:.0f}% "
+                    f"(CD {min(cds):.3f}~{max(cds):.3f}) — 双稳态分岔嫌疑, "
+                    "该组建议邻域插值替代或 T2 LBM 瞬态时均复检")
+
     # 6. 老表对拍
     if os.path.isfile(args.legacy):
         _, _, legacy = parse_table(args.legacy)
